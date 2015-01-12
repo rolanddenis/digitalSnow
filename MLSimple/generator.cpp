@@ -2,8 +2,13 @@
 #include <sstream>
 #include <string>
 #include <cstdlib>
+#include <set>
 
-#include "DGtal/topology/helpers/SimplePointHelper.h"
+#include <DGtal/images/ImageContainerBySTLVector.h>
+#include <DGtal/kernel/PointVector.h>
+#include <DGtal/kernel/SpaceND.h>
+
+#include "SimplePointHelper.h"
 
 ///////////////// helpers
 
@@ -53,12 +58,16 @@ bool writeValidRandomConfig(std::ostream& out, const unsigned int& s, const unsi
 
   //image creation 
   typedef char Label; 
-  typedef SpaceND<3,int > Space; 
-  typedef DGtal::ImageContainerBySTLVector<HyperRectDomain<Space >, Label >  LabelsImage; 
-  int bound = s/2; 
-  LabelsImage img( makePoint<3,int>(-bound), makePoint<3,int>(bound) );
+  typedef DGtal::SpaceND<3,int > Space;
+  typedef DGtal::HyperRectDomain<Space> Domain;
+  typedef DGtal::ImageContainerBySTLVector<Domain, Label >  LabelsImage; 
+  int bound = s/2;
+  Domain domain( makePoint<3,int>(-bound), makePoint<3,int>(bound) );
+
+  LabelsImage img( domain );
+
   //generate a valid config
-  if (SimplePointHelper<LabelsImage>::generateRandomConfiguration(img, labels, proba) )
+  if (DGtal::SimplePointHelper<LabelsImage>::generateRandomConfiguration(img, labels, proba) )
     { 
       //write image as a string
       std::string config; 
