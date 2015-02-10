@@ -83,7 +83,7 @@ DGtal::ExplicitReactionEvolver<TImage, TFunctor>::update(Image& aF, const double
       GodunovGradient<Image> gradient( aF, (myG >= 0) );
       GradientModulus<GodunovGradient<Image> > m( gradient );
       //new value
-      double tmp = derivative (v) - myEpsilon * ( myG + f*m(*it) + k) * std::sqrt( 2*function(v) ); 
+      double tmp = derivative (v) - myEpsilon * ( myG + f*m(*it) + k) * std::sqrt(2)*sqrt_function(v); 
       Value newValue = v - ( aT / (myEpsilon * myEpsilon ) ) * tmp;  
       next_aF.setValue( *it, static_cast<Value>(newValue) ); 
     }
@@ -121,6 +121,14 @@ DGtal::ExplicitReactionEvolver<TImage, TFunctor>::function(const double& aV) con
 template <typename TImage, typename TFunctor>
 inline
 double
+DGtal::ExplicitReactionEvolver<TImage, TFunctor>::sqrt_function(const double& aV) const
+{
+  return std::sqrt(0.5)*aV*(1-aV);
+}
+
+template <typename TImage, typename TFunctor>
+inline
+double
 DGtal::ExplicitReactionEvolver<TImage, TFunctor>::derivative(const double& aV) const
 {
   return aV*(1-aV)*(1-2*aV);
@@ -147,9 +155,9 @@ DGtal::ExplicitReactionEvolver<TImage, TFunctor>::force(Image& aF) const
       GodunovGradient<Image> gradient( aF, (myG >= 0) );
       GradientModulus<GodunovGradient<Image> > m( gradient );
       //summation
-      densum += std::sqrt( 2*function(v) ); 
-      numsum += derivative (v) 
-	- myEpsilon * ( myG + f * m(*it) ) * std::sqrt( 2*function(v) ); 
+      densum += std::sqrt(2) * sqrt_function(v); 
+      numsum += derivative (v)
+	      - myEpsilon * ( myG + f * m(*it) ) * std::sqrt(2)*sqrt_function(v); 
     }
 
   return ( numsum / (myEpsilon*densum) );

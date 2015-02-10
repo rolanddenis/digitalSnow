@@ -185,6 +185,13 @@ namespace DGtal
     double function ( const double & aV ) const;
 
     /**
+     * Square root of the double well function W.
+     * @param aV any value
+     * @return the value returned by sqrt(W) from @a aValue
+     */
+    double sqrt_function ( const double & aV ) const;
+    
+    /**
      * Derivative function W' of the double well function W.
      * @param aV any value
      * @return the value returned by W' from @a aValue

@@ -42,8 +42,10 @@ DGtal::IFFT<TImage>::compute(TOutputImage& anImage)
   //using fftw library
   //input and output arrays
   fftw_complex* spatial_repr;
+  //double* spatial_repr;
   fftw_complex* frequency_repr;
   spatial_repr=(fftw_complex*) fftw_malloc(sizeof(fftw_complex)*n);
+  //spatial_repr=(double*) fftw_malloc(sizeof(double)*n);
   frequency_repr=(fftw_complex*) fftw_malloc(sizeof(fftw_complex)*n);
 
   //fill the arrays
@@ -60,6 +62,7 @@ DGtal::IFFT<TImage>::compute(TOutputImage& anImage)
   //plan
   fftw_plan plan;
   plan = fftw_plan_dft( dimension, t, frequency_repr, spatial_repr, FFTW_BACKWARD, FFTW_ESTIMATE ); 
+  //plan = fftw_plan_dft_c2r( dimension, t, frequency_repr, spatial_repr, FFTW_ESTIMATE ); 
 
   //computation
   fftw_execute(plan);
@@ -70,6 +73,7 @@ DGtal::IFFT<TImage>::compute(TOutputImage& anImage)
     {
       //real part divided by n
       double s = spatial_repr[i][0]/n; 
+      //double s = spatial_repr[i]/n; 
       anImage.setValue( *it, static_cast<OutputValue>(s) ); 
     }
 

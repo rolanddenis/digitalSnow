@@ -40,8 +40,10 @@ DGtal::FFT<TImage>::compute(ComplexImage& anImage)
   //using fftw library
   //input and output arrays
    fftw_complex* spatial_repr;
+   //double* spatial_repr;
    fftw_complex* frequency_repr;
    spatial_repr=(fftw_complex*) fftw_malloc(sizeof(fftw_complex)*n);
+   //spatial_repr=(double*) fftw_malloc(sizeof(double)*n);
    frequency_repr=(fftw_complex*) fftw_malloc(sizeof(fftw_complex)*n);
 
   Domain d = myImage.domain();  
@@ -51,11 +53,13 @@ DGtal::FFT<TImage>::compute(ComplexImage& anImage)
    {
       spatial_repr[i][0] = (double) myImage(*it);
       spatial_repr[i][1] = 0.0;
+      //spatial_repr[i] = (double) myImage(*it);
    }
 
   //plan
    fftw_plan plan;
   plan = fftw_plan_dft( dimension, t, spatial_repr, frequency_repr, FFTW_FORWARD, FFTW_ESTIMATE ); 
+  //plan = fftw_plan_dft_r2c( dimension, t, spatial_repr, frequency_repr, FFTW_ESTIMATE ); 
 
   //computation
    fftw_execute(plan);
