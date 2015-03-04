@@ -1,13 +1,47 @@
 #pragma once
 
+#include <boost/concept_check.hpp>
+
 namespace DGtal
 {
 
+namespace concepts
+{
+
+/*! Concept of value approximation
+ */
+template < typename TApprox >
+struct CValueApproximation
+  {
+    typedef typename TApprox::value_type value_type;
+    
+    BOOST_CONCEPT_USAGE(CValueApproximation)
+      {
+        TApprox * approx = nullptr;
+        value_type const* value = nullptr;
+        bool test = approx->eval(*value);
+        value_type const& default_value = approx->default_value;
+
+        boost::ignore_unused_variable_warning(default_value);
+        boost::ignore_unused_variable_warning(test);
+      }
+  };
+
+} // namespace concepts
+
+
 namespace approximation {
+
+//! Base approximation class
+template < typename T >
+struct BaseValueApproximation
+  {
+    using value_type = T;
+  };
 
 //! No approximation with 0 default value
 template < typename T >
-struct NoValueApproximation
+struct NoValueApproximation : BaseValueApproximation<T>
   {
     static inline constexpr 
     bool eval ( T const& /* value */ ) { return false; }
@@ -21,8 +55,10 @@ const T NoValueApproximation<T>::default_value = T(0);
 
 //! Zero exact approximation
 template < typename T >
-struct ZeroValueApproximation
+struct ZeroValueApproximation : BaseValueApproximation<T>
   {
+    using value_type = T;
+
     static inline constexpr 
     bool eval ( T const& value ) { return value == T(0); }
 
@@ -34,7 +70,7 @@ const T ZeroValueApproximation<T>::default_value = T(0);
 
 //! Zero approximation given a tolerance
 template < typename T >
-struct ZeroTolValueApproximation
+struct ZeroTolValueApproximation : BaseValueApproximation<T>
   {
     constexpr ZeroTolValueApproximation( T const& zero_tol ) : tol{zero_tol} {}
     inline constexpr 
@@ -49,7 +85,7 @@ const T ZeroTolValueApproximation<T>::default_value = T(0);
 
 //! Negative value approximation
 template < typename T >
-struct NegativeValueApproximation
+struct NegativeValueApproximation : BaseValueApproximation<T>
   {
     static inline constexpr 
     bool eval ( T const& value ) { return value <= T(0); }
@@ -62,7 +98,7 @@ const T NegativeValueApproximation<T>::default_value = T(0);
 
 //! Negative value approximation given a tolerance ( value <= ? tol )
 template < typename T >
-struct NegativeTolValueApproximation
+struct NegativeTolValueApproximation : BaseValueApproximation<T>
   {
     constexpr NegativeTolValueApproximation( T const& zero_tol ) : tol{zero_tol} {}
     inline constexpr 

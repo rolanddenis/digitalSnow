@@ -8,6 +8,12 @@ int main()
 
     using real = double;
     
+    BOOST_CONCEPT_ASSERT( (DGtal::concepts::CValueApproximation< DGtal::approximation::NoValueApproximation<real> >) );
+    BOOST_CONCEPT_ASSERT( (DGtal::concepts::CValueApproximation< DGtal::approximation::ZeroValueApproximation<real> >) );
+    BOOST_CONCEPT_ASSERT( (DGtal::concepts::CValueApproximation< DGtal::approximation::ZeroTolValueApproximation<real> >) );
+    BOOST_CONCEPT_ASSERT( (DGtal::concepts::CValueApproximation< DGtal::approximation::NegativeValueApproximation<real> >) );
+    BOOST_CONCEPT_ASSERT( (DGtal::concepts::CValueApproximation< DGtal::approximation::NegativeTolValueApproximation<real> >) );
+    
     {
         cout << "NoValueApproximation:" << endl;
         const auto approx = DGtal::approximation::NoValueApproximation<real>{};
