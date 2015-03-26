@@ -1,0 +1,427 @@
+/**
+ *  This program is free software: you can redistribute it and/or modify
+ *  it under the terms of the GNU Lesser General Public License as
+ *  published by the Free Software Foundation, either version 3 of the
+ *  License, or  (at your option) any later version.
+ *
+ *  This program is distributed in the hope that it will be useful,
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *  GNU General Public License for more details.
+ *
+ *  You should have received a copy of the GNU General Public License
+ *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ *
+ **/
+
+/**
+ * @file AxisAlignedBoundingBox.ih
+ * @author Roland Denis (\c roland.denis@univ-savoie.fr )
+ * LAboratory of MAthematics - LAMA (CNRS, UMR 5127), University of Savoie, France
+ *
+ * @date 2015/03/20
+ *
+ * Implementation of inline methods defined in AxisAlignedBoundingBox.h
+ *
+ * This file is part of the DGtal library.
+ */
+
+
+//////////////////////////////////////////////////////////////////////////////
+#include <cstdlib>
+//////////////////////////////////////////////////////////////////////////////
+
+///////////////////////////////////////////////////////////////////////////////
+// Some tools
+///////////////////////////////////////////////////////////////////////////////
+
+namespace
+{
+
+  // Sequence of dimensions
+  template < DGtal::Dimension... N >
+  struct seq {};
+
+  // Sequence generator
+  template < DGtal::Dimension N, DGtal::Dimension... rN >
+  struct gen_seq : gen_seq< N-1, N-1, rN... > {};
+
+  template < DGtal::Dimension... rN >
+  struct gen_seq< 0, rN... >
+    {
+      typedef seq< rN... > type;
+    };
+
+  // Wrapper from sequence of dimensions to the corresponding AxisAlignedBoundingBox
+  template <
+    typename TSpace,
+    typename TCounter,
+    typename TSeq
+  >
+  class AxisAlignedBoundingBoxWrapper;
+
+  template <
+    typename TSpace,
+    typename TCounter,
+    DGtal::Dimension ...N
+  >
+  class AxisAlignedBoundingBoxWrapper< TSpace, TCounter, seq<N...> >
+    : public DGtal::AxisAlignedBoundingBox< TSpace, TCounter, N... >
+    {
+      using DGtal::AxisAlignedBoundingBox<TSpace, TCounter, N...>::AxisAlignedBoundingBox;
+    };
+
+} // namespace
+
+///////////////////////////////////////////////////////////////////////////////
+// IMPLEMENTATION of inline methods.
+///////////////////////////////////////////////////////////////////////////////
+
+namespace DGtal
+{
+
+///////////////////////////////////////////////////////////////////////////////
+// ----------------------- Standard services ------------------------------
+
+// Fallback if no working dimensions are specified
+template <
+  typename TSpace,
+  typename TCounter
+>
+class AxisAlignedBoundingBox< HyperRectDomain<TSpace>, TCounter>
+  : public AxisAlignedBoundingBoxWrapper< HyperRectDomain<TSpace>, TCounter, typename gen_seq<TSpace::dimension>::type >
+  {
+    using AxisAlignedBoundingBoxWrapper< HyperRectDomain<TSpace>, TCounter, typename gen_seq<TSpace::dimension>::type >::AxisAlignedBoundingBoxWrapper;
+  };
+
+
+/**
+ * Constructor.
+ */
+template <typename TSpace, typename TCounter, DGtal::Dimension ...N>
+inline
+AxisAlignedBoundingBox< HyperRectDomain<TSpace>, TCounter, N...>::
+AxisAlignedBoundingBox( HyperRectDomain<TSpace> const& domain )
+  : m_domain(domain)
+{
+  reset();
+}
+
+/**
+ * Destructor.
+ */
+template <typename TSpace, typename TCounter, DGtal::Dimension ...N>
+inline
+AxisAlignedBoundingBox< HyperRectDomain<TSpace>, TCounter, N...>::
+~AxisAlignedBoundingBox()
+{
+}
+
+///////////////////////////////////////////////////////////////////////////////
+// Interface - public :
+
+/**
+ * Reset point counters.
+ */
+template <typename TSpace, typename TCounter, DGtal::Dimension ...N>
+inline void
+AxisAlignedBoundingBox< HyperRectDomain<TSpace>, TCounter, N...>::
+reset()
+{
+  m_lowerBound = Point::diagonal(0);
+  m_upperBound = m_domain.upperBound() - m_domain.lowerBound();
+  
+  reset_impl<0, N...>::apply( *this );
+}
+
+/**
+ * Remove a point from the bounding box.
+ */
+template <typename TSpace, typename TCounter, DGtal::Dimension ...N>
+inline void
+AxisAlignedBoundingBox< HyperRectDomain<TSpace>, TCounter, N...>::
+removePoint( Point const& point )
+{
+  removePoint_impl<0, N...>::apply( *this, point );
+}
+
+/**
+ * Add a point in the bounding box.
+ */
+template <typename TSpace, typename TCounter, DGtal::Dimension ...N>
+inline void
+AxisAlignedBoundingBox< HyperRectDomain<TSpace>, TCounter, N...>::
+addPoint( Point const& point )
+{
+  addPoint_impl<0, N...>::apply( *this, point );
+}
+
+/**
+ * Get lower bound of the bounding box.
+ */
+template <typename TSpace, typename TCounter, DGtal::Dimension ...N>
+inline
+typename AxisAlignedBoundingBox< HyperRectDomain<TSpace>, TCounter, N...>::Point
+AxisAlignedBoundingBox< HyperRectDomain<TSpace>, TCounter, N...>::
+lowerBound() const
+{
+  return m_lowerBound + m_domain.lowerBound();
+}
+
+/**
+ * Get upper bound of the bounding box.
+ */
+template <typename TSpace, typename TCounter, DGtal::Dimension ...N>
+inline
+typename AxisAlignedBoundingBox< HyperRectDomain<TSpace>, TCounter, N...>::Point
+AxisAlignedBoundingBox< HyperRectDomain<TSpace>, TCounter, N...>::
+upperBound() const
+{
+  return m_upperBound + m_domain.lowerBound();
+}
+
+/**
+ * Get bounding box as a HyperRectDomain with buffer zone.
+ * @param buffer The buffer size as a point.
+ */
+template <typename TSpace, typename TCounter, DGtal::Dimension ...N>
+inline
+typename AxisAlignedBoundingBox< HyperRectDomain<TSpace>, TCounter, N...>::Domain
+AxisAlignedBoundingBox< HyperRectDomain<TSpace>, TCounter, N...>::
+getBoundingBox( Point const& buffer ) const
+{
+  return Domain{ lowerBound() - buffer, upperBound() + buffer };
+}
+
+
+/**
+ * Return true if the bounding box is empty
+ */
+template <typename TSpace, typename TCounter, DGtal::Dimension ...N>
+inline bool
+AxisAlignedBoundingBox< HyperRectDomain<TSpace>, TCounter, N...>::
+isEmpty() const
+{
+  return isEmpty_impl<0, N...>::apply( *this ); 
+}
+
+/**
+ * Return true if the bounding box is empty
+ */
+template <typename TSpace, typename TCounter, DGtal::Dimension ...N>
+inline bool
+AxisAlignedBoundingBox< HyperRectDomain<TSpace>, TCounter, N...>::
+isNotEmpty() const
+{
+  return ! isEmpty();
+}
+
+/**
+ * Writes/Displays the object on an output stream.
+ * @param out the output stream where the object is written.
+ */
+template <typename TSpace, typename TCounter, DGtal::Dimension ...N>
+inline
+void
+AxisAlignedBoundingBox< HyperRectDomain<TSpace>, TCounter, N...>::
+selfDisplay ( std::ostream & out ) const
+{
+  if ( isEmpty() )
+    {
+      out << "[AxisAlignedBoundingBox] = [Empty]";
+    }
+  else
+    {
+      out << "[AxisAlignedBoundingBox] = [" << lowerBound() << "]x[" << upperBound() << "]";
+    }
+}
+
+/**
+ * Checks the validity/consistency of the object.
+ * @return 'true' if the object is valid, 'false' otherwise.
+ */
+template <typename TSpace, typename TCounter, DGtal::Dimension ...N>
+inline bool
+AxisAlignedBoundingBox< HyperRectDomain<TSpace>, TCounter, N...>::
+isValid()
+{
+    return true;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+// Implementation of internals                                               //
+
+// Reset final implementation
+template < typename TSpace, typename TCounter, DGtal::Dimension ...N >
+template < std::size_t I >
+struct
+AxisAlignedBoundingBox< HyperRectDomain<TSpace>, TCounter, N...>::
+reset_impl< I >
+{
+  static inline
+  void apply( AxisAlignedBoundingBox< HyperRectDomain<TSpace>, TCounter, N...> & /* aabb */ ) 
+    {}
+};
+
+// Reset iterative implementation
+template < typename TSpace, typename TCounter, DGtal::Dimension ...N >
+template < std::size_t I, DGtal::Dimension M, DGtal::Dimension ...rM >
+struct
+AxisAlignedBoundingBox< HyperRectDomain<TSpace>, TCounter, N...>::
+reset_impl< I, M, rM... >
+{
+  static inline
+  void apply( AxisAlignedBoundingBox<HyperRectDomain<TSpace>, TCounter, N...> & aabb )
+    {
+      aabb.m_counters[I].clear();
+      aabb.m_counters[I].resize( aabb.m_domain.upperBound()[M] - aabb.m_domain.lowerBound()[M] + 1, 0 );
+      aabb.m_lowerBound[M] = aabb.m_upperBound[M] + 1;
+
+      reset_impl< I+1, rM... >::apply( aabb );
+    }
+};
+
+// addPoint final implementation
+template < typename TSpace, typename TCounter, DGtal::Dimension ...N >
+template < std::size_t I >
+struct
+AxisAlignedBoundingBox< HyperRectDomain<TSpace>, TCounter, N...>::
+addPoint_impl< I >
+{
+  using AABB = AxisAlignedBoundingBox< HyperRectDomain<TSpace>, TCounter, N...>;
+  using Point = typename AABB::Point;
+
+  static inline
+  void apply( AABB & /* aabb */, Point const& /* point */ )
+    {}
+};
+
+// addPoint iterative implementation
+template < typename TSpace, typename TCounter, DGtal::Dimension ...N >
+template < std::size_t I, DGtal::Dimension M, DGtal::Dimension ...rM >
+struct
+AxisAlignedBoundingBox< HyperRectDomain<TSpace>, TCounter, N...>::
+addPoint_impl< I, M, rM... >
+{
+  using AABB = AxisAlignedBoundingBox< HyperRectDomain<TSpace>, TCounter, N...>;
+  using Point = typename AABB::Point;
+
+  static inline
+  void apply( AABB & aabb, Point const& point )
+    {
+      const auto coord = point[M] - aabb.m_domain.lowerBound()[M];
+      if ( aabb.m_counters[I][coord]++ == 0 )
+        {
+          if ( aabb.m_lowerBound[M] > aabb.m_upperBound[M] )
+            {
+              aabb.m_lowerBound[M] = aabb.m_upperBound[M] = coord;
+            } 
+          else
+            {
+              if ( aabb.m_lowerBound[M] > coord )
+                aabb.m_lowerBound[M] = coord;
+
+              if ( aabb.m_upperBound[M] < coord )
+                aabb.m_upperBound[M] = coord;
+            }
+        }
+
+      addPoint_impl< I+1, rM... >::apply( aabb, point );
+    }
+};
+
+// removePoint final implementation
+template < typename TSpace, typename TCounter, DGtal::Dimension ...N >
+template < std::size_t I >
+struct
+AxisAlignedBoundingBox< HyperRectDomain<TSpace>, TCounter, N...>::
+removePoint_impl< I >
+{
+  using AABB = AxisAlignedBoundingBox< HyperRectDomain<TSpace>, TCounter, N...>;
+  using Point = typename AABB::Point;
+
+  static inline
+  void apply( AABB & /* aabb */, Point const& /* point */ )
+    {}
+};
+
+// removePoint iterative implementation
+template < typename TSpace, typename TCounter, DGtal::Dimension ...N >
+template < std::size_t I, DGtal::Dimension M, DGtal::Dimension ...rM >
+struct
+AxisAlignedBoundingBox< HyperRectDomain<TSpace>, TCounter, N...>::
+removePoint_impl< I, M, rM... >
+{
+  using AABB = AxisAlignedBoundingBox< HyperRectDomain<TSpace>, TCounter, N...>;
+  using Point = typename AABB::Point;
+
+  static inline
+  void apply( AABB & aabb, Point const& point )
+    {
+      const auto coord = point[M] - aabb.m_domain.lowerBound()[M];
+      if ( --aabb.m_counters[I][coord] == 0 )
+        {
+          if ( aabb.m_lowerBound[M] == coord )
+            {
+              while ( aabb.m_counters[I][aabb.m_lowerBound[M]] == 0 && aabb.m_lowerBound[M] <= aabb.m_upperBound[M] )
+                ++aabb.m_lowerBound[M];
+            }
+          else if ( aabb.m_upperBound[M] == coord )
+            {
+              while ( aabb.m_counters[I][aabb.m_upperBound[M]] == 0 && aabb.m_lowerBound[M] <= aabb.m_upperBound[M] )
+                --aabb.m_upperBound[M];
+            }
+        }
+
+      removePoint_impl< I+1, rM... >::apply( aabb, point );
+    }
+};
+
+// Reset final implementation
+template < typename TSpace, typename TCounter, DGtal::Dimension ...N >
+template < std::size_t I >
+struct
+AxisAlignedBoundingBox< HyperRectDomain<TSpace>, TCounter, N...>::
+isEmpty_impl< I >
+{
+  static inline
+  bool apply( AxisAlignedBoundingBox<HyperRectDomain<TSpace>, TCounter, N...> const& /* aabb */ )
+    {
+      return false;
+    }
+};
+
+// Reset iterative implementation
+template < typename TSpace, typename TCounter, DGtal::Dimension ...N >
+template < std::size_t I, DGtal::Dimension M, DGtal::Dimension ...rM >
+struct
+AxisAlignedBoundingBox< HyperRectDomain<TSpace>, TCounter, N...>::
+isEmpty_impl< I, M, rM... >
+{
+  static inline
+  bool apply( AxisAlignedBoundingBox<HyperRectDomain<TSpace>, TCounter, N...> const& aabb )
+    {
+      return ( aabb.m_lowerBound[M] > aabb.m_upperBound[M] ) || isEmpty_impl<I+1, rM...>::apply(aabb);
+    }
+};
+
+///////////////////////////////////////////////////////////////////////////////
+// Implementation of inline functions                                        //
+template < typename TDomain, typename TCounter, DGtal::Dimension ...N >
+inline
+std::ostream&
+operator<< ( std::ostream & out, 
+		  const AxisAlignedBoundingBox<TDomain, TCounter, N...> & object )
+{
+  object.selfDisplay( out );
+  return out;
+}
+
+//                                                                           //
+///////////////////////////////////////////////////////////////////////////////
+
+} // namespace DGtal
+
+/* GNU coding style */
+/* vim: set ts=2 sw=2 expandtab cindent cinoptions=>4,n-2,{2,^-2,:2,=2,g0,h2,p5,t0,+2,(0,u0,w1,m1 : */
+

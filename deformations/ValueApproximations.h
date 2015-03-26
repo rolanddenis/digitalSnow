@@ -8,12 +8,17 @@ namespace DGtal
 namespace concepts
 {
 
-/*! Concept of value approximation
+/** Concept of value approximation.
+ *
+ * The eval member return true if the given value is a valid approximation of the underlying approximated value (default_value).
+ * An approximation must own a default_value property that is const-referencable.
+ *
+ * @tparam TApprox Class to be checked.
  */
 template < typename TApprox >
 struct CValueApproximation
   {
-    typedef typename TApprox::value_type value_type;
+    typedef typename TApprox::value_type value_type; ///< Approximation value type.
     
     BOOST_CONCEPT_USAGE(CValueApproximation)
       {
@@ -30,16 +35,26 @@ struct CValueApproximation
 } // namespace concepts
 
 
-namespace approximation {
+namespace approximations {
 
-//! Base approximation class
+/** Base approximation class.
+ *
+ * Convenient class that only add typedef on value type.
+ *
+ * @tparam T  Approximation value type.
+ */
 template < typename T >
 struct BaseValueApproximation
   {
     using value_type = T;
   };
 
-//! No approximation with 0 default value
+/** No approximation with 0 default value
+ *
+ * Approximates no value (return always false) but has 0 as default value.
+ *
+ * @tparam T Approximation value type.
+ */
 template < typename T >
 struct NoValueApproximation : BaseValueApproximation<T>
   {
@@ -53,7 +68,12 @@ template < typename T >
 const T NoValueApproximation<T>::default_value = T(0);
 
 
-//! Zero exact approximation
+/** Zero exact approximation
+ *
+ * Zero is the only valid approximation of zero.
+ *
+ * @tparam Approximation value type.
+ */
 template < typename T >
 struct ZeroValueApproximation : BaseValueApproximation<T>
   {
@@ -68,7 +88,7 @@ struct ZeroValueApproximation : BaseValueApproximation<T>
 template < typename T > 
 const T ZeroValueApproximation<T>::default_value = T(0);
 
-//! Zero approximation given a tolerance
+/// Zero approximation given a tolerance
 template < typename T >
 struct ZeroTolValueApproximation : BaseValueApproximation<T>
   {
@@ -83,7 +103,7 @@ struct ZeroTolValueApproximation : BaseValueApproximation<T>
 template < typename T >
 const T ZeroTolValueApproximation<T>::default_value = T(0);
 
-//! Negative value approximation
+/// Negative value approximation
 template < typename T >
 struct NegativeValueApproximation : BaseValueApproximation<T>
   {
@@ -96,7 +116,7 @@ struct NegativeValueApproximation : BaseValueApproximation<T>
 template < typename T >
 const T NegativeValueApproximation<T>::default_value = T(0);
 
-//! Negative value approximation given a tolerance ( value <= ? tol )
+/// Negative value approximation given a tolerance ( value <= ? tol )
 template < typename T >
 struct NegativeTolValueApproximation : BaseValueApproximation<T>
   {
@@ -111,7 +131,7 @@ struct NegativeTolValueApproximation : BaseValueApproximation<T>
 template < typename T >
 const T NegativeTolValueApproximation<T>::default_value = T(0);
 
-} // namespace approximation
+} // namespace approximations
 
 } // namespace DGtal
 
