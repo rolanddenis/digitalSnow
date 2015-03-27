@@ -273,6 +273,8 @@ reset_impl< I, M, rM... >
   static inline
   void apply( AxisAlignedBoundingBox<HyperRectDomain<TSpace>, TCounter, N...> & aabb )
     {
+      static_assert( M < TSpace::dimension, "Watched dimension to high");
+      
       aabb.m_counters[I].clear();
       aabb.m_counters[I].resize( aabb.m_domain.upperBound()[M] - aabb.m_domain.lowerBound()[M] + 1, 0 );
       aabb.m_lowerBound[M] = aabb.m_upperBound[M] + 1;

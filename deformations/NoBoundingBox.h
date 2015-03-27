@@ -17,33 +17,29 @@
 #pragma once
 
 /**
- * @file AxisAlignedBoundingBox.h
+ * @file NoBoundingBox.h
  * @author Roland Denis (\c roland.denis@univ-savoie.fr )
  * LAboratory of MAthematics - LAMA (CNRS, UMR 5127), University of Savoie, France
  *
- * @date 2015/03/20
+ * @date 2015/03/26
  *
  * This file is part of the DGtal library.
  */
 
-#if defined(AxisAlignedBoundingBox_RECURSES)
-#error Recursive header files inclusion detected in AxisAlignedBoundingBox.h
-#else // defined(AxisAlignedBoundingBox_RECURSES)
+#if defined(NoBoundingBox_RECURSES)
+#error Recursive header files inclusion detected in NoBoundingBox.h
+#else // defined(NoBoundingBox_RECURSES)
 /** Prevents recursive inclusion of headers. */
-#define AxisAlignedBoundingBox_RECURSES
+#define NoBoundingBox_RECURSES
 
-#if !defined AxisAlignedBoundingBox_h
+#if !defined NoBoundingBox_h
 /** Prevents repeated inclusion of headers. */
-#define AxisAlignedBoundingBox_h
+#define NoBoundingBox_h
 
 //////////////////////////////////////////////////////////////////////////////
 // Inclusions
 #include <iostream>
-#include <array>
-#include <vector>
-
 #include <DGtal/base/Common.h>
-#include <DGtal/kernel/CIntegralNumber.h>
 #include <DGtal/kernel/domains/HyperRectDomain.h>
 
 //////////////////////////////////////////////////////////////////////////////
@@ -52,50 +48,31 @@ namespace DGtal
 {
 
   /////////////////////////////////////////////////////////////////////////////
-  // template class AxisAlignedBoundingBox
+  // template class NoBoundingBox
   /**
-   * @brief Axis Aligned Bounding Box on HyperRectDomain
+   * @brief Implements no Bounding Box.
    *
-   * @tparam TDomain    a HyperRectDomain.
-   * @tparam TCounter   type of the pointer counter in each dimension.
-   * @tparam N...       the dimensions that must be taken into account. All dimensions by default.
+   * @tparam TDomain  a HyperRectDomain.
    */
   template <
-    typename TDomain,
-    typename TCounter,
-    DGtal::Dimension ...N
+    typename TDomain
   >
-  class AxisAlignedBoundingBox;
+  class NoBoundingBox;
 
-  // Fallback for HyperRectDomain if no working dimensions are specified
-  template <
-    typename TSpace,
-    typename TCounter
-  >
-  class AxisAlignedBoundingBox< HyperRectDomain<TSpace>, TCounter >;
-  
   // Implementation for HyperRectDomain
   template <
-    typename TSpace,
-    typename TCounter,
-    DGtal::Dimension ...N
+    typename TSpace
   >
-  class AxisAlignedBoundingBox< HyperRectDomain<TSpace>, TCounter, N... >
+  class NoBoundingBox< HyperRectDomain<TSpace> >
   {
-    // ----------------------- Concepts check ---------------------------------
-    BOOST_CONCEPT_ASSERT(( concepts::CIntegralNumber<TCounter> ));
-    static_assert( sizeof...(N) <= TSpace::dimension, "Too many watched dimensions specified");
-    /// \todo check N...
-
     // ----------------------- Typedefs & constants ---------------------------
   public:
     typedef HyperRectDomain<TSpace> Domain;
-    typedef TCounter          Counter;
     typedef typename Domain::Point     Point;
     typedef typename Domain::Dimension Dimension;
 
     BOOST_STATIC_CONSTANT( Dimension, dimension = Domain::dimension );
-
+    
     // ----------------------- Standard services ------------------------------
   public:
 
@@ -104,12 +81,12 @@ namespace DGtal
      *
      * @param domain  domain containing the bounding box.
      */
-    AxisAlignedBoundingBox( Domain const& domain );
-
+    NoBoundingBox( Domain const& domain ) : m_domain(domain) {}
+    
     /**
      * Destructor.
      */
-    ~AxisAlignedBoundingBox();
+    ~NoBoundingBox() {}
 
     // ----------------------- Interface --------------------------------------
   public:
@@ -117,63 +94,68 @@ namespace DGtal
     /**
      * Reset point counters and bounding box.
      */
-    void reset ();
+    static inline void reset () {}
 
     /**
      * Add a point in the bounding box.
      * @param point   the point to add.
      */
-    void addPoint ( Point const& point );
+    static inline void addPoint ( Point const& /* point */ ) {}
 
     /**
      * Remove a point from the bounding box.
      * @param point   the point to remove.
      */
-    void removePoint ( Point const& point );
+    static inline void removePoint ( Point const& /* point */ ) {}
 
     /**
      * Get lower bound of the bounding box.
      */
-    Point lowerBound () const;
+    inline Point lowerBound () const { return m_domain.lowerBound(); }
 
     /**
      * Get upper bound of the bounding box.
      */
-    Point upperBound () const;
+    inline Point upperBound () const { return m_domain.upperBound(); }
 
     /**
      * Get bounding box as a HyperRectDomain with buffer zone.
      * @param buffer The buffer size as a point.
      */
-    Domain getBoundingBox( Point const& buffer = Point::diagonal(0) ) const;
+    inline Domain 
+    getBoundingBox( Point const& buffer = Point::diagonal(0) ) const
+      {
+        return Domain{ lowerBound() - buffer, upperBound() + buffer };
+      }
 
     /**
      * Returns true if the bounding box is empty
      */
-    bool isEmpty() const;
+    static inline bool isEmpty() { return false; } ///< \todo check if domain is empty
 
     /**
      * Returns true if the bounding box is not empty
      */
-    bool isNotEmpty() const;
+    static inline bool isNotEmpty() { return true; }
     
     /**
      * Writes/Displays the object on an output stream.
      * @param out the output stream where the object is written.
      */
-    void selfDisplay ( std::ostream & out ) const;
+    inline void selfDisplay ( std::ostream & out ) const
+      {
+        m_domain.selfDisplay( out );
+      }
 
     /**
      * Checks the validity/consistency of the object.
      * @return 'true' if the object is valid, 'false' otherwise.
      */
-    static bool isValid();
+    static inline bool isValid() { return true; }
 
     // ------------------------- Private Datas --------------------------------
   private:
-    Domain m_domain; ///< \remark We do not really need the domain (that take 88bytes!) ... only his lower & upper bounds. 
-    std::array< std::vector<Counter>, sizeof...(N) > m_counters;
-    Point m_lowerBound, m_upperBound;
+    Domain m_domain;
 
     // ------------------------- Hidden services ------------------------------
   protected:
@@ -182,43 +164,38 @@ namespace DGtal
      * Constructor.
      * Forbidden by default (protected to avoid g++ warnings).
      */
-    AxisAlignedBoundingBox();
+    NoBoundingBox();
 
     // ------------------------- Internals ------------------------------------
   private:
 
-    template < std::size_t I, DGtal::Dimension ...M > struct reset_impl;
-    template < std::size_t I, DGtal::Dimension ...M > struct addPoint_impl;
-    template < std::size_t I, DGtal::Dimension ...M > struct removePoint_impl;
-    template < std::size_t I, DGtal::Dimension ...M > struct isEmpty_impl;
-
-  }; // end of class AxisAlignedBoundingBox
+  }; // end of class NoBoundingBox
 
 
   /**
-   * Overloads 'operator<<' for displaying objects of class 'AxisAlignedBoundingBox'.
+   * Overloads 'operator<<' for displaying objects of class 'NoBoundingBox'.
    * @param out the output stream where the object is written.
-   * @param object the object of class 'AxisAlignedBoundingBox' to write.
+   * @param object the object of class 'NoBoundingBox' to write.
    * @return the output stream after the writing.
    */
-  template < typename TDomain, typename TCounter, DGtal::Dimension ...N >
+  template <typename T>
   std::ostream&
-  operator<< ( std::ostream & out, const AxisAlignedBoundingBox<TDomain, TCounter, N...> & object );
+  operator<< ( std::ostream & out, const NoBoundingBox<T> & object )
+    {
+      object.selfDisplay(out);
+      return out;
+    }
 
 } // namespace DGtal
 
 
-///////////////////////////////////////////////////////////////////////////////
-// Includes inline functions.
-#include "AxisAlignedBoundingBox.ih"
-
 //                                                                           //
 ///////////////////////////////////////////////////////////////////////////////
 
-#endif // !defined AxisAlignedBoundingBox_h
+#endif // !defined NoBoundingBox_h
 
-#undef AxisAlignedBoundingBox_RECURSES
-#endif // else defined(AxisAlignedBoundingBox_RECURSES)
+#undef NoBoundingBox_RECURSES
+#endif // else defined(NoBoundingBox_RECURSES)
 
 /* GNU coding style */
 /* vim: set ts=2 sw=2 expandtab cindent cinoptions=>4,n-2,{2,^-2,:2,=2,g0,h2,p5,t0,+2,(0,u0,w1,m1 : */

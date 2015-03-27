@@ -10,7 +10,7 @@ int main()
 
     using Space = SpaceND<2, int>;
     using Domain = HyperRectDomain<Space>;
-    using BoundingBox = AxisAlignedBoundingBox< Domain, unsigned long, 0, 1>;
+    using BoundingBox = AxisAlignedBoundingBox< Domain, unsigned long, 0>;
     using DefaultBoundingBox = AxisAlignedBoundingBox< Domain, unsigned long>;
 
     Domain domain({1,2}, {10,20});
