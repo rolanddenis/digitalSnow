@@ -12,12 +12,25 @@
 namespace 
 {
 
+  /**
+   * Templated static structure for linearization of the coordinates of a point.
+   *
+   * @tparam TDomain    Type of the domain.
+   * @tparam dimension  Actual working dimension (recursive process).
+   */
   template < typename TDomain, std::size_t dimension = TDomain::dimension >
   struct linearizer
     {
-      using Point = typename TDomain::Point;
-      using Size =  typename TDomain::Size;
+      using Point = typename TDomain::Point; ///< Type of a point for which we want the linearized index.
+      using Size =  typename TDomain::Size;  ///< Type of an index.
 
+      /**
+       * Return the linearized index from the coordinates of a point.
+       *
+       * @param aPoint      The point.
+       * @param lowerBound  The lowerBound of the domain.
+       * @param extent      The extent of the domain.
+       */
       static inline
       Size apply( Point const& aPoint, Point const& lowerBound, Point const& extent ) noexcept
         {
@@ -27,6 +40,11 @@ namespace
         }
     };
 
+  /**
+   * Specialization of the structure linearizer for the one dimensional case.
+   *
+   * It is actually used as a terminate condition of the recursive process.
+   */
   template < typename TDomain >
   struct linearizer< TDomain, 1 >
     {
@@ -40,12 +58,24 @@ namespace
         }
     };
 
+  /**
+   * Type traits to get the value type of a container.
+   *
+   * For most containers, the typedef value_type is what we want but others containers
+   * like std::map of DGtal::LabelledMap exhibits instead the mapped_type typedef 
+   * ( value_type represents, in this cases, the pair key|value )
+   *
+   * @tparam TContainer Type of the container
+   */
   template < typename TContainer >
   struct ValueType
     {
-      typedef typename TContainer::value_type type;
+      typedef typename TContainer::value_type type; ///< The type of the contained data.
     };
 
+  /**
+   * Specialization of ValueType for LabelledMap.
+   */
   template < typename TData, unsigned int L, typename TWord, unsigned int N, unsigned int M >
   struct ValueType< DGtal::LabelledMap<TData, L, TWord, N, M> >
     {
@@ -58,6 +88,14 @@ namespace
 namespace DGtal
 {
 
+/**
+ * Multiple images container with approximation and bounding box capabilities.
+ *
+ * @tparam TDomain    The domain of the images.
+ * @tparam TContainer The container used to stored, at each point of the domain, the values of the images.
+ * @tparam TApproximation The predicate used to approximate the values.
+ * @tparam TBoundingBox   The type of bounding box for the non-approximated values.
+ */
 template <
   typename TDomain,
   typename TContainer,
@@ -66,6 +104,9 @@ template <
 >
 class ApproximatedMultiImage;
 
+/**
+ * Specialization of ApproximatedMultiImage for LabelledMap container.
+ */
 template <
   typename TDomain,
   typename TData, unsigned int L, typename TWord, unsigned int N, unsigned int M,
@@ -84,15 +125,20 @@ class ApproximatedMultiImage< TDomain, DGtal::LabelledMap<TData, L, TWord, N, M>
     // Typedefs
     template <typename> class ApproximatedReference;
 
+    // DGtal typedefs
     using Self          = ApproximatedMultiImage< TDomain, DGtal::LabelledMap<TData, L, TWord, N, M>, TApproximation, TBoundingBox >;
-    using Domain        = TDomain;
-    using Container     = DGtal::LabelledMap<TData, L, TWord, N, M>;
-    using Approximation = TApproximation;
-    using BoundingBox   = TBoundingBox;
-    using Label         = typename Container::Label;
-    using Value         = TData;
-    using Point         = typename TDomain::Point;
-    using Size          = typename TDomain::Size;
+    using Domain        = TDomain; ///< Type of the domain.
+    using Container     = DGtal::LabelledMap<TData, L, TWord, N, M>; ///< Type of the values container.
+    using Approximation = TApproximation; ///< Type of the approximation.
+    using BoundingBox   = TBoundingBox;   ///< Type of the bounding box.
+    using Label         = typename Container::Label;  ///< Type of the label used to identify an image.
+    using Value         = TData;  ///< Type of the stored values.
+    using Point         = typename TDomain::Point;  ///< Type of a point in the domain.
+    using Size          = typename TDomain::Size;   ///< Type of the linearized index of a point.
+    using ValueConstIterator = typename Container::ConstIterator;   ///< Type of the const-iterator over the values associated to a given point.
+
+    // STL typedefs
+    // ...
     
     /**
      * Constructor.
@@ -104,7 +150,10 @@ class ApproximatedMultiImage< TDomain, DGtal::LabelledMap<TData, L, TWord, N, M>
     {}
 
     /**
-     * Get a value
+     * Get a value.
+     *
+     * @param aPoint The point of the domain.
+     * @param aLabel The label of the image from which to get the value.
      */
     Value getValue( Point const& aPoint, Label aLabel ) const noexcept
       {
@@ -121,7 +170,11 @@ class ApproximatedMultiImage< TDomain, DGtal::LabelledMap<TData, L, TWord, N, M>
       }
         
     /**
-     * Set a value
+     * Set a value.
+     *
+     * @param aPoint  The point of the domain.
+     * @param aLabel  The label of the image in which to set the value.
+     * @param aValue  The value to be set.
      */
     void setValue( Point const& aPoint, Label aLabel, Value aValue ) noexcept
       {
@@ -150,8 +203,46 @@ class ApproximatedMultiImage< TDomain, DGtal::LabelledMap<TData, L, TWord, N, M>
           }
       }
 
+    /**
+     * Return the domain of the images.
+     */
+    inline
+    Domain const& domain() const noexcept
+      {
+        return myDomain;
+      }
+    
+    /**
+     * Return the bounding box (with buffer) of an image.
+     * @param aLabel  Label of the image.
+     * @param buffer  Buffer around the initial bounding box.
+     */
+    inline
+    Domain getBoundingBox( Label aLabel, Point const& buffer = Point::diagonal(0) ) const noexcept
+      {
+        return myBoundingBoxes[ aLabel ].getBoundingBox( buffer );
+      }
+    
+    /**
+     * Return the value container associated to a point.
+     * \todo mutable version.
+     *
+     * @param aPoint The point.
+     */
+    inline
+    Container const& operator() ( Point const& aPoint ) const noexcept
+      {
+        return myImages[ linearized(aPoint) ];
+      }
+
+
   private:
 
+    /**
+     * Return the linearized index of a point.
+     *
+     * @param aPoint The point.
+     */
     inline
     Size linearized( Point const& aPoint ) const
       {
@@ -169,7 +260,6 @@ class ApproximatedMultiImage< TDomain, DGtal::LabelledMap<TData, L, TWord, N, M>
     Approximation myApproximation;
     std::vector<BoundingBox> myBoundingBoxes;
     Point myExtent;
-
     
   };
 

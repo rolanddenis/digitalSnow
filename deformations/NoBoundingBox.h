@@ -120,12 +120,16 @@ namespace DGtal
 
     /**
      * Get bounding box as a HyperRectDomain with buffer zone.
+     *
+     * Always returns the entire domain.
+     *
      * @param buffer The buffer size as a point.
      */
     inline Domain 
-    getBoundingBox( Point const& buffer = Point::diagonal(0) ) const
+    getBoundingBox( Point const& /* buffer = Point::diagonal(0) */ ) const
       {
-        return Domain{ lowerBound() - buffer, upperBound() + buffer };
+        //return Domain{ lowerBound() - buffer, upperBound() + buffer };
+        return m_domain;
       }
 
     /**

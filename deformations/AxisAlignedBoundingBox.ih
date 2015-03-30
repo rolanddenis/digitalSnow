@@ -190,7 +190,14 @@ typename AxisAlignedBoundingBox< HyperRectDomain<TSpace>, TCounter, N...>::Domai
 AxisAlignedBoundingBox< HyperRectDomain<TSpace>, TCounter, N...>::
 getBoundingBox( Point const& buffer ) const
 {
-  return Domain{ lowerBound() - buffer, upperBound() + buffer };
+  if ( buffer == Point::diagonal(0) || isEmpty() )
+    {
+      return Domain{ lowerBound(), upperBound() };
+    }
+  else
+    {
+      return Domain{ m_domain.lowerBound().sup( lowerBound()-buffer ), m_domain.upperBound().inf( upperBound()+buffer ) };
+    }
 }
 
 

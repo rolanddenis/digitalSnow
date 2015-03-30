@@ -8,10 +8,11 @@
 #include "AxisAlignedBoundingBox.h"
 #include "ValueApproximations.h"
 #include "ApproximatedMultiImage.h"
+#include "ImageView.h"
 
 int main()
 {
-    const std::size_t N = 2;
+    const std::size_t N = 3;
 
     using namespace DGtal;
     using namespace std;
@@ -22,16 +23,25 @@ int main()
     using Approximation = DGtal::approximations::ZeroTolValueApproximation<real>;
     using Space = SpaceND<N, int>;
     using Domain = HyperRectDomain<Space>;
+    using BoundingBox = AxisAlignedBoundingBox< Domain, unsigned int>;
 
-    using ApproximatedMultiImage = DGtal::ApproximatedMultiImage<Domain, LabelledMap, Approximation>;
+    //using ApproximatedMultiImage = DGtal::ApproximatedMultiImage<Domain, LabelledMap, Approximation>;
+    using ApproximatedMultiImage = DGtal::ApproximatedMultiImage<Domain, LabelledMap, Approximation, BoundingBox>;
 
-    const Domain domain({1,2}, {10,20});
+    const Domain domain({0,0}, {1000,100,100});
     const Approximation approx{1};
     ApproximatedMultiImage images(domain, approx);
 
-    cout << images.getValue( {2,2}, 0 ) << endl;
-    images.setValue( {2,2}, 0, 1.1 );
-    cout << images.getValue( {2,2}, 0 ) << endl;
+    cout << images.getValue( {100,100,100}, 0 ) << endl;
+    images.setValue( {100,100,100}, 0, 1.1 );
+    cout << images.getValue( {100,100,100}, 0 ) << endl;
+
+    using ImageView = ImageView<ApproximatedMultiImage, image_view::BoundingBoxAsDomain>;
+    //using ImageView = ImageView<ApproximatedMultiImage>;
+    ImageView image_view{ images };
+    image_view.buffer() = Domain::Point::diagonal(1);
+
+    cout << image_view.domain() << endl;
 
 
     return 0;

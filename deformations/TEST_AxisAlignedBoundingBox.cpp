@@ -14,7 +14,7 @@ int main()
     using DefaultBoundingBox = AxisAlignedBoundingBox< Domain, unsigned long>;
 
     Domain domain({1,2}, {10,20});
-    BoundingBox toto(domain);
+    DefaultBoundingBox toto(domain);
 
     using namespace std;
 
@@ -35,6 +35,7 @@ int main()
     toto.removePoint( { 5, 6 } );
     cout << toto << endl;
     cout << toto.getBoundingBox( Space::Point::diagonal(2) ) << endl;
+    cout << toto.getBoundingBox( Space::Point::diagonal(200) ) << endl;
     toto.removePoint( { 7, 3 } );
     cout << toto << endl;
 
