@@ -4,6 +4,7 @@
 #include <DGtal/base/LabelledMap.h>
 #include <DGtal/kernel/SpaceND.h>
 #include <DGtal/kernel/domains/HyperRectDomain.h>
+#include <DGtal/images/ImageContainerBySTLVector.h>
 
 #include "AxisAlignedBoundingBox.h"
 #include "ValueApproximations.h"
@@ -20,7 +21,9 @@ int main()
     using real = double;
     using LabelledMap = DGtal::LabelledMap<real, 32, unsigned int, 2, 2>;
     //using Approximation = DGtal::approximations::ZeroValueApproximation<real>;
-    using Approximation = DGtal::approximations::ZeroTolValueApproximation<real>;
+    //using Approximation = DGtal::approximations::ZeroTolValueApproximation<real>;
+    using Approximation = DGtal::approximations::NegativeTolValueApproximation<real>;
+
     using Space = SpaceND<N, int>;
     using Domain = HyperRectDomain<Space>;
     using Point = typename Domain::Point;
@@ -51,6 +54,8 @@ int main()
     cout << cimages[0]({100,100,100}) << endl;
     cout << cimages.getBBImage(0).domain() << endl;
 
+    ImageContainerBySTLVector<Domain, real> plain_image ( images.getBBImage(0) );
+    cout << plain_image({100,100,100}) << endl;
 
     return 0;
 }

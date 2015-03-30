@@ -1,5 +1,7 @@
 #pragma once
 
+#include <DGtal/images/ImageContainerBySTLVector.h> // For conversion purpose
+
 namespace DGtal
 {
 
@@ -75,6 +77,8 @@ class ImageView
 
     /// Policies as friend.
     friend TDomainPolicy<Self, Domain>;
+
+    using TDomainPolicy<Self, Domain>::domain;
     
     /// Constructor.
     ImageView( MultiImage& aMultiImage, Label aLabel ) 
@@ -103,6 +107,19 @@ class ImageView
     Value operator() ( Point const& aPoint ) const
       {
         return getValue( aPoint );
+      }
+
+    /**
+     * Conversion to a ImageContainerBySTLVector
+     * \todo is that the efficient way ? What about move syntax ?
+     */
+    explicit operator ImageContainerBySTLVector<Domain, Value>  () const
+      {
+        ImageContainerBySTLVector<Domain, Value> image{domain()};
+        for ( auto const& point : domain() )
+          image.setValue( point, getValue( point ) );
+      
+        return image;
       }
 
   private:

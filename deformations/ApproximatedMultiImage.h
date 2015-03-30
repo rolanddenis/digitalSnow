@@ -10,7 +10,7 @@
 #include "NoBoundingBox.h"
 #include "ImageView.h"
 
-namespace 
+namespace approximated_multi_image
 {
 
   /**
@@ -84,10 +84,14 @@ namespace
     };
 
 
-} // namespace
+} // namespace approximated_multi_image
 
 namespace DGtal
 {
+
+/// \todo move linearizer from ImageContainerBySTLVector into anonymous namespace to avoid polutting DGtal namespace.
+using namespace approximated_multi_image;
+using approximated_multi_image::linearizer;
 
 /**
  * Multiple images container with approximation and bounding box capabilities.
