@@ -8,6 +8,7 @@
 #include <DGtal/kernel/domains/CDomain.h>
 #include "ValueApproximations.h"
 #include "NoBoundingBox.h"
+#include "ImageView.h"
 
 namespace 
 {
@@ -136,6 +137,11 @@ class ApproximatedMultiImage< TDomain, DGtal::LabelledMap<TData, L, TWord, N, M>
     using Point         = typename TDomain::Point;  ///< Type of a point in the domain.
     using Size          = typename TDomain::Size;   ///< Type of the linearized index of a point.
     using ValueConstIterator = typename Container::ConstIterator;   ///< Type of the const-iterator over the values associated to a given point.
+    using FullImage     = ImageView< Self, image_view::FullDomain >; ///< Full image view.
+    using ConstFullImage = ImageView< const Self, image_view::FullDomain >; ///< Full image constant view;
+    using BBImage       = ImageView< Self, image_view::BoundingBoxAsDomain >; ///< Image view from bounding box.
+    using ConstBBImage  = ImageView< const Self, image_view::BoundingBoxAsDomain >; ///< Image constant view from bounding box.
+
 
     // STL typedefs
     // ...
@@ -235,6 +241,51 @@ class ApproximatedMultiImage< TDomain, DGtal::LabelledMap<TData, L, TWord, N, M>
         return myImages[ linearized(aPoint) ];
       }
 
+    /**
+     * Return a full-domain view of the image with the given label
+     * @param aLabel The image label.
+     */
+    inline
+    FullImage operator[] ( Label aLabel ) noexcept
+      {
+        return { *this, aLabel };
+      }
+
+    /**
+     * Return a full-domain constant view of the image with the given label
+     * @param aLabel The image label.
+     */
+    inline
+    ConstFullImage operator[] ( Label aLabel ) const noexcept
+      {
+        return { *this, aLabel };
+      }
+
+    /**
+     * Return an image view restricted to his bounding box (with buffer).
+     * @param aLabel  The image label.
+     * @param buffer  The buffer around the bounding box.
+     */
+    inline
+    BBImage getBBImage( Label aLabel, Point buffer = Point::diagonal(0) )
+      {
+        BBImage image{ *this, aLabel };
+        image.buffer() = buffer;
+        return image;
+      }
+    
+    /**
+     * Return an image constant-view restricted to his bounding box (with buffer).
+     * @param aLabel  The image label.
+     * @param buffer  The buffer around the bounding box.
+     */
+    inline
+    ConstBBImage getBBImage( Label aLabel, Point buffer = Point::diagonal(0) ) const
+      {
+        ConstBBImage image{ *this, aLabel };
+        image.buffer() = buffer;
+        return image;
+      }
 
   private:
 

@@ -31,8 +31,6 @@ class BoundingBoxAsDomain
     inline
     TDomain domain() const
       {
-        //auto const& domain = static_cast<TImageView const*>(this)->myMultiImage.domain();
-        //return { domain.lowerBound() - myBuffer, domain.upperBound() + myBuffer };
         TImageView const& image = * static_cast<TImageView const*>(this);
         return image.myMultiImage.getBoundingBox( image.myLabel, myBuffer );
       }
@@ -73,17 +71,39 @@ class ImageView
     using Point       = typename MultiImage::Point;
     using Label       = typename MultiImage::Label;
     using Domain      = typename MultiImage::Domain;
+    using Value       = typename MultiImage::Value;
 
     /// Policies as friend.
     friend TDomainPolicy<Self, Domain>;
     
     /// Constructor.
-    ImageView( MultiImage& aMultiImage ) 
-      : myMultiImage{aMultiImage}
+    ImageView( MultiImage& aMultiImage, Label aLabel ) 
+      : myMultiImage{aMultiImage}, myLabel{aLabel}
     {}
 
     /// No default constructor.
     ImageView() = delete;
+
+    /// Get a value
+    inline
+    Value getValue( Point const& aPoint ) const
+      {
+        return myMultiImage.getValue( aPoint, myLabel );
+      }
+
+    /// Set a value
+    inline
+    void setValue( Point const& aPoint, Value aValue )
+      {
+        myMultiImage.setValue( aPoint, myLabel, aValue );
+      }
+
+    /// Get a value
+    inline
+    Value operator() ( Point const& aPoint ) const
+      {
+        return getValue( aPoint );
+      }
 
   private:
     MultiImage& myMultiImage;

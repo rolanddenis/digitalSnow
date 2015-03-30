@@ -23,6 +23,7 @@ int main()
     using Approximation = DGtal::approximations::ZeroTolValueApproximation<real>;
     using Space = SpaceND<N, int>;
     using Domain = HyperRectDomain<Space>;
+    using Point = typename Domain::Point;
     using BoundingBox = AxisAlignedBoundingBox< Domain, unsigned int>;
 
     //using ApproximatedMultiImage = DGtal::ApproximatedMultiImage<Domain, LabelledMap, Approximation>;
@@ -38,10 +39,17 @@ int main()
 
     using ImageView = ImageView<ApproximatedMultiImage, image_view::BoundingBoxAsDomain>;
     //using ImageView = ImageView<ApproximatedMultiImage>;
-    ImageView image_view{ images };
+    ImageView image_view{ images, 0 };
     image_view.buffer() = Domain::Point::diagonal(1);
 
     cout << image_view.domain() << endl;
+
+    cout << images[0]({100,100,100}) << endl;
+
+    auto const& cimages = images;
+    cout << cimages[0].domain() << endl;
+    cout << cimages[0]({100,100,100}) << endl;
+    cout << cimages.getBBImage(0).domain() << endl;
 
 
     return 0;
