@@ -11,6 +11,8 @@
 #include <DGtal/kernel/domains/HyperRectDomain.h>
 #include <DGtal/images/ImageContainerBySTLVector.h>
 
+#include <boost/math/constants/constants.hpp>
+
 #include "AxisAlignedBoundingBox.h"
 #include "ValueApproximations.h"
 #include "ApproximatedMultiImage.h"
@@ -113,6 +115,43 @@ public:
       return sum;
     }
 
+  Value sumSinAllImages(Value shift = 0) const
+    {
+      Value sum = 0;
+      //Domain const& domain = myImages[0].domain();
+      for ( auto const& image : myImages )
+        {
+          for ( auto value : image )
+            sum += std::sin(value + shift);
+          //for ( auto const& point : domain )
+          //  sum += image(point);
+        }
+
+      return sum;
+    }
+
+  Value sumSinOneImage( size_t aLabel, Value shift = 0) const
+    {
+      Value sum = 0;
+      Image const& image = myImages[aLabel];
+      for ( auto value : image )
+        sum += std::sin(value+shift);
+      //Domain const& domain = image.domain();
+      //for ( auto const& point : domain )
+      //  sum += image(point);
+
+      return sum;
+    }
+
+  size_t area() const
+    {
+      size_t total = 0;
+      total += sizeof( std::vector<Image> );
+      total += myImages.size() * sizeof(Image);
+      total += myImages.size() * myImages[0].domain().size() * sizeof(Value);
+      return total;
+    }
+
 private:
   std::vector<Image> myImages;
 };
@@ -197,6 +236,66 @@ public:
       return sum;
     }
 
+  Value sumSinAllImages(Value shift = 0) const
+    {
+      Value sum = 0;
+      Domain const& domain = myMultiImage.domain();
+      for ( auto const& point : domain )
+        for ( auto const& pair : myMultiImage(point) )
+          sum += std::sin(pair.second+shift);
+
+      return sum;
+    }
+
+  Value sumSinOneImage( size_t aLabel, Value shift = 0 ) const
+    {
+      Value sum = 0;
+      Domain const& domain = myMultiImage.getBoundingBox(aLabel);
+      for ( auto const& point : domain )
+        sum += std::sin(myMultiImage.getValue(point, aLabel)+shift);
+
+      return sum;
+    }
+
+  template <
+    typename TData,
+    unsigned int L,
+    typename TWord,
+    unsigned int NN,
+    unsigned int M
+  >
+  size_t areaOfLabelledMap( LabelledMap<TData, L, TWord, NN, M> const& lmap ) const
+    {
+      size_t total = sizeof( LabelledMap<TData, L, TWord, NN, M> );
+      const size_t size = lmap.size();
+      if ( size > NN+1 )
+        total += ( 1 + ( size - NN ) / M ) * ( M * sizeof( TData ) + sizeof(TData*) );
+      return total;
+    }
+
+  size_t area () const
+    {
+      Value total = 0;
+      total += sizeof(myMultiImage);
+      
+      Domain const& domain = myMultiImage.domain();
+      Point const extent = domain.upperBound() - domain.lowerBound() + Point::diagonal(1);
+      size_t bb_size = sizeof(typename MultiImage::BoundingBox);
+      for (size_t i = 0; i < Domain::dimension; ++i)
+        {
+          bb_size += extent[i] * sizeof(unsigned long);
+        }
+      total += ipow(N, Domain::dimension) * bb_size;
+
+      for (auto const& point : domain)
+        {
+          total += areaOfLabelledMap( myMultiImage(point) );
+        }
+
+      return total;
+
+    }
+
 private:
   MultiImage myMultiImage;
 };
@@ -224,8 +323,32 @@ void BenchIt ( std::string const& name, T radius, T eps, Args const& ... args )
   std::cout << "\tsum = " << sum << std::endl;
   trace.endBlock();
 
+  trace.beginBlock("Summing all images with sinus");
+  std::cout << "\tsum = " << images.sumSinAllImages() << std::endl;
+  trace.endBlock();
+
+  trace.beginBlock("Summing all images with sinus, one by one");
+  sum = 0;
+  for (size_t i = 0; i < images.nImages(); ++i)
+    sum += images.sumSinOneImage(i);
+  std::cout << "\tsum = " << sum << std::endl;
+  trace.endBlock();
+  
+  T const pi = boost::math::constants::pi<T>();
+  trace.beginBlock("Summing all images with sinus+pi");
+  std::cout << "\tsum = " << images.sumSinAllImages(pi) << std::endl;
+  trace.endBlock();
+
+  trace.beginBlock("Summing all images with sinus+pi, one by one");
+  sum = 0;
+  for (size_t i = 0; i < images.nImages(); ++i)
+    sum += images.sumSinOneImage(i, pi);
+  std::cout << "\tsum = " << sum << std::endl;
+  trace.endBlock();
 
   trace.endBlock();
+
+  std::cout << "\tMemory usage = " << double(images.area()/1024)/1024 << "Mo" << std::endl;
 }
 
 
@@ -234,11 +357,11 @@ int main()
   using real = double;
 
   static const size_t D = 2;  ///< Space dimension.
-  static const size_t N = 16;  ///< Number of images per dimension.
-  static const size_t X = 511; ///< Space size (in each dimension).
+  static const size_t N = 8;  ///< Number of images per dimension.
+  static const size_t X = 1023; ///< Space size (in each dimension).
   static const size_t M = 5; ///< Additional capacity of LabelledMap
 
-  const real radius = 0.5; ///< Radius of the phase as ratio of the cell size.
+  const real radius = std::sqrt(2)/2; ///< Radius of the phase as ratio of the cell size.
   const real eps = 1; ///< Epsilon in phase-field initialization.
 
   static const size_t L = ipow(N, D); ///< Total number of images.
@@ -265,9 +388,14 @@ int main()
 
   Domain domain( Point::diagonal(0), Point::diagonal(X) );
 
+  using std::cout; using std::endl;
+
+  cout << "Benchmark in dimension " << D << " on a domain of size " << X << "^" << D << "with " << L << " images." << endl;
+  cout << "Each image is initialized with the phase-field (eps=" << eps << ") corresponding to a ball of radius " << (X*radius/N) << endl;
+  cout << endl;
+
   BenchIt< BenchVectorOfImages<ImageContainerBySTLVector, N> >("vector<ImageContainerBySTLVector>", radius, eps, domain); std::cout << std::endl;
 
-  /*
   BenchIt< BenchMultiImage< ApproximatedMultiImage<Domain, LabelledMap1, NoApprox, NoBB>, N> >("ApproximatedMultiImage - N=1 - no approx - no BB", radius, eps, domain, NoApprox{} ); std::cout << std::endl;
   BenchIt< BenchMultiImage< ApproximatedMultiImage<Domain, LabelledMap2, NoApprox, NoBB>, N> >("ApproximatedMultiImage - N=2 - no approx - no BB", radius, eps, domain, NoApprox{} ); std::cout << std::endl;
   BenchIt< BenchMultiImage< ApproximatedMultiImage<Domain, LabelledMap3, NoApprox, NoBB>, N> >("ApproximatedMultiImage - N=3 - no approx - no BB", radius, eps, domain, NoApprox{} ); std::cout << std::endl;
@@ -287,7 +415,6 @@ int main()
   BenchIt< BenchMultiImage< ApproximatedMultiImage<Domain, LabelledMap2, NoApprox, AABB>, N> >("ApproximatedMultiImage - N=2 - no approx - AABB", radius, eps, domain, NoApprox{} ); std::cout << std::endl;
   BenchIt< BenchMultiImage< ApproximatedMultiImage<Domain, LabelledMap3, NoApprox, AABB>, N> >("ApproximatedMultiImage - N=3 - no approx - AABB", radius, eps, domain, NoApprox{} ); std::cout << std::endl;
   BenchIt< BenchMultiImage< ApproximatedMultiImage<Domain, LabelledMap4, NoApprox, AABB>, N> >("ApproximatedMultiImage - N=4 - no approx - AABB", radius, eps, domain, NoApprox{} ); std::cout << std::endl;
-  */
 
   BenchIt< BenchMultiImage< ApproximatedMultiImage<Domain, LabelledMap1, NegApprox, AABB>, N> >("ApproximatedMultiImage - N=1 - approx 1e-10 - AABB", radius, eps, domain, NegApprox{1e-10} ); std::cout << std::endl;
   BenchIt< BenchMultiImage< ApproximatedMultiImage<Domain, LabelledMap2, NegApprox, AABB>, N> >("ApproximatedMultiImage - N=2 - approx 1e-10 - AABB", radius, eps, domain, NegApprox{1e-10} ); std::cout << std::endl;
