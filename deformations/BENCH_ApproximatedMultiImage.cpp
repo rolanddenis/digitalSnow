@@ -118,13 +118,10 @@ public:
   Value sumSinAllImages(Value shift = 0) const
     {
       Value sum = 0;
-      //Domain const& domain = myImages[0].domain();
       for ( auto const& image : myImages )
         {
           for ( auto value : image )
             sum += std::sin(value + shift);
-          //for ( auto const& point : domain )
-          //  sum += image(point);
         }
 
       return sum;
@@ -136,9 +133,6 @@ public:
       Image const& image = myImages[aLabel];
       for ( auto value : image )
         sum += std::sin(value+shift);
-      //Domain const& domain = image.domain();
-      //for ( auto const& point : domain )
-      //  sum += image(point);
 
       return sum;
     }
@@ -269,13 +263,13 @@ public:
       size_t total = sizeof( LabelledMap<TData, L, TWord, NN, M> );
       const size_t size = lmap.size();
       if ( size > NN+1 )
-        total += ( 1 + ( size - NN ) / M ) * ( M * sizeof( TData ) + sizeof(TData*) );
+        total += ( 1 + ( size - NN - 1 ) / M ) * ( M * sizeof( TData ) + sizeof(TData*) );
       return total;
     }
 
   size_t area () const
     {
-      Value total = 0;
+      size_t total = 0;
       total += sizeof(myMultiImage);
       
       Domain const& domain = myMultiImage.domain();
@@ -287,10 +281,21 @@ public:
         }
       total += ipow(N, Domain::dimension) * bb_size;
 
+      size_t label_min = ipow(N, Domain::dimension);
+      size_t label_max = 0;
+      size_t label_sum = 0;
       for (auto const& point : domain)
         {
-          total += areaOfLabelledMap( myMultiImage(point) );
+          auto && images = myMultiImage(point);
+          total += areaOfLabelledMap( images );
+          
+          size_t nlabel = images.size();
+          label_min = std::min( label_min, nlabel );
+          label_max = std::max( label_max, nlabel );
+          label_sum += nlabel;
         }
+
+      std::cout << "\tNumber of label : min=" << label_min << " ; mean=" << double(label_sum)/domain.size() << " ; max=" << label_max << std::endl;
 
       return total;
 
@@ -358,7 +363,7 @@ int main()
 
   static const size_t D = 2;  ///< Space dimension.
   static const size_t N = 8;  ///< Number of images per dimension.
-  static const size_t X = 1023; ///< Space size (in each dimension).
+  static const size_t X = 1024; ///< Space size (in each dimension).
   static const size_t M = 5; ///< Additional capacity of LabelledMap
 
   const real radius = std::sqrt(2)/2; ///< Radius of the phase as ratio of the cell size.
@@ -373,24 +378,24 @@ int main()
   using ImageContainerBySTLVector = ImageContainerBySTLVector< Domain, real >;
 
 
-  using AABB = AxisAlignedBoundingBox< Domain, unsigned long>;
+  using AABB = AxisAlignedBoundingBox< Domain, size_t>;
   using NoBB = NoBoundingBox<Domain>;
 
   using NoApprox  = approximations::NoValueApproximation<real>;
   using NegApprox = approximations::NegativeTolValueApproximation<real>;
 
-  using LabelledMap1 = LabelledMap<real, L, unsigned long, 1, M>;
-  using LabelledMap2 = LabelledMap<real, L, unsigned long, 2, M>;
-  using LabelledMap3 = LabelledMap<real, L, unsigned long, 3, M>;
-  using LabelledMap4 = LabelledMap<real, L, unsigned long, 4, M>;
+  using LabelledMap1 = LabelledMap<real, L, size_t, 1, M>;
+  using LabelledMap2 = LabelledMap<real, L, size_t, 2, M>;
+  using LabelledMap3 = LabelledMap<real, L, size_t, 3, M>;
+  using LabelledMap4 = LabelledMap<real, L, size_t, 4, M>;
 
   using ApproxMultiImage = ApproximatedMultiImage<Domain, LabelledMap4, NegApprox, NoBB>;
 
-  Domain domain( Point::diagonal(0), Point::diagonal(X) );
+  Domain domain( Point::diagonal(0), Point::diagonal(X-1) );
 
   using std::cout; using std::endl;
 
-  cout << "Benchmark in dimension " << D << " on a domain of size " << X << "^" << D << "with " << L << " images." << endl;
+  cout << "Benchmark in dimension " << D << " on a domain of size " << X << "^" << D << " with " << L << " images." << endl;
   cout << "Each image is initialized with the phase-field (eps=" << eps << ") corresponding to a ball of radius " << (X*radius/N) << endl;
   cout << endl;
 
@@ -427,7 +432,7 @@ int main()
   BenchIt< BenchMultiImage< ApproximatedMultiImage<Domain, LabelledMap4, NegApprox, AABB>, N> >("ApproximatedMultiImage - N=4 - approx 1e-4 - AABB", radius, eps, domain, NegApprox{1e-4} ); std::cout << std::endl;
 
   BenchIt< BenchVectorOfImages<ImageContainerBySTLVector, N> >("vector<ImageContainerBySTLVector>", radius, eps, domain); std::cout << std::endl;
-  
+
   return 0;
 }
 /* GNU coding style */
