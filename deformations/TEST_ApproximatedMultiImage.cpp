@@ -5,6 +5,9 @@
 #include <DGtal/kernel/SpaceND.h>
 #include <DGtal/kernel/domains/HyperRectDomain.h>
 #include <DGtal/images/ImageContainerBySTLVector.h>
+#include <DGtal/images/CImage.h>
+
+#include <boost/range/adaptor/reversed.hpp>
 
 #include "AxisAlignedBoundingBox.h"
 #include "ValueApproximations.h"
@@ -31,23 +34,47 @@ int main()
 
     //using ApproximatedMultiImage = DGtal::ApproximatedMultiImage<Domain, LabelledMap, Approximation>;
     using ApproximatedMultiImage = DGtal::ApproximatedMultiImage<Domain, LabelledMap, Approximation, BoundingBox>;
+    using ImageView = ImageView<ApproximatedMultiImage, image_view::BoundingBoxAsDomain>;
 
     const Domain domain({0,0}, {1000,100,100});
     const Approximation approx{1};
     ApproximatedMultiImage images(domain, approx);
+    
 
     cout << images.getValue( {100,100,100}, 0 ) << endl;
     images.setValue( {100,100,100}, 0, 1.1 );
     cout << images.getValue( {100,100,100}, 0 ) << endl;
 
-    using ImageView = ImageView<ApproximatedMultiImage, image_view::BoundingBoxAsDomain>;
     //using ImageView = ImageView<ApproximatedMultiImage>;
     ImageView image_view{ images, 0 };
     image_view.buffer() = Domain::Point::diagonal(1);
 
     cout << image_view.domain() << endl;
 
+    real sum = 0;
+    /*
+    for ( auto value : image_view )
+        sum += value;
+    cout << "sum = " << sum << endl;
+    */
+    
+    sum = 0;
+    //for ( auto value : boost::adaptors::reverse(image_view) )
+    //    sum += value;
+    for ( auto it = image_view.rbegin(), it_end = image_view.rend(); it != it_end; ++it )
+        sum += *it;
+    cout << "sum = " << sum << endl;
+    
+    sum = 0;
+    ImageView image_view1{ images, 1}; 
+    image_view1.buffer() = Domain::Point::diagonal(0);
+    for ( auto value : image_view1 )
+        sum += value;
+    cout << "sum = " << sum << endl;
+
     cout << images[0]({100,100,100}) << endl;
+
+    BOOST_CONCEPT_ASSERT( (DGtal::concepts::CImage<ImageView>) );
 
     auto const& cimages = images;
     cout << cimages[0].domain() << endl;

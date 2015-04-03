@@ -149,7 +149,13 @@ class ApproximatedMultiImage< TDomain, DGtal::LabelledMap<TData, L, TWord, N, M>
 
     // STL typedefs
     // ...
-    
+
+    // Friend with image view
+    friend FullImage;
+    friend ConstFullImage;
+    friend BBImage;
+    friend ConstBBImage;
+
     /**
      * Constructor.
      */
@@ -160,14 +166,14 @@ class ApproximatedMultiImage< TDomain, DGtal::LabelledMap<TData, L, TWord, N, M>
     {}
 
     /**
-     * Get a value.
+     * Get a value given the linearized index of the point.
      *
-     * @param aPoint The point of the domain.
-     * @param aLabel The label of the image from which to get the value.
+     * @param anIndex The index of the point.
+     * @param aLabel  The label of the image.
      */
-    Value getValue( Point const& aPoint, Label aLabel ) const noexcept
+    Value getValueByIndex( std::size_t anIndex, Label aLabel ) const noexcept
       {
-        Container const& values = myImages[ linearized(aPoint) ];
+        Container const& values = myImages[ anIndex ];
         
         if ( values.count(aLabel) > 0 )
           {
@@ -178,6 +184,32 @@ class ApproximatedMultiImage< TDomain, DGtal::LabelledMap<TData, L, TWord, N, M>
             return myApproximation.default_value;
           }
       }
+
+    /**
+     * Get a value.
+     *
+     * @param aPoint The point of the domain.
+     * @param aLabel The label of the image from which to get the value.
+     */
+    inline
+    Value getValue( Point const& aPoint, Label aLabel ) const noexcept
+      {
+        return getValueByIndex( linearized(aPoint), aLabel );
+        /*
+        Container const& values = myImages[ linearized(aPoint) ];
+        
+        if ( values.count(aLabel) > 0 )
+          {
+            return values.fastAt(aLabel);
+          } 
+        else
+          {
+            return myApproximation.default_value;
+          }
+        */
+      }
+
+
         
     /**
      * Set a value.
