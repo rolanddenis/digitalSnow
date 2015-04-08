@@ -385,8 +385,8 @@ class ImageView
     class DistanceFunctor
       {
       public:
-        using Point = Point;
-        using Difference = Difference;
+        using Point = Self::Point;
+        using Difference = Self::Difference;
 
         DistanceFunctor( ConstIterator const& anIterator ) noexcept
           : myIterator(anIterator)
