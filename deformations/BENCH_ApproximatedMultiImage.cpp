@@ -374,7 +374,8 @@ void BenchIt ( std::string const& name, T radius, T eps, Args const& ... args )
 
   trace.endBlock();
 
-  std::cout << "\tMemory usage = " << double(images.area()/1024)/1024 << "Mo" << std::endl;
+  const double mem_usage = double(images.area()/1024)/1024;
+  std::cout << "\tMemory usage = " << mem_usage << "Mo" << std::endl;
 }
 
 
@@ -419,7 +420,7 @@ int main()
   cout << "Benchmark in dimension " << D << " on a domain of size " << X << "^" << D << " with " << L << " images." << endl;
   cout << "Each image is initialized with the phase-field (eps=" << eps << ") corresponding to a ball of radius " << (X*radius/N) << endl;
   cout << endl;
-  
+ 
   BenchIt< BenchVectorOfImages<ImageContainerBySTLVector, N> >("vector<ImageContainerBySTLVector>", radius, eps, domain); std::cout << std::endl;
 
   BenchIt< BenchMultiImage< ApproximatedMultiImage<Domain, LabelledMap1, NoApprox, NoBB>, N> >("ApproximatedMultiImage - N=1 - no approx - no BB", radius, eps, domain, NoApprox{} ); std::cout << std::endl;
@@ -441,7 +442,7 @@ int main()
   BenchIt< BenchMultiImage< ApproximatedMultiImage<Domain, LabelledMap2, NoApprox, AABB>, N> >("ApproximatedMultiImage - N=2 - no approx - AABB", radius, eps, domain, NoApprox{} ); std::cout << std::endl;
   BenchIt< BenchMultiImage< ApproximatedMultiImage<Domain, LabelledMap3, NoApprox, AABB>, N> >("ApproximatedMultiImage - N=3 - no approx - AABB", radius, eps, domain, NoApprox{} ); std::cout << std::endl;
   BenchIt< BenchMultiImage< ApproximatedMultiImage<Domain, LabelledMap4, NoApprox, AABB>, N> >("ApproximatedMultiImage - N=4 - no approx - AABB", radius, eps, domain, NoApprox{} ); std::cout << std::endl;
-  
+
   BenchIt< BenchMultiImage< ApproximatedMultiImage<Domain, LabelledMap1, NegApprox, AABB>, N> >("ApproximatedMultiImage - N=1 - approx 1e-10 - AABB", radius, eps, domain, NegApprox{1e-10} ); std::cout << std::endl;
   BenchIt< BenchMultiImage< ApproximatedMultiImage<Domain, LabelledMap2, NegApprox, AABB>, N> >("ApproximatedMultiImage - N=2 - approx 1e-10 - AABB", radius, eps, domain, NegApprox{1e-10} ); std::cout << std::endl;
   BenchIt< BenchMultiImage< ApproximatedMultiImage<Domain, LabelledMap3, NegApprox, AABB>, N> >("ApproximatedMultiImage - N=3 - approx 1e-10 - AABB", radius, eps, domain, NegApprox{1e-10} ); std::cout << std::endl;
