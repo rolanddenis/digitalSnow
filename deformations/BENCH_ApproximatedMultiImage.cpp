@@ -17,6 +17,7 @@
 #include "ValueApproximations.h"
 #include "ApproximatedMultiImage.h"
 #include "AxisAlignedBoundingBox.h"
+#include "ImageView.h"
 
 using std::size_t;
 using namespace DGtal;
@@ -223,9 +224,19 @@ public:
   Value sumOneImage( size_t aLabel ) const
     {
       Value sum = 0;
+      /*
+      // Old fashion
       Domain const& domain = myMultiImage.getBoundingBox(aLabel);
       for ( auto const& point : domain )
         sum += myMultiImage.getValue(point, aLabel);
+      */
+      
+      using ImageView = DGtal::ImageView<const MultiImage, DGtal::image_view::BoundingBoxAsDomain>;
+      ImageView image_view( myMultiImage, aLabel );
+      image_view.buffer() = Point::diagonal(0);
+
+      for ( auto value : image_view )
+        sum += value;
 
       return sum;
     }
@@ -244,9 +255,19 @@ public:
   Value sumSinOneImage( size_t aLabel, Value shift = 0 ) const
     {
       Value sum = 0;
+      /*
+      // Old fashion
       Domain const& domain = myMultiImage.getBoundingBox(aLabel);
       for ( auto const& point : domain )
         sum += std::sin(myMultiImage.getValue(point, aLabel)+shift);
+      */
+
+      using ImageView = DGtal::ImageView<const MultiImage, DGtal::image_view::BoundingBoxAsDomain>;
+      ImageView image_view( myMultiImage, aLabel );
+      image_view.buffer() = Point::diagonal(0);
+
+      for ( auto value : image_view )
+        sum += std::sin(value + shift);
 
       return sum;
     }
@@ -398,7 +419,7 @@ int main()
   cout << "Benchmark in dimension " << D << " on a domain of size " << X << "^" << D << " with " << L << " images." << endl;
   cout << "Each image is initialized with the phase-field (eps=" << eps << ") corresponding to a ball of radius " << (X*radius/N) << endl;
   cout << endl;
-
+  
   BenchIt< BenchVectorOfImages<ImageContainerBySTLVector, N> >("vector<ImageContainerBySTLVector>", radius, eps, domain); std::cout << std::endl;
 
   BenchIt< BenchMultiImage< ApproximatedMultiImage<Domain, LabelledMap1, NoApprox, NoBB>, N> >("ApproximatedMultiImage - N=1 - no approx - no BB", radius, eps, domain, NoApprox{} ); std::cout << std::endl;
@@ -420,7 +441,7 @@ int main()
   BenchIt< BenchMultiImage< ApproximatedMultiImage<Domain, LabelledMap2, NoApprox, AABB>, N> >("ApproximatedMultiImage - N=2 - no approx - AABB", radius, eps, domain, NoApprox{} ); std::cout << std::endl;
   BenchIt< BenchMultiImage< ApproximatedMultiImage<Domain, LabelledMap3, NoApprox, AABB>, N> >("ApproximatedMultiImage - N=3 - no approx - AABB", radius, eps, domain, NoApprox{} ); std::cout << std::endl;
   BenchIt< BenchMultiImage< ApproximatedMultiImage<Domain, LabelledMap4, NoApprox, AABB>, N> >("ApproximatedMultiImage - N=4 - no approx - AABB", radius, eps, domain, NoApprox{} ); std::cout << std::endl;
-
+  
   BenchIt< BenchMultiImage< ApproximatedMultiImage<Domain, LabelledMap1, NegApprox, AABB>, N> >("ApproximatedMultiImage - N=1 - approx 1e-10 - AABB", radius, eps, domain, NegApprox{1e-10} ); std::cout << std::endl;
   BenchIt< BenchMultiImage< ApproximatedMultiImage<Domain, LabelledMap2, NegApprox, AABB>, N> >("ApproximatedMultiImage - N=2 - approx 1e-10 - AABB", radius, eps, domain, NegApprox{1e-10} ); std::cout << std::endl;
   BenchIt< BenchMultiImage< ApproximatedMultiImage<Domain, LabelledMap3, NegApprox, AABB>, N> >("ApproximatedMultiImage - N=3 - approx 1e-10 - AABB", radius, eps, domain, NegApprox{1e-10} ); std::cout << std::endl;

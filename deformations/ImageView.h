@@ -88,8 +88,8 @@ class ImageView
     // Iterators & Ranges
     template <class> class MyIterator;
     class DistanceFunctor;
-    using Iterator        = MyIterator<Self>;
     using ConstIterator   = MyIterator<Self const>;
+    using Iterator        = typename std::conditional< std::is_const<TMultiImage>::value, ConstIterator, MyIterator<Self> >::type;
     using ReverseIterator = boost::reverse_iterator<Iterator>;
     using ConstReverseIterator = boost::reverse_iterator<ConstIterator>;
     using Range = SimpleRandomAccessRangeFromPoint< ConstIterator, Iterator, DistanceFunctor >;
