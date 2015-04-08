@@ -128,7 +128,7 @@ class ApproximatedMultiImage< TDomain, DGtal::LabelledMap<TData, L, TWord, N, M>
     /// \todo Concept check for bounding box
 
     // Typedefs
-    template <typename> class ApproximatedReference;
+    class Reference;
 
     // DGtal typedefs
     using Self          = ApproximatedMultiImage< TDomain, DGtal::LabelledMap<TData, L, TWord, N, M>, TApproximation, TBoundingBox >;
@@ -159,7 +159,7 @@ class ApproximatedMultiImage< TDomain, DGtal::LabelledMap<TData, L, TWord, N, M>
     /**
      * Constructor.
      */
-    ApproximatedMultiImage( Domain const& aDomain, Approximation const& anApprox = Approximation{} )
+    ApproximatedMultiImage( Domain const& aDomain, Approximation const& anApprox = Approximation{} ) noexcept
       : myDomain{aDomain}, myImages{aDomain.size()}, 
         myApproximation{anApprox}, myBoundingBoxes{L, BoundingBox{aDomain}},
         myExtent{ aDomain.upperBound() - aDomain.lowerBound() + Point::diagonal(1) }
@@ -171,7 +171,7 @@ class ApproximatedMultiImage< TDomain, DGtal::LabelledMap<TData, L, TWord, N, M>
      * @param anIndex The index of the point.
      * @param aLabel  The label of the image.
      */
-    Value getValueByIndex( std::size_t anIndex, Label aLabel ) const noexcept
+    Value getValueByIndex( Size anIndex, Label aLabel ) const noexcept
       {
         Container const& values = myImages[ anIndex ];
         
@@ -195,18 +195,6 @@ class ApproximatedMultiImage< TDomain, DGtal::LabelledMap<TData, L, TWord, N, M>
     Value getValue( Point const& aPoint, Label aLabel ) const noexcept
       {
         return getValueByIndex( linearized(aPoint), aLabel );
-        /*
-        Container const& values = myImages[ linearized(aPoint) ];
-        
-        if ( values.count(aLabel) > 0 )
-          {
-            return values.fastAt(aLabel);
-          } 
-        else
-          {
-            return myApproximation.default_value;
-          }
-        */
       }
 
 
@@ -217,10 +205,18 @@ class ApproximatedMultiImage< TDomain, DGtal::LabelledMap<TData, L, TWord, N, M>
      * @param aPoint  The point of the domain.
      * @param aLabel  The label of the image in which to set the value.
      * @param aValue  The value to be set.
+     * @param anIndex The linearized index of the point (by default, calculated from the given point).
      */
+    inline
     void setValue( Point const& aPoint, Label aLabel, Value aValue ) noexcept
       {
-        Container & values = myImages[ linearized(aPoint) ];
+        setValue( aPoint, aLabel, aValue, linearized(aPoint) );
+      }
+
+    inline
+    void setValue( Point const& aPoint, Label aLabel, Value aValue, Size anIndex ) noexcept
+      {
+        Container & values = myImages[ anIndex ];
 
         if ( myApproximation.eval( aValue ) )
           {
@@ -322,6 +318,36 @@ class ApproximatedMultiImage< TDomain, DGtal::LabelledMap<TData, L, TWord, N, M>
         image.buffer() = buffer;
         return image;
       }
+
+    /// Reference to an approximated value.
+    class Reference
+      {
+      public:
+        Reference( Self& aMultiImage, Point aPoint, Label aLabel, Size anIndex )
+          : myMultiImage{ aMultiImage }, myPoint{ aPoint }, myLabel{ aLabel }, myIndex{ anIndex }
+        {}
+
+        Reference( Self& aMultiImage, Point aPoint, Label aLabel )
+          : Reference{ aMultiImage, aPoint, aLabel, aMultiImage.linearized(aPoint) }
+        {}
+
+        operator Value() const
+          {
+            return myMultiImage.getValueByIndex( myIndex, myLabel );
+          }
+
+        Reference& operator= ( Value aValue )
+          {
+            myMultiImage.setValue( myPoint, myLabel, aValue, myIndex );
+            return *this;
+          }
+
+      private:
+        Self& myMultiImage;
+        Point myPoint;
+        Label myLabel;
+        Size myIndex;
+      };
 
   private:
 
