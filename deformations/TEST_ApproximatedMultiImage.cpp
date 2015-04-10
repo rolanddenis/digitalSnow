@@ -63,6 +63,12 @@ int main()
     sum = 0;
     //for ( auto value : boost::adaptors::reverse(image_view) )
     //    sum += value;
+    cout << image_view.domain() << endl;
+    auto pt = image_view.begin();
+    *pt = 2.;
+    cout << image_view.domain() << endl;
+    cout << *pt << endl;
+
     for ( auto it = image_view.rbegin(), it_end = image_view.rend(); it != it_end; ++it )
         sum += *it;
     cout << "sum = " << sum << endl;
@@ -73,6 +79,7 @@ int main()
     for ( auto value : image_view1 )
         sum += value;
     cout << "sum = " << sum << endl;
+    cout << ( image_view1.begin() == image_view1.end() ? "OK" : "KO" ) << endl;
 
     cout << images[0]({100,100,100}) << endl;
 

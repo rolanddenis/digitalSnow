@@ -208,14 +208,13 @@ class ImageView
       }
 
     /**
-     * Iterator (not interoperable)
+     * Iterator
      */
     template < typename TImageView >
     class MyIterator
       : public boost::iterator_facade<
           MyIterator<TImageView>,
           Value,
-          //boost::random_access_traversal_tag,
           std::random_access_iterator_tag,
           typename std::conditional< std::is_const<TImageView>::value, Value, typename MultiImage::Reference >::type
         >
@@ -227,15 +226,13 @@ class ImageView
         /// Iterator from any point.
         MyIterator( TImageView* anImageView, Point const& aPoint ) noexcept
           : myImageView{ anImageView }
+          , myLowerBound{ myImageView->domain().lowerBound() }
+          , myExtent{ myImageView->domain().upperBound() - myLowerBound + Point::diagonal(1) }
+          , myDimIndex{ aPoint - myLowerBound }
           {
-            Domain domain = myImageView->domain();
-            myExtent = domain.upperBound() - domain.lowerBound() + Point::diagonal(1);
-            myDimIndex = aPoint - domain.lowerBound();
-            
-            domain = myImageView->myMultiImage->domain();
-            myGlobalExtent = domain.upperBound() - domain.lowerBound() + Point::diagonal(1);
+            Domain const full_domain = myImageView->myMultiImage->domain();
+            myGlobalExtent = full_domain.upperBound() - full_domain.lowerBound() + Point::diagonal(1);
             myGlobalIndex = myImageView->myMultiImage->linearized( aPoint );
-
           }
 
         /// Copy constructor.
@@ -243,36 +240,46 @@ class ImageView
         MyIterator( MyIterator<TOtherImageView> const& other, 
             typename std::enable_if< std::is_convertible<TOtherImageView*, TImageView*>::value >::type* = 0 ) noexcept
           : myImageView{ other.myImageView }
+          , myLowerBound{ other.myLowerBound }
           , myExtent{ other.myExtent }, myGlobalExtent{ other.myGlobalExtent }
           , myGlobalIndex{ other.myGlobalIndex }
           , myDimIndex{ other.myDimIndex }
           {}
-        
+       
+        /// Move constructor.
         template < typename TOtherImageView >
         MyIterator( MyIterator<TOtherImageView> && other,
             typename std::enable_if< std::is_convertible<TOtherImageView*, TImageView*>::value >::type* = 0 ) noexcept
           : myImageView{ std::move(other.myImageView) }
+          , myLowerBound{ std::move(other.myLowerBound) }
           , myExtent{ std::move(other.myExtent) }, myGlobalExtent{ std::move(other.myGlobalExtent) }
           , myGlobalIndex{ std::move(other.myGlobalIndex) }
           , myDimIndex{ std::move(other.myDimIndex) }
           {}
 
         /// begin iterator.
-        explicit MyIterator( TImageView* anImageView ) 
+        explicit MyIterator( TImageView* anImageView ) noexcept
           : MyIterator{ anImageView, anImageView->domain().lowerBound() }
           {
           }
 
         /// end iterator.
-        MyIterator( TImageView* anImageView, bool /* last */ ) 
+        MyIterator( TImageView* anImageView, bool /* last */ ) noexcept
           : MyIterator{ anImageView, anImageView->domain().upperBound() }
           {
             increment();
           }
 
+        /// Return the point behind this iterator
+        inline
+        Point getPoint() const noexcept
+          {
+            return myLowerBound + myDimIndex;
+          }
+
       private:
 
-        /// Interoperability
+        /// Friendship of interoperability.
         template <class> friend class MyIterator;
         friend class boost::iterator_core_access;
         friend class DistanceFunctor;
@@ -332,7 +339,7 @@ class ImageView
         typename std::enable_if< ! std::is_const<T>::value, Reference >::type
         dereference() const
           {
-            return Reference( *(myImageView->myMultiImage), myImageView->domain().lowerBound()+myDimIndex, myImageView->myLabel, myGlobalIndex );
+            return Reference( *(myImageView->myMultiImage), getPoint(), myImageView->myLabel, myGlobalIndex );
           }
         
         /// Distance to other iterator.
@@ -349,7 +356,7 @@ class ImageView
         /// Distance to a point.
         std::ptrdiff_t distance_to( Point const& aPoint ) const
           {
-            const Point diff = aPoint - myImageView->domain().lowerBound() - myDimIndex;
+            const Point diff = aPoint - getPoint();
             std::ptrdiff_t dist = 0;
             for ( std::size_t i = Domain::dimension; i > 0 ; --i )
               dist = diff[i-1] + myExtent[i-1]*dist;
@@ -372,11 +379,12 @@ class ImageView
                 pos /= myExtent[i];
               }
 
-            myGlobalIndex = myImageView->myMultiImage->linearized( myImageView->domain().lowerBound() + myDimIndex );
+            myGlobalIndex = myImageView->myMultiImage->linearized( getPoint() );
           }
 
       private:
         TImageView* myImageView;
+        Point myLowerBound;
         Point myExtent, myGlobalExtent;
         typename Point::Coordinate myGlobalIndex;
         Point myDimIndex;
