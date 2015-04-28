@@ -79,7 +79,7 @@ int main()
     for ( auto value : image_view1 )
         sum += value;
     cout << "sum = " << sum << endl;
-    cout << ( image_view1.begin() == image_view1.end() ? "OK" : "KO" ) << endl;
+    cout << image_view1.domain() << " : Iterators ? " << ( image_view1.begin() == image_view1.end() ? "OK" : "KO" ) << endl;
 
     cout << images[0]({100,100,100}) << endl;
 
