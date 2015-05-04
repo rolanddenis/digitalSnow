@@ -17,26 +17,26 @@
 #pragma once
 
 /**
- * @file MultiPhaseField.h
+ * @file MultiPhaseField2.h
  * @author Tristan Roussillon (\c tristan.roussillon@liris.cnrs.fr )
  * Laboratoire d'InfoRmatique en Image et Systèmes d'information - LIRIS (CNRS, UMR 5205), CNRS, France
+ * @author Roland Denis (\c roland.denis@univ-smb.fr )
+ * LAboratory of MAthematics - LAMA (CNRS, UMR 5127), University of Savoie, France
  *
- * @date 2012/07/12
- *
- * Header file for module MultiPhaseField.cpp
+ * @date 2015/04/28
  *
  * This file is part of the DGtal library.
  */
 
-#if defined(MultiPhaseField_RECURSES)
-#error Recursive header files inclusion detected in MultiPhaseField.h
-#else // defined(MultiPhaseField_RECURSES)
+#if defined(MultiPhaseField2_RECURSES)
+#error Recursive header files inclusion detected in MultiPhaseField2.h
+#else // defined(MultiPhaseField2_RECURSES)
 /** Prevents recursive inclusion of headers. */
-#define MultiPhaseField_RECURSES
+#define MultiPhaseField2_RECURSES
 
-#if !defined MultiPhaseField_h
+#if !defined MultiPhaseField2_h
 /** Prevents repeated inclusion of headers. */
-#define MultiPhaseField_h
+#define MultiPhaseField2_h
 
 //////////////////////////////////////////////////////////////////////////////
 // Inclusions
@@ -55,6 +55,7 @@
 #include <DGtal/geometry/volumes/distance/DistanceTransformation.h>
 
 #include "deformationFunctions.h"
+#include "ApproximatedMultiImage.h"
 //////////////////////////////////////////////////////////////////////////////
 
 namespace DGtal
@@ -62,9 +63,9 @@ namespace DGtal
 
 
   /////////////////////////////////////////////////////////////////////////////
-  // template class MultiPhaseField
+  // template class MultiPhaseField2
   /**
-   * Description of template class 'MultiPhaseField' <p>
+   * Description of template class 'MultiPhaseField2' <p>
    * \brief Aim: This class is a way of deforming an image of labels. 
    * Each region (ie. set of points having a same label) is viewed as 
    * the set of points having a value greater than 0.5 for a given phase field. 
@@ -74,8 +75,15 @@ namespace DGtal
    * @tparam TFieldImage a model of CImage (storing phase field values)
    * @tparam TEvolver a model of phase field evolver
    */
-  template <typename TLabelImage, typename TFieldImage, typename TEvolver>
-  class MultiPhaseField
+  template <typename TLabelImage, typename TFieldImage, typename TMultiFieldImage>
+  class MultiPhaseField2;
+
+  template <
+    typename TLabelImage,
+    typename TFieldImage,
+    typename TDomain, typename TContainer, typename TApproximation, typename TBoundingBox
+  >
+  class MultiPhaseField2< TLabelImage, TFieldImage, ApproximatedMultiImage<TDomain, TContainer, TApproximation, TBoundingBox> >
   {
 
     // ----------------------- Types check -----------------------
@@ -85,6 +93,7 @@ namespace DGtal
     BOOST_STATIC_ASSERT
     (( concepts::ConceptUtils::SameType< typename TLabelImage::Point,
        typename TFieldImage::Point>::value ));
+    BOOST_STATIC_ASSERT(( concepts::ConceptUtils::SameType< typename TFieldImage::Domain, TDomain >::value ));
 
 
     // ----------------------- Types ------------------------------
@@ -98,12 +107,9 @@ namespace DGtal
 
     /// Images of phase field values
     typedef TFieldImage FieldImage;
-    typedef CowPtr<FieldImage> FieldImagePtr; 
 
+    using MultiImage = ApproximatedMultiImage<TDomain, TContainer, TApproximation, TBoundingBox>;
 
-    /// Phase field evolver
-    typedef TEvolver Evolver; 
-  
     // ------------------------- Protected Datas ------------------------------
   protected:
     // ------------------------- Private Datas --------------------------------
@@ -115,22 +121,14 @@ namespace DGtal
      * Reference on the image of labels
      */
     LabelImage& myLabelImage; 
-    /**
-     * Reference on the evolver
-     */
-    Evolver& myEvolver; 
 
 
     // ------------------------- Data --------------------------------
-    /**
-     * Default label for points that does not belong to any region
-     * after some evolution steps
+   
+    /** Container of the fields
      */
-    Label myDefaultLabel; 
-    /**
-     * List of smart owning pointers on phase fields
-     */
-    std::vector<FieldImagePtr> myFields; 
+    MultiImage myFields;
+    
     /**
      * List of labels
      */
@@ -146,12 +144,12 @@ namespace DGtal
      * @param aDefaultLabel label used for points that
      * does not belong to any region after evolution
      */
-    MultiPhaseField(LabelImage& aI, Evolver& aE, const Label& aDefaultLabel = Label());
+    MultiPhaseField2(LabelImage& aI);
 
     /**
      * Destructor. Does nothing.
      */
-    ~MultiPhaseField();
+    ~MultiPhaseField2();
 
 
     /**
@@ -185,7 +183,7 @@ namespace DGtal
     /**
      * Return one of the phase fields
      */
-    FieldImage const& getPhase( size_t i ) const;
+    FieldImage getPhase( size_t i ) const;
 
     // ------------------------- Hidden services ------------------------------
   protected:
@@ -196,7 +194,7 @@ namespace DGtal
      * @param other the object to clone.
      * Forbidden by default.
      */
-    MultiPhaseField ( const MultiPhaseField & other );
+    MultiPhaseField2 ( const MultiPhaseField2 & other ) = delete;
 
     /**
      * Assignment.
@@ -204,7 +202,7 @@ namespace DGtal
      * @return a reference on 'this'.
      * Forbidden by default.
      */
-    MultiPhaseField & operator= ( const MultiPhaseField & other );
+    MultiPhaseField2 & operator= ( const MultiPhaseField2 & other ) = delete;
 
   private:
 
@@ -221,19 +219,23 @@ namespace DGtal
      */
     void getSignedDistance(const Label& aLabel, FieldImage& aImage) const; 
 
-  }; // end of class MultiPhaseField
+  }; // end of class MultiPhaseField2
 
 
   /**
-   * Overloads 'operator<<' for displaying objects of class 'MultiPhaseField'.
+   * Overloads 'operator<<' for displaying objects of class 'MultiPhaseField2'.
    * @param out the output stream where the object is written.
-   * @param object the object of class 'MultiPhaseField' to write.
+   * @param object the object of class 'MultiPhaseField2' to write.
    * @return the output stream after the writing.
    */
-  template <typename TLabelImage, typename TFieldImage, typename TEvolver>
+  template <
+    typename TLabelImage,
+    typename TFieldImage,
+    typename TDomain, typename TContainer, typename TApproximation, typename TBoundingBox
+  >
   std::ostream&
   operator<< ( std::ostream & out, 
-	       const DGtal::MultiPhaseField<TLabelImage, TFieldImage, TEvolver>& object );
+		    DGtal::MultiPhaseField2< TLabelImage, TFieldImage, DGtal::ApproximatedMultiImage<TDomain, TContainer, TApproximation, TBoundingBox> > const& object );
 
 
 } // namespace DGtal
@@ -241,15 +243,15 @@ namespace DGtal
 
 ///////////////////////////////////////////////////////////////////////////////
 // Includes inline functions.
-#include "MultiPhaseField.ih"
+#include "MultiPhaseField2.ih"
 
 //                                                                           //
 ///////////////////////////////////////////////////////////////////////////////
 
-#endif // !defined MultiPhaseField_h
+#endif // !defined MultiPhaseField2_h
 
-#undef MultiPhaseField_RECURSES
-#endif // else defined(MultiPhaseField_RECURSES)
+#undef MultiPhaseField2_RECURSES
+#endif // else defined(MultiPhaseField2_RECURSES)
 
 /* GNU coding style */
 /* vim: set ts=2 sw=2 expandtab cindent cinoptions=>4,n-2,{2,^-2,:2,=2,g0,h2,p5,t0,+2,(0,u0,w1,m1 : */

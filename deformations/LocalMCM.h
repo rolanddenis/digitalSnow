@@ -72,7 +72,7 @@ namespace DGtal
     BOOST_CONCEPT_ASSERT(( concepts::CPointFunctor<PointFunctor> )); 
     BOOST_CONCEPT_ASSERT(( concepts::CPointFunctor<ExternField> )); 
     BOOST_STATIC_ASSERT
-    (( ConceptUtils::SameType< typename PointFunctor::Point,
+    (( concepts::ConceptUtils::SameType< typename PointFunctor::Point,
        typename ExternField::Point>::value ));
 
     typedef typename PointFunctor::Point Point; 

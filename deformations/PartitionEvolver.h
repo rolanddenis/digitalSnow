@@ -88,20 +88,20 @@ namespace DGtal
     BOOST_CONCEPT_ASSERT(( concepts::CImage<TLabelImage> )); 
     BOOST_CONCEPT_ASSERT(( concepts::CImage<TDistanceImage> )); 
     BOOST_STATIC_ASSERT
-    (( ConceptUtils::SameType< typename TKSpace::Point,
+    (( concepts::ConceptUtils::SameType< typename TKSpace::Point,
        typename TLabelImage::Point>::value ));
     BOOST_STATIC_ASSERT
-    (( ConceptUtils::SameType< typename TKSpace::Point,
+    (( concepts::ConceptUtils::SameType< typename TKSpace::Point,
        typename TDistanceImage::Point>::value ));
 
     BOOST_CONCEPT_ASSERT(( concepts::CImage<TExternImage> )); 
     BOOST_STATIC_ASSERT
-    (( ConceptUtils::SameType< typename TKSpace::Point,
+    (( concepts::ConceptUtils::SameType< typename TKSpace::Point,
        typename TExternImage::Point>::value ));
 
     // BOOST_CONCEPT_ASSERT(( CPoinTTopoPredicate<TTopoPredicate> )); 
     // BOOST_STATIC_ASSERT
-    // (( ConceptUtils::SameType< typename TKSpace::Point,
+    // (( concepts::ConceptUtils::SameType< typename TKSpace::Point,
     //    typename TTopoPredicate::Point>::value ));
     //TODO testing TTopoPredicate as a binary TopoPredicate on points and labels
 

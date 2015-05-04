@@ -43,6 +43,14 @@ using namespace std;
 #include "SimplePointHelper.h"
 #include "PartitionEvolver.h"
 
+// Massive Multi Phase-Field
+#include "AxisAlignedBoundingBox.h"
+#include "ValueApproximations.h"
+#include "ApproximatedMultiImage.h"
+#include "ImageView.h"
+#include "MultiPhaseField2.h"
+
+
 // Useful functions
 #include "deformationFunctions.h"
 
@@ -108,7 +116,7 @@ int main(int argc, char** argv)
     ("displayStep",     po::value<size_t>(&disp_step)->default_value(disp_step), "Number of time steps between 2 drawings" )
     ("stepsNumber,n",   po::value<size_t>(&max_step)->default_value(max_step), "Maximal number of steps" )
     ("algo,a",          po::value<string>(&algo)->default_value(algo), 
-        "can be: \n <levelSet>  \n or <phaseField> \n or <multiPhaseField> \n or <localLevelSet>" )
+        "can be: \n <levelSet>  \n or <phaseField> \n or <multiPhaseField> \n or <massiveMultiPhaseField> \n or <localLevelSet>" )
     ("balloonForce,k",  po::value<double>(&balloon)->default_value(balloon), "Balloon force" )
     ("epsilon,e",       po::value<double>(&epsilon)->default_value(epsilon), "Interface width (only for phase fields)" )
     ("withCstVol",      po::bool_switch(&flagWithCstVol), "with volume conservation (only for phase fields)" )
@@ -160,7 +168,7 @@ int main(int argc, char** argv)
     }
 
   // Evolution algorithm
-  if ( algo != "levelSet" && algo != "phaseField" && algo != "multiPhaseField" && algo != "localLevelSet" )
+  if ( algo != "levelSet" && algo != "phaseField" && algo != "multiPhaseField" && algo!= "massiveMultiPhaseField" && algo != "localLevelSet" )
     {
       trace.info() << "algo is expected to be either <levelSet>, <phaseField>, <multiPhaseField> or <localLevelSet> " << std::endl;
       return 1;
@@ -523,6 +531,113 @@ int main(int argc, char** argv)
         displayPartition( *labelImage ); 
 #endif
 
+    }
+  else if ( algo == "massiveMultiPhaseField" )
+    {
+      // Options's validity
+      if (epsilon <= 0) 
+        {
+          trace.error() << "epsilon should be greater than 0" << std::endl;
+          return 1; 
+        }
+
+      // Field image
+      typedef ImageContainerBySTLVector<Domain, double> FieldImage;
+
+      // ApproximatedMultiImage
+      using real = double;
+      using LabelledMap = DGtal::LabelledMap<real, 64, long unsigned int, 3, 4>;
+      using Approximation = DGtal::approximations::NegativeTolValueApproximation<real>;
+      using BoundingBox = AxisAlignedBoundingBox< Domain, unsigned int>;
+      using ApproximatedMultiImage = DGtal::ApproximatedMultiImage<Domain, LabelledMap, Approximation, BoundingBox>;
+
+      // Multi phase-field
+      MultiPhaseField2< LabelImage, FieldImage, ApproximatedMultiImage > evolver(*labelImage);
+      
+      DGtal::trace.beginBlock( "Deformation (massive multi phase field)" );
+
+      // Initial state export
+      std::stringstream s; 
+      s << outputFiles << setfill('0') << std::setw(4) << 0; 
+#if   DIMENSION == 2
+      drawContours( *labelImage, s.str(), outputFormat ); 
+#elif DIMENSION == 3
+      writePartition( *labelImage, s.str(), outputFormat );
+#endif
+      
+      // VTK export
+        {
+          VTKWriter<Domain> vtk(s.str(), labelImage->domain());
+          for (size_t j = 0; j < evolver.getNumPhase(); ++j)
+            {
+              stringstream s_phase;
+              s_phase << "phi" << setfill('0') << std::setw(2) << j;
+              vtk << s_phase.str() << evolver.getPhase(j);
+            }
+        }
+      
+      // Time integration
+      double sumt = 0; 
+      for (unsigned int i = 1; i <= max_step; ++i) 
+        {
+          DGtal::trace.info() << "iteration # " << i << std::endl; 
+
+          // Update
+          evolver.update( tstep ); 
+
+          // Display
+          if ( (i % disp_step) == 0 ) 
+            {
+              std::stringstream s; 
+              s << outputFiles << setfill('0') << std::setw(4) << (i/disp_step); 
+#if   DIMENSION == 2
+	            drawContours( *labelImage, s.str(), outputFormat ); 
+#elif DIMENSION == 3
+              writePartition( *labelImage, s.str(), outputFormat );
+#endif
+              
+              // VTK export
+              VTKWriter<Domain> vtk(s.str(), labelImage->domain());
+              for (size_t j = 0; j < evolver.getNumPhase(); ++j)
+                {
+                  stringstream s_phase;
+                  s_phase << "phi" << setfill('0') << std::setw(2) << j;
+                  vtk << s_phase.str() << evolver.getPhase(j);
+                }
+
+            }
+
+          sumt += tstep;
+          
+          // Volume of each phase
+          /*
+          typedef std::map<typename LabelImage::Value, unsigned int> Histo;
+          Histo histo;
+          calcHistogram( *labelImage, histo );
+          DGtal::trace.info() << "Volume: ";
+          for ( Histo::const_iterator it = histo.begin(); it != histo.end(); ++it )
+              DGtal::trace.info() << "V(" << it->first << ") = " << it->second;
+          DGtal::trace.info() << std::endl;
+          */
+
+          // Volume of each phase
+          DGtal::trace.info() << ( dimension == 2 ? "Area: " : "Volume: " );
+          for (size_t j = 0; j < evolver.getNumPhase(); ++j)
+            {
+              DGtal::trace.info() << "V(" << j << ") = " << getVolume<double>(evolver.getPhase(j));
+            }
+          DGtal::trace.info() << std::endl;
+
+          DGtal::trace.info() << "Time spent: " << sumt << std::endl;    
+        }
+
+      DGtal::trace.endBlock();
+
+#if DIMENSION == 3
+      // Interactive display after the evolution
+      if ( flagWithVisu ) 
+        displayPartition( *labelImage ); 
+#endif
     }
   else if ( algo == "localLevelSet" )
     {

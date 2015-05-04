@@ -1,0 +1,357 @@
+/**
+ *  This program is free software: you can redistribute it and/or modify
+ *  it under the terms of the GNU Lesser General Public License as
+ *  published by the Free Software Foundation, either version 3 of the
+ *  License, or  (at your option) any later version.
+ *
+ *  This program is distributed in the hope that it will be useful,
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *  GNU General Public License for more details.
+ *
+ *  You should have received a copy of the GNU General Public License
+ *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ *
+ **/
+
+/**
+ * @file MultiPhaseField2.ih
+ * @author Tristan Roussillon (\c tristan.roussillon@liris.cnrs.fr )
+ * Laboratoire d'InfoRmatique en Image et Systèmes d'information - LIRIS (CNRS, UMR 5205), CNRS, France
+ * @author Roland Denis (\c roland.denis@univ-smb.fr )
+ * LAboratory of MAthematics - LAMA (CNRS, UMR 5127), University of Savoie, France
+ *
+ * @date 2015/04/28
+ *
+ * @brief Implementation of inline methods defined in MultiPhaseField2.h
+ *
+ * This file is part of the DGtal library.
+ */
+
+#include <DGtal/images/SimpleThresholdForegroundPredicate.h>
+
+//////////////////////////////////////////////////////////////////////////////
+
+///////////////////////////////////////////////////////////////////////////////
+// IMPLEMENTATION of inline methods.
+///////////////////////////////////////////////////////////////////////////////
+
+///////////////////////////////////////////////////////////////////////////////
+// ----------------------- Standard services ------------------------------
+
+template <
+  typename TLabelImage,
+  typename TFieldImage,
+  typename TDomain, typename TContainer, typename TApproximation, typename TBoundingBox
+>
+inline
+DGtal::MultiPhaseField2< TLabelImage, TFieldImage, DGtal::ApproximatedMultiImage<TDomain, TContainer, TApproximation, TBoundingBox> >
+::MultiPhaseField2(LabelImage& aI)
+  : myLabelImage( aI ),
+    myFields{ myLabelImage.domain(), TApproximation(1e-8) }
+{ 
+ 
+  // Domain
+  Domain domain = myFields.domain();
+
+  // Retrieve labels
+  std::set<Label> labels;
+  for ( auto const& label : myLabelImage )
+    labels.insert( label );
+
+  // Store labels
+  myLabels.insert(myLabels.end(), labels.cbegin(), labels.cend() );
+
+  // For each label, build the corresponding phase field
+  for ( std::size_t i = 1; i < myLabels.size(); ++i )
+    {
+      std::cerr << "Region of label " << myLabels[i] << std::endl; 
+      
+      /// new phase field
+      FieldImage image(domain); 
+
+      /// DT computation
+      getSignedDistance( myLabels[i], image );
+
+      // Profile computation
+      Profile profile( 1.5 );  //TODO get epsilon from myEvolver or even better its profile function
+      std::transform(image.begin(), image.end(), myFields[i].begin(), profile);       
+    }
+
+  // Build the air field (#0)
+  std::cerr << "Region of label 0" << std::endl; 
+  for ( auto const& point : domain )
+    {
+      typename TFieldImage::Value sum = 0;
+      for ( auto v : myFields(point) )  sum += v.second;
+      myFields.setValue( point, 0, 1 - sum );
+    }
+
+}
+
+template <
+  typename TLabelImage,
+  typename TFieldImage,
+  typename TDomain, typename TContainer, typename TApproximation, typename TBoundingBox
+>
+inline
+DGtal::MultiPhaseField2< TLabelImage, TFieldImage, DGtal::ApproximatedMultiImage<TDomain, TContainer, TApproximation, TBoundingBox> >
+::~MultiPhaseField2()
+{ 
+}
+
+template <
+  typename TLabelImage,
+  typename TFieldImage,
+  typename TDomain, typename TContainer, typename TApproximation, typename TBoundingBox
+>
+inline
+double
+DGtal::MultiPhaseField2< TLabelImage, TFieldImage, DGtal::ApproximatedMultiImage<TDomain, TContainer, TApproximation, TBoundingBox> >
+::update(const double& aT)
+{
+  using std::size_t; 
+  using Point = typename TFieldImage::Point;
+
+  Domain domain = myFields.domain();
+
+  // Diffusion
+  using FFT  =  FFT<TFieldImage>;
+  using IFFT = IFFT<typename FFT::ComplexImage>; 
+  for ( size_t i = 0; i < myLabels.size(); ++i )
+    {
+      auto bb_field = myFields.getBBImage(i, Point::diagonal(3));
+      TFieldImage field(bb_field);
+      typename FFT::ComplexImage freq(field.domain());
+      FFT(field).compute( freq );
+
+      auto const extent = freq.extent();
+      for ( auto const& point : freq.domain() )
+        {
+
+          double norm2 = 0;
+          for ( size_t j = 0; j < TFieldImage::dimension; ++j)
+            {
+              double coord = static_cast<double>(point[j]) / extent[j];
+              if ( coord >= 0.5 ) coord -= 1.;
+              norm2 += coord*coord;
+            }
+          const double c = std::exp( -4*M_PI*M_PI*aT*norm2 );
+
+          // New value
+          auto const v = freq(point);
+          freq.setValue( point, { c*real(v), c*imag(v) } );
+        }
+
+      // Back in spatial space
+      IFFT(freq).compute(field);
+
+      // Store the result
+      std::copy( field.begin(), field.end(), bb_field.begin() );
+    }
+
+  
+  /// update image of labels
+  {
+    //default label
+       //std::fill( myLabelImage.range().begin(), myLabelImage.range().end(), myDefaultLabel); 
+
+    /*
+    //other labels
+    typename std::vector<FieldImagePtr>::const_iterator it = myFields.begin(); 
+    typename std::vector<Label>::const_iterator itLabel = myLabels.begin();  
+    
+    for ( ; it != myFields.end(); ++it, ++itLabel)
+      {
+	for (typename Domain::ConstIterator itPt = domain.begin(); itPt != domain.end(); ++itPt)
+	  {
+	    if ((*it)->operator()(*itPt) >= 0.5)
+	      myLabelImage.setValue( *itPt, *itLabel ); 
+	  }   
+      }
+    */
+
+    /*   
+    for (typename Domain::ConstIterator itPt = domain.begin(); itPt != domain.end(); ++itPt)
+      {
+        Label max_label;
+        typename TFieldImage::Value max_value = 0;
+        typename std::vector<FieldImagePtr>::const_iterator it = myFields.begin(); 
+        typename std::vector<Label>::const_iterator itLabel = myLabels.begin();  
+        for ( ; it != myFields.end(); ++it, ++itLabel )
+          {
+            typename TFieldImage::Value const value = (*it)->operator()(*itPt);
+            if (value >= max_value)
+              {
+                max_value = value;
+                max_label = *itLabel;
+              }
+          }
+
+        myLabelImage.setValue( *itPt, max_label );
+      }
+    */
+  }
+
+  return aT; 
+}
+
+template <
+  typename TLabelImage,
+  typename TFieldImage,
+  typename TDomain, typename TContainer, typename TApproximation, typename TBoundingBox
+>
+inline
+void
+DGtal::MultiPhaseField2< TLabelImage, TFieldImage, DGtal::ApproximatedMultiImage<TDomain, TContainer, TApproximation, TBoundingBox> >
+::selfDisplay ( std::ostream & out ) const
+{
+  out << "[MultiPhaseField2] ";
+  out << myFields.size() << " regions "; 
+}
+
+template <
+  typename TLabelImage,
+  typename TFieldImage,
+  typename TDomain, typename TContainer, typename TApproximation, typename TBoundingBox
+>
+inline
+bool
+DGtal::MultiPhaseField2< TLabelImage, TFieldImage, DGtal::ApproximatedMultiImage<TDomain, TContainer, TApproximation, TBoundingBox> >
+::isValid() const
+{
+  return true;
+}
+
+template <
+  typename TLabelImage,
+  typename TFieldImage,
+  typename TDomain, typename TContainer, typename TApproximation, typename TBoundingBox
+>
+inline
+void
+DGtal::MultiPhaseField2< TLabelImage, TFieldImage, DGtal::ApproximatedMultiImage<TDomain, TContainer, TApproximation, TBoundingBox> >
+::getSignedDistance(const Label& aLabel, FieldImage& aImage) const
+{
+
+  Domain d = Domain( myLabelImage.domain().lowerBound(), myLabelImage.domain().upperBound() );
+  typename Domain::ConstIterator cIt = d.begin(); 
+  typename Domain::ConstIterator cItBegin = d.begin(); 
+  typename Domain::ConstIterator cItEnd = d.end(); 
+
+  //temporary buffers
+  typedef ImageContainerBySTLVector<Domain, DGtal::int32_t> Image; 
+  Image copy1( d );
+  for (cIt = cItBegin; cIt != cItEnd; ++cIt)
+    { 
+      if ( myLabelImage( *cIt ) == aLabel )
+	copy1.setValue( *cIt, 0 ); 
+      else
+	copy1.setValue( *cIt, 1 ); 
+    }
+  Image copy2( d );  
+  for (cIt = cItBegin; cIt != cItEnd; ++cIt)
+    { 
+      if ( myLabelImage( *cIt ) != aLabel )
+	copy2.setValue( *cIt, 0 ); 
+      else
+	copy2.setValue( *cIt, 1 ); 
+    }
+
+  // Distance transformation
+  // Old code was:
+  //    typedef  DistanceTransformation<Image, 2> DT;
+  //    DT dt;
+  //    typename DT::OutputImage dtImage = dt.compute ( copy1 );
+  //    typename DT::OutputImage rDtImage = dt.compute ( copy2 );
+  // 
+  // I suppose that 2 means L2Metric (with the correct Z#i-namespace in scope),
+  //    and that 0 value is used as threshold for the predicate.
+  typedef typename DGtal::functors::SimpleThresholdForegroundPredicate<Image> PointPredicate;
+  typedef typename DGtal::DistanceTransformation<Space, PointPredicate, L2Metric> DT;
+    
+  PointPredicate copy1Predicate( copy1, 0 );
+  PointPredicate copy2Predicate( copy2, 0 );
+
+  DT  dtImage( copy1.domain(), copy1Predicate, l2Metric );
+  DT rDtImage( copy2.domain(), copy2Predicate, l2Metric );
+  
+  //deduce the signed distance function 
+  for (cIt = cItBegin; cIt != cItEnd; ++cIt)
+    { //for each domain point
+
+      Point p( *cIt ); //point p
+      double dist = 0; //signed distance
+      if ( dtImage( p ) == 0 )
+	{
+	  if ( rDtImage( p ) == 0 )
+	    ASSERT( false && "Err init with DT in DGtal::MultiPhaseField2<TLabelImage, TFieldImage, TEvolver>::getSignedDistance" ); 
+	  else
+	    dist = std::sqrt( (double) rDtImage( p ) ) - 0.5;  
+	}
+      else
+	{
+	  dist = - ( std::sqrt( (double) dtImage( p ) ) - 0.5 );  
+	}
+      aImage.setValue(p, dist);  
+    }
+}
+
+
+/**
+ * Return the number of phases
+ */
+template <
+  typename TLabelImage,
+  typename TFieldImage,
+  typename TDomain, typename TContainer, typename TApproximation, typename TBoundingBox
+>
+inline
+size_t
+DGtal::MultiPhaseField2< TLabelImage, TFieldImage, DGtal::ApproximatedMultiImage<TDomain, TContainer, TApproximation, TBoundingBox> >
+::getNumPhase() const
+{
+  return myLabels.size();
+}
+
+/**
+ * Return one of the phase fields
+ */
+template <
+  typename TLabelImage,
+  typename TFieldImage,
+  typename TDomain, typename TContainer, typename TApproximation, typename TBoundingBox
+>
+inline
+typename DGtal::MultiPhaseField2< TLabelImage, TFieldImage, DGtal::ApproximatedMultiImage<TDomain, TContainer, TApproximation, TBoundingBox> >::FieldImage 
+DGtal::MultiPhaseField2< TLabelImage, TFieldImage, DGtal::ApproximatedMultiImage<TDomain, TContainer, TApproximation, TBoundingBox> >
+::getPhase( size_t i ) const
+{
+  return FieldImage(myFields[i]);
+}
+
+
+///////////////////////////////////////////////////////////////////////////////
+// Implementation of inline functions                                        //
+
+template <
+  typename TLabelImage,
+  typename TFieldImage,
+  typename TDomain, typename TContainer, typename TApproximation, typename TBoundingBox
+>
+inline
+std::ostream&
+DGtal::operator<< ( std::ostream & out, 
+		    DGtal::MultiPhaseField2< TLabelImage, TFieldImage, DGtal::ApproximatedMultiImage<TDomain, TContainer, TApproximation, TBoundingBox> > const& object )
+{
+  object.selfDisplay( out );
+  return out;
+}
+
+//                                                                           //
+///////////////////////////////////////////////////////////////////////////////
+
+/* GNU coding style */
+/* vim: set ts=2 sw=2 expandtab cindent cinoptions=>4,n-2,{2,^-2,:2,=2,g0,h2,p5,t0,+2,(0,u0,w1,m1 : */
+
+
