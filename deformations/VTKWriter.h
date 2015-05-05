@@ -123,8 +123,9 @@ namespace DGtal
      * @todo enable only if TImage is a model a concepts::CImage !!
      */
     template <typename TImage>
-    BOOST_CONCEPT_REQUIRES( (( concepts::CConstImage<TImage> )),
-    ( VTKWriter<HyperRectDomain<TSpace>,Binary> & ))
+    //BOOST_CONCEPT_REQUIRES( (( concepts::CConstImage<TImage> )),
+    //( VTKWriter<HyperRectDomain<TSpace>,Binary> & ))
+    VTKWriter<HyperRectDomain<TSpace>,Binary> &
     operator<< ( TImage const& field );
 
     /**

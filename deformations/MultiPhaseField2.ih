@@ -28,6 +28,8 @@
  * This file is part of the DGtal library.
  */
 
+#include <vector>
+
 #include <DGtal/images/SimpleThresholdForegroundPredicate.h>
 
 //////////////////////////////////////////////////////////////////////////////
@@ -46,9 +48,10 @@ template <
 >
 inline
 DGtal::MultiPhaseField2< TLabelImage, TFieldImage, DGtal::ApproximatedMultiImage<TDomain, TContainer, TApproximation, TBoundingBox> >
-::MultiPhaseField2(LabelImage& aI)
+::MultiPhaseField2(LabelImage& aI, typename TFieldImage::Value epsilon)
   : myLabelImage( aI ),
-    myFields{ myLabelImage.domain(), TApproximation(1e-8) }
+    myFields{ myLabelImage.domain(), TApproximation(1e-18) },
+    myEpsilon{ epsilon }
 { 
  
   // Domain
@@ -74,11 +77,12 @@ DGtal::MultiPhaseField2< TLabelImage, TFieldImage, DGtal::ApproximatedMultiImage
       getSignedDistance( myLabels[i], image );
 
       // Profile computation
-      Profile profile( 1.5 );  //TODO get epsilon from myEvolver or even better its profile function
+      Profile profile( myEpsilon );  //TODO get epsilon from myEvolver or even better its profile function
       std::transform(image.begin(), image.end(), myFields[i].begin(), profile);       
     }
 
   // Build the air field (#0)
+  // NB : maybe better if we rescale all fields ?
   std::cerr << "Region of label 0" << std::endl; 
   for ( auto const& point : domain )
     {
@@ -112,6 +116,7 @@ DGtal::MultiPhaseField2< TLabelImage, TFieldImage, DGtal::ApproximatedMultiImage
 {
   using std::size_t; 
   using Point = typename TFieldImage::Point;
+  using real = typename TFieldImage::Value;
 
   Domain domain = myFields.domain();
 
@@ -120,7 +125,8 @@ DGtal::MultiPhaseField2< TLabelImage, TFieldImage, DGtal::ApproximatedMultiImage
   using IFFT = IFFT<typename FFT::ComplexImage>; 
   for ( size_t i = 0; i < myLabels.size(); ++i )
     {
-      auto bb_field = myFields.getBBImage(i, Point::diagonal(3));
+      //auto bb_field = myFields.getBBImage(i, Point::diagonal(10)); // Bounding box & periodicity ?!!!
+      auto bb_field = myFields[i];
       TFieldImage field(bb_field);
       typename FFT::ComplexImage freq(field.domain());
       FFT(field).compute( freq );
@@ -140,7 +146,7 @@ DGtal::MultiPhaseField2< TLabelImage, TFieldImage, DGtal::ApproximatedMultiImage
 
           // New value
           auto const v = freq(point);
-          freq.setValue( point, { c*real(v), c*imag(v) } );
+          freq.setValue( point, { c*std::real(v), c*std::imag(v) } );
         }
 
       // Back in spatial space
@@ -149,6 +155,68 @@ DGtal::MultiPhaseField2< TLabelImage, TFieldImage, DGtal::ApproximatedMultiImage
       // Store the result
       std::copy( field.begin(), field.end(), bb_field.begin() );
     }
+  // End diffusion
+  
+  // Phase overlap
+  TFieldImage phase_overlap(domain);
+  for ( auto const& point : domain )
+    {
+      real sum = 0;
+      for ( auto const& value : myFields(point) )
+        sum += value.second;
+      phase_overlap.setValue(point, 1 - sum);
+    }
+  // End phase overlap
+  
+  // Volume loss estimation
+  // \warning : we suppose that labels in LabelledMap are consecutive.
+  std::vector<real> num( myLabels.size(), 0 );
+  std::vector<real> denum( myLabels.size(), 0 );
+  for ( auto const& point : domain )
+    {
+      for ( auto value : myFields(point) )
+        {
+          const real u = value.second;
+          num[value.first]   += u * (u - 1) * (2*u - 1);
+          denum[value.first] += std::abs(u) * std::abs(1 - u);
+        }
+    }
+  
+  std::vector<real> volume_loss( num.size() );
+  for ( size_t i = 0; i < volume_loss.size(); ++i )
+    volume_loss[i] = num[i] / denum[i];
+  // End volume loss estimation
+  
+  // Lagrangian multiplier
+  for ( auto const& point : domain )
+    {
+      real sum = 0;
+      for ( auto value : myFields(point) )
+        {
+          const real u = value.second;
+          //sum += u*(u-1) * ( (2*u-1) + volume_loss[value.first] );
+          sum += u*(u-1) * (2*u-1) -  volume_loss[value.first] * std::abs(u) * std::abs(1-u);
+        }
+      phase_overlap.setValue(point, ( sum + phase_overlap(point) ) / myLabels.size() );
+    }
+  // End Lagrangian multiplier
+
+  // Evolution - Method A
+  const real dummy = aT / (myEpsilon * myEpsilon);
+  for ( auto const& point : domain )
+    {
+      size_t id = myFields.linearized(point); // Hum ...
+
+      for ( size_t i = 0; i < myLabels.size(); ++i )
+        {
+          const real u = myFields.getValueByIndex(id, i);
+          //const real p = (u == 0) ? 0 : u*(u-1) * ( (2*u-1) + volume_loss[i] );
+          const real p = (u == 0) ? 0 : ( u*(u-1) *(2*u-1) - volume_loss[i]*std::abs(u*(1-u)) );
+          const real v = u - dummy * (p - phase_overlap(point));
+          myFields.setValue(point, i, v, id);
+        }
+    }
+
 
   
   /// update image of labels
@@ -287,13 +355,17 @@ DGtal::MultiPhaseField2< TLabelImage, TFieldImage, DGtal::ApproximatedMultiImage
 	  if ( rDtImage( p ) == 0 )
 	    ASSERT( false && "Err init with DT in DGtal::MultiPhaseField2<TLabelImage, TFieldImage, TEvolver>::getSignedDistance" ); 
 	  else
-	    dist = std::sqrt( (double) rDtImage( p ) ) - 0.5;  
+      {
+	      //dist = std::sqrt( (double) rDtImage( p ) ) - 0.5;  
+	      dist = rDtImage( p ) - 0.5;  
+      }
 	}
       else
 	{
-	  dist = - ( std::sqrt( (double) dtImage( p ) ) - 0.5 );  
+	  //dist = - ( std::sqrt( (double) dtImage( p ) ) - 0.5 );  
+	  dist = - ( dtImage( p ) - 0.5 );  
 	}
-      aImage.setValue(p, dist);  
+      aImage.setValue(p, dist); /// \todo Periodicity !!!  
     }
 }
 

@@ -349,7 +349,7 @@ class ApproximatedMultiImage< TDomain, DGtal::LabelledMap<TData, L, TWord, N, M>
         Size myIndex;
       };
 
-  private:
+  public:
 
     /**
      * Return the linearized index of a point.

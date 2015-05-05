@@ -107,6 +107,7 @@ namespace DGtal
 
     /// Images of phase field values
     typedef TFieldImage FieldImage;
+    typedef typename TFieldImage::Value Value;
 
     using MultiImage = ApproximatedMultiImage<TDomain, TContainer, TApproximation, TBoundingBox>;
 
@@ -134,6 +135,9 @@ namespace DGtal
      */
     std::vector<Label> myLabels; 
 
+    //! Epsilon 
+    Value myEpsilon; 
+
     // ----------------------- Standard services ------------------------------
   public:
 
@@ -144,7 +148,7 @@ namespace DGtal
      * @param aDefaultLabel label used for points that
      * does not belong to any region after evolution
      */
-    MultiPhaseField2(LabelImage& aI);
+    MultiPhaseField2(LabelImage& aI, Value epsilon);
 
     /**
      * Destructor. Does nothing.

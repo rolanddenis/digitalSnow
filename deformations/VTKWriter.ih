@@ -250,8 +250,9 @@ operator<< ( const char* fieldname )
  */
 template <typename TSpace, bool Binary>
 template <typename TImage>
-BOOST_CONCEPT_REQUIRES( (( concepts::CConstImage<TImage> )),
-( VTKWriter< HyperRectDomain<TSpace>, Binary > & ))
+//BOOST_CONCEPT_REQUIRES( (( concepts::CConstImage<TImage> )),
+//( VTKWriter< HyperRectDomain<TSpace>, Binary > & ))
+VTKWriter< HyperRectDomain<TSpace>, Binary > &
 VTKWriter< HyperRectDomain<TSpace>, Binary >::
 operator<< ( TImage const& field )
 {

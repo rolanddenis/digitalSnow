@@ -552,7 +552,7 @@ int main(int argc, char** argv)
       using ApproximatedMultiImage = DGtal::ApproximatedMultiImage<Domain, LabelledMap, Approximation, BoundingBox>;
 
       // Multi phase-field
-      MultiPhaseField2< LabelImage, FieldImage, ApproximatedMultiImage > evolver(*labelImage);
+      MultiPhaseField2< LabelImage, FieldImage, ApproximatedMultiImage > evolver(*labelImage, epsilon);
       
       DGtal::trace.beginBlock( "Deformation (massive multi phase field)" );
 
