@@ -608,6 +608,14 @@ int main(int argc, char** argv)
                   vtk << s_phase.str() << evolver.getPhase(j);
                 }
 
+            // Volume of each phase
+            DGtal::trace.info() << ( dimension == 2 ? "Area: " : "Volume: " );
+            for (size_t j = 0; j < evolver.getNumPhase(); ++j)
+              {
+                DGtal::trace.info() << "V(" << j << ") = " << getVolume<double>(evolver.getPhase(j));
+              }
+            DGtal::trace.info() << std::endl;
+
             }
 
           sumt += tstep;
@@ -623,13 +631,6 @@ int main(int argc, char** argv)
           DGtal::trace.info() << std::endl;
           */
 
-          // Volume of each phase
-          DGtal::trace.info() << ( dimension == 2 ? "Area: " : "Volume: " );
-          for (size_t j = 0; j < evolver.getNumPhase(); ++j)
-            {
-              DGtal::trace.info() << "V(" << j << ") = " << getVolume<double>(evolver.getPhase(j));
-            }
-          DGtal::trace.info() << std::endl;
 
           DGtal::trace.info() << "Time spent: " << sumt << std::endl;    
         }
