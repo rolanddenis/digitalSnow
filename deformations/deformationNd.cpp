@@ -548,6 +548,7 @@ int main(int argc, char** argv)
       using real = double;
       using LabelledMap = DGtal::LabelledMap<real, 64, long unsigned int, 3, 4>;
       using Approximation = DGtal::approximations::NegativeTolValueApproximation<real>;
+      //using Approximation = DGtal::approximations::NoValueApproximation<real>;
       using BoundingBox = AxisAlignedBoundingBox< Domain, unsigned int>;
       using ApproximatedMultiImage = DGtal::ApproximatedMultiImage<Domain, LabelledMap, Approximation, BoundingBox>;
 

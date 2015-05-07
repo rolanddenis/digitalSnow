@@ -50,7 +50,7 @@ inline
 DGtal::MultiPhaseField2< TLabelImage, TFieldImage, DGtal::ApproximatedMultiImage<TDomain, TContainer, TApproximation, TBoundingBox> >
 ::MultiPhaseField2(LabelImage& aI, typename TFieldImage::Value epsilon)
   : myLabelImage( aI ),
-    myFields{ myLabelImage.domain(), TApproximation(1e-18) },
+    myFields{ myLabelImage.domain(), TApproximation{1e-18} },
     myEpsilon{ epsilon }
 { 
  
@@ -198,6 +198,7 @@ DGtal::MultiPhaseField2< TLabelImage, TFieldImage, DGtal::ApproximatedMultiImage
           sum += u*(u-1) * (2*u-1) -  volume_loss[value.first] * std::abs(u) * std::abs(1-u);
         }
       phase_overlap.setValue(point, ( sum + phase_overlap(point) ) / myLabels.size() );
+      //phase_overlap.setValue(point, ( sum + phase_overlap(point) ) / myFields(point).size() );
     }
   // End Lagrangian multiplier
 
@@ -216,7 +217,7 @@ DGtal::MultiPhaseField2< TLabelImage, TFieldImage, DGtal::ApproximatedMultiImage
           myFields.setValue(point, i, v, id);
         }
     }
-
+  // End evolution - Method A
 
   
   /// update image of labels
