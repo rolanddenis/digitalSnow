@@ -9,6 +9,8 @@
 #define deformationFunctions_h
 
 #include <numeric> // Algorithms
+#include <cmath>
+#include <vector>
 
 //images
 #include <DGtal/images/ImageContainerBySTLVector.h>
@@ -228,6 +230,56 @@ void initWithFlowerPredicate(TImage& img, const typename TImage::Point& c, doubl
     img.setValue(p, (typename TImage::Value)(dist <= 0) );  
   }
 }
+
+template < typename TImage >
+void initWithMultipleBalls( TImage& img, std::vector<std::size_t> const& count, double radius, std::size_t buffer = 0 )
+{
+  using std::size_t;
+  using Domain = typename TImage::Domain;
+  using Point  = typename TImage::Point;
+  constexpr size_t dimension = Domain::dimension;
+
+  const Domain domain = img.domain();
+  const Point  extent = domain.upperBound() - domain.lowerBound() + Point::diagonal(1);
+
+  double dx[dimension];
+  for (size_t i = 0; i < dimension; ++i)
+    dx[i] = static_cast<double>(extent[i]) / (count[i]+2*buffer);
+
+  Point dummy;
+  for (size_t i = 0; i < dimension; ++i)
+    dummy[i] = count[i];
+
+  const Domain pos_domain{ Point::diagonal(0), dummy - Point::diagonal(1) };
+
+  for ( auto const& point : domain )
+    {
+      img.setValue( point, 0 );
+      size_t label = 0;
+      for ( auto const& pos : pos_domain )
+        {
+          ++label;
+          double norm = 0;
+          for ( size_t i = 0; i < dimension; ++i )
+            norm += std::pow(point[i] - (pos[i]+0.5+buffer)*dx[i], 2);
+
+          if ( norm <= radius*radius )
+            {
+              img.setValue( point, label );
+              break;
+            }
+        }
+    }
+}
+
+template < typename TImage >
+void initWithMultipleBalls( TImage& img, std::size_t count, double radius, std::size_t buffer = 0 )
+{
+  initWithMultipleBalls( img, std::vector<std::size_t>(TImage::dimension, count), radius, buffer );
+}
+
+
+
 
 
 #include "DGtal/geometry/volumes/distance/DistanceTransformation.h"

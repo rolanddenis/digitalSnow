@@ -111,7 +111,7 @@ int main(int argc, char** argv)
     ("inputImage,i",    po::value<string>(), "Binary image to initialize the starting interface (vol format)" )
     ("domainSize,d",    po::value<size_t>(&dsize)->default_value(dsize), "Domain size (if default starting interface)" )
     ("shape,s",         po::value<string>(&shape)->default_value(shape), 
-        "Generated shape: either <ball> or <flower> " )
+        "Generated shape: either <ball>, <flower> or <mballs> " )
     ("timeStep,t",      po::value<double>(&tstep)->default_value(tstep), "Time step for the evolution" )
     ("displayStep",     po::value<size_t>(&disp_step)->default_value(disp_step), "Number of time steps between 2 drawings" )
     ("stepsNumber,n",   po::value<size_t>(&max_step)->default_value(max_step), "Maximal number of steps" )
@@ -161,9 +161,9 @@ int main(int argc, char** argv)
 #endif
 
   // Generated shape
-  if ( vm.count("inputImage") == 0 && shape != "ball" && shape != "flower" )
+  if ( vm.count("inputImage") == 0 && shape != "ball" && shape != "flower" && shape != "mballs" )
     {
-      trace.info() << "if no input file is specified, shape is expected to be either <ball> or <flower> " << std::endl;
+      trace.info() << "if no input file is specified, shape is expected to be either <ball>, <flower> or <mballs> " << std::endl;
       return 1;
     }
 
@@ -204,8 +204,10 @@ int main(int argc, char** argv)
 
       if ( (vm["shape"].as<std::string>()) == "flower" )
         initWithFlowerPredicate( *labelImage, c, (dsize*3/5)/2, (dsize*1/5)/2, 5 );
-      else 
+      else if ( (vm["shape"].as<std::string>()) == "ball" )
         initWithBallPredicate( *labelImage, c, (dsize*3/5)/2 ); 
+      else
+        initWithMultipleBalls( *labelImage, 3,  (dsize/5) * 0.5, 1 );
       
       trace.info() << "starting interface initialized with a " << shape << std::endl;
 
