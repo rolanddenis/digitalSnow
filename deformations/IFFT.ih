@@ -66,12 +66,14 @@ DGtal::IFFT<TImage>::compute(TOutputImage& anImage)
     }
 
   //plan
+  trace.beginBlock("iFFTW");
   fftw_plan plan;
   //plan = fftw_plan_dft( dimension, t, frequency_repr, spatial_repr, FFTW_BACKWARD, FFTW_ESTIMATE ); 
   plan = fftw_plan_dft_c2r( dimension, t, frequency_repr, spatial_repr, FFTW_ESTIMATE ); 
 
   //computation
   fftw_execute(plan);
+  trace.endBlock();
 
   //copy 
   it = d.begin();

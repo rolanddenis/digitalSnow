@@ -32,6 +32,10 @@
 
 #include <DGtal/images/SimpleThresholdForegroundPredicate.h>
 
+//#include <omp.h>
+#include <fftw3.h>
+
+
 //////////////////////////////////////////////////////////////////////////////
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -91,6 +95,10 @@ DGtal::MultiPhaseField2< TLabelImage, TFieldImage, DGtal::ApproximatedMultiImage
       myFields.setValue( point, 0, 1 - sum );
     }
 
+  // Initialize FFTW <- has nothing to do here ... just for dev
+  if ( fftw_init_threads() == 0 ) std::cout << "!!! Parallel FFTW initialization failed !!!" << std::endl;
+  fftw_plan_with_nthreads( 1 );
+
 }
 
 template <
@@ -126,8 +134,8 @@ DGtal::MultiPhaseField2< TLabelImage, TFieldImage, DGtal::ApproximatedMultiImage
   using IFFT = IFFT<typename FFT::ComplexImage>; 
   for ( size_t i = 0; i < myLabels.size(); ++i )
     {
-      auto bb_field = myFields.getBBImage(i, Point::diagonal(10)); // Bounding box & periodicity ?!!!
-      //auto bb_field = myFields[i];
+      //auto bb_field = myFields.getBBImage(i, Point::diagonal(10)); // Bounding box & periodicity ?!!!
+      auto bb_field = myFields[i];
       TFieldImage field(bb_field);
       typename FFT::ComplexImage freq(field.domain());
       FFT(field).compute( freq );
@@ -251,26 +259,24 @@ DGtal::MultiPhaseField2< TLabelImage, TFieldImage, DGtal::ApproximatedMultiImage
       }
     */
 
-    /*   
-    for (typename Domain::ConstIterator itPt = domain.begin(); itPt != domain.end(); ++itPt)
+    trace.beginBlock("Updating Label");
+    for ( auto const& point : domain )
       {
         Label max_label;
-        typename TFieldImage::Value max_value = 0;
-        typename std::vector<FieldImagePtr>::const_iterator it = myFields.begin(); 
-        typename std::vector<Label>::const_iterator itLabel = myLabels.begin();  
-        for ( ; it != myFields.end(); ++it, ++itLabel )
+        real max_value = 0;
+        for ( std::size_t i = 0; i < myLabels.size(); ++i )
           {
-            typename TFieldImage::Value const value = (*it)->operator()(*itPt);
+            real value = myFields.getValue(point, i);
             if (value >= max_value)
               {
                 max_value = value;
-                max_label = *itLabel;
+                max_label = myLabels[i];
               }
           }
 
-        myLabelImage.setValue( *itPt, max_label );
+        myLabelImage.setValue( point, max_label );
       }
-    */
+    trace.endBlock();
   }
 
   return aT; 

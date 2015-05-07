@@ -577,6 +577,7 @@ int main(int argc, char** argv)
               s_phase << "phi" << setfill('0') << std::setw(2) << j;
               vtk << s_phase.str() << evolver.getPhase(j);
             }
+          vtk << "label" << *labelImage;
         }
       
       // Time integration
@@ -601,20 +602,23 @@ int main(int argc, char** argv)
               
               // VTK export
               VTKWriter<Domain> vtk(s.str(), labelImage->domain());
+              /*
               for (size_t j = 0; j < evolver.getNumPhase(); ++j)
                 {
                   stringstream s_phase;
                   s_phase << "phi" << setfill('0') << std::setw(2) << j;
                   vtk << s_phase.str() << evolver.getPhase(j);
                 }
+              */
+              vtk << "label" << *labelImage;
 
-            // Volume of each phase
-            DGtal::trace.info() << ( dimension == 2 ? "Area: " : "Volume: " );
-            for (size_t j = 0; j < evolver.getNumPhase(); ++j)
-              {
-                DGtal::trace.info() << "V(" << j << ") = " << getVolume<double>(evolver.getPhase(j));
-              }
-            DGtal::trace.info() << std::endl;
+              // Volume of each phase
+              DGtal::trace.info() << ( dimension == 2 ? "Area: " : "Volume: " );
+              for (size_t j = 0; j < evolver.getNumPhase(); ++j)
+                {
+                  DGtal::trace.info() << "V(" << j << ") = " << getVolume<double>(evolver.getPhase(j));
+                }
+              DGtal::trace.info() << std::endl;
 
             }
 

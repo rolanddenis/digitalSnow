@@ -53,6 +53,20 @@ namespace {
 template <typename T>
 struct VTKType;
 
+template <typename T>
+struct VTKType1D 
+{
+  static inline constexpr
+  size_t dim() { return 1; }
+
+  template < typename TStream, typename TValue >
+  static inline
+  void write( TStream & stream, TValue const& value )
+    {
+      stream << static_cast<T>(value);
+    }
+};
+
 template <>
 struct VTKType<double>
 {
@@ -85,6 +99,12 @@ struct VTKType<float>
     {
       stream << static_cast<float>(value);
     }
+};
+
+template <>
+struct VTKType<short int> : VTKType1D<short int>
+{
+  static inline std::string name() { return "short"; }
 };
 
 //! VTK Stream writer

@@ -58,6 +58,7 @@ DGtal::FFT<TImage>::compute(ComplexImage& anImage)
       spatial_repr[i] = (double) myImage(*it);
    }
 
+  trace.beginBlock("FFTW");
   //plan
   fftw_plan plan;
   //plan = fftw_plan_dft( dimension, t, spatial_repr, frequency_repr, FFTW_FORWARD, FFTW_ESTIMATE ); 
@@ -65,6 +66,7 @@ DGtal::FFT<TImage>::compute(ComplexImage& anImage)
 
   //computation
    fftw_execute(plan);
+  trace.endBlock();
 
   //copy 
   it = d.begin();
