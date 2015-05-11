@@ -97,10 +97,8 @@ DGtal::MultiPhaseField2< TLabelImage, TFieldImage, DGtal::ApproximatedMultiImage
     }
 
   // Initialize FFTW <- has nothing to do here ... just for dev
-  /*
   if ( fftw_init_threads() == 0 ) std::cout << "!!! Parallel FFTW initialization failed !!!" << std::endl;
   fftw_plan_with_nthreads( 1 );
-  */
 
 }
 
