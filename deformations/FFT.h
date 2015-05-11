@@ -8,6 +8,8 @@
 #include <DGtal/images/CImage.h>
 #include <DGtal/images/ImageContainerBySTLVector.h>
 
+#include "InlineTrace.h"
+
 namespace DGtal{
 
   /////////////////////////////////////////////////////////////////////////////

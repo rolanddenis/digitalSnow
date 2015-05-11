@@ -53,6 +53,7 @@ DGtal::IFFT<TImage>::compute(TOutputImage& anImage)
   Domain d = myImage.domain();  
   typename Domain::ConstIterator it = d.begin(); 
   typename Domain::ConstIterator itEnd = d.end(); 
+  itrace.beginStep("Copy");
   for(unsigned int i=0; it != itEnd; ++it, ++i)
     {
       Value c = myImage(*it);
@@ -66,16 +67,16 @@ DGtal::IFFT<TImage>::compute(TOutputImage& anImage)
     }
 
   //plan
-  trace.beginBlock("iFFTW");
+  itrace.beginStep("ifftw");
   fftw_plan plan;
   //plan = fftw_plan_dft( dimension, t, frequency_repr, spatial_repr, FFTW_BACKWARD, FFTW_ESTIMATE ); 
   plan = fftw_plan_dft_c2r( dimension, t, frequency_repr, spatial_repr, FFTW_ESTIMATE ); 
 
   //computation
   fftw_execute(plan);
-  trace.endBlock();
 
   //copy 
+  itrace.beginStep("Copy");
   it = d.begin();
   for(unsigned int i=0; (i < n); ++it, ++i)
     {
@@ -84,6 +85,7 @@ DGtal::IFFT<TImage>::compute(TOutputImage& anImage)
       double s = spatial_repr[i]/n; 
       anImage.setValue( *it, static_cast<OutputValue>(s) ); 
     }
+  itrace.endStep();
 
   //end
   fftw_destroy_plan(plan);

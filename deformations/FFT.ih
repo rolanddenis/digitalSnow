@@ -3,6 +3,7 @@
 // IMPLEMENTATION of inline methods.
 ///////////////////////////////////////////////////////////////////////////////
 
+#include <cstring>
 
 template <typename TImage>
 inline
@@ -51,14 +52,20 @@ DGtal::FFT<TImage>::compute(ComplexImage& anImage)
   Domain d = myImage.domain();  
   typename Domain::ConstIterator it = d.begin(); 
   typename Domain::ConstIterator itEnd = d.end(); 
-   for(unsigned int i=0; it != itEnd; ++it, ++i)
-   {
-      //spatial_repr[i][0] = (double) myImage(*it);
-      //spatial_repr[i][1] = 0.0;
-      spatial_repr[i] = (double) myImage(*it);
-   }
+  itrace.beginStep("Copy");
+  /*
+  for(unsigned int i=0; it != itEnd; ++it, ++i)
+  {
+    //spatial_repr[i][0] = (double) myImage(*it);
+    //spatial_repr[i][1] = 0.0;
+    spatial_repr[i] = (double) myImage(*it);
+  }
+  */
+  //std::copy( myImage.begin(), myImage.end(), spatial_repr);
+  std::memcpy( spatial_repr, myImage.data(), sizeof(typename Image::Value) * myImage.size() );
+  itrace.endStep();
 
-  trace.beginBlock("FFTW");
+  itrace.beginStep("fftw");
   //plan
   fftw_plan plan;
   //plan = fftw_plan_dft( dimension, t, spatial_repr, frequency_repr, FFTW_FORWARD, FFTW_ESTIMATE ); 
@@ -66,9 +73,10 @@ DGtal::FFT<TImage>::compute(ComplexImage& anImage)
 
   //computation
    fftw_execute(plan);
-  trace.endBlock();
+  itrace.endStep();
 
   //copy 
+  itrace.beginStep("Copy");
   it = d.begin();
   const auto it_end = d.end();
   for(unsigned int i=0; it != it_end; ++it, ++i)
@@ -88,6 +96,7 @@ DGtal::FFT<TImage>::compute(ComplexImage& anImage)
 
     //if (i == n/2) i = 0;
   }
+  itrace.endStep();
 
   //end
    fftw_destroy_plan(plan);

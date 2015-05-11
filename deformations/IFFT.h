@@ -7,6 +7,8 @@
 #include <boost/type_traits.hpp>
 #include <DGtal/images/CImage.h>
 
+#include "InlineTrace.h"
+
 namespace DGtal{
 
   /////////////////////////////////////////////////////////////////////////////

@@ -31,6 +31,7 @@
 #include <vector>
 
 #include <DGtal/images/SimpleThresholdForegroundPredicate.h>
+#include "InlineTrace.h"
 
 //#include <omp.h>
 #include <fftw3.h>
@@ -73,7 +74,7 @@ DGtal::MultiPhaseField2< TLabelImage, TFieldImage, DGtal::ApproximatedMultiImage
   for ( std::size_t i = 1; i < myLabels.size(); ++i )
     {
       std::cerr << "Region of label " << myLabels[i] << std::endl; 
-      
+
       /// new phase field
       FieldImage image(domain); 
 
@@ -96,8 +97,10 @@ DGtal::MultiPhaseField2< TLabelImage, TFieldImage, DGtal::ApproximatedMultiImage
     }
 
   // Initialize FFTW <- has nothing to do here ... just for dev
+  /*
   if ( fftw_init_threads() == 0 ) std::cout << "!!! Parallel FFTW initialization failed !!!" << std::endl;
   fftw_plan_with_nthreads( 1 );
+  */
 
 }
 
@@ -134,12 +137,16 @@ DGtal::MultiPhaseField2< TLabelImage, TFieldImage, DGtal::ApproximatedMultiImage
   using IFFT = IFFT<typename FFT::ComplexImage>; 
   for ( size_t i = 0; i < myLabels.size(); ++i )
     {
+      itrace.beginBlock("Diffusion");
+      itrace.beginStep("Read");
       //auto bb_field = myFields.getBBImage(i, Point::diagonal(10)); // Bounding box & periodicity ?!!!
       auto bb_field = myFields[i];
       TFieldImage field(bb_field);
+
       typename FFT::ComplexImage freq(field.domain());
       FFT(field).compute( freq );
 
+      itrace.beginStep("Conv");
       auto const extent = freq.extent();
       for ( auto const& point : freq.domain() )
         {
@@ -162,7 +169,10 @@ DGtal::MultiPhaseField2< TLabelImage, TFieldImage, DGtal::ApproximatedMultiImage
       IFFT(freq).compute(field);
 
       // Store the result
+      itrace.beginStep("Write");
       std::copy( field.begin(), field.end(), bb_field.begin() );
+
+      itrace.endBlock();
     }
   trace.endBlock();
   // End diffusion
