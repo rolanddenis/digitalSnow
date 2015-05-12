@@ -19,7 +19,9 @@ public:
     {
       myDesc = aDesc;
       mySteps.clear();
+      dispMe();
       myGlobalClock.startClock();
+
     }
 
   double endBlock()
@@ -42,11 +44,10 @@ public:
       if ( isRunningStep() ) 
         endStep();
 
-      mySteps.emplace_back( Step{aShortDesc, -1} );
-
       if ( mySteps.size() > 0 ) myStream << " ; ";
       myStream << aShortDesc << "...\r" << std::flush;
 
+      mySteps.emplace_back( Step{aShortDesc, -1} );
       myStepClock.startClock();
     }
 

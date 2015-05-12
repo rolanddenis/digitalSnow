@@ -207,7 +207,7 @@ int main(int argc, char** argv)
       else if ( (vm["shape"].as<std::string>()) == "ball" )
         initWithBallPredicate( *labelImage, c, (dsize*3/5)/2 ); 
       else
-        initWithMultipleBalls( *labelImage, 3,  (dsize/5) * 0.5, 1 );
+        initWithMultipleBalls( *labelImage, 6,  (dsize/5) * 0.5, 1 );
       
       trace.info() << "starting interface initialized with a " << shape << std::endl;
 

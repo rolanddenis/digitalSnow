@@ -1,6 +1,7 @@
 #ifndef IFFT_H
 #define IFFT_H
 
+#include <complex>
 #include <fftw3.h>
 
 #include <boost/static_assert.hpp>

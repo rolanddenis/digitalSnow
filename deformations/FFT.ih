@@ -53,14 +53,12 @@ DGtal::FFT<TImage>::compute(ComplexImage& anImage)
   typename Domain::ConstIterator it = d.begin(); 
   typename Domain::ConstIterator itEnd = d.end(); 
   itrace.beginStep("Copy");
-  /*
   for(unsigned int i=0; it != itEnd; ++it, ++i)
   {
     //spatial_repr[i][0] = (double) myImage(*it);
     //spatial_repr[i][1] = 0.0;
     spatial_repr[i] = (double) myImage(*it);
   }
-  */
   //std::copy( myImage.begin(), myImage.end(), spatial_repr);
   //std::memcpy( spatial_repr, myImage.data(), sizeof(typename Image::Value) * myImage.size() );
   itrace.endStep();
@@ -70,7 +68,7 @@ DGtal::FFT<TImage>::compute(ComplexImage& anImage)
   fftw_plan plan;
   //plan = fftw_plan_dft( dimension, t, spatial_repr, frequency_repr, FFTW_FORWARD, FFTW_ESTIMATE ); 
   //plan = fftw_plan_dft_r2c( dimension, t, spatial_repr, frequency_repr, FFTW_ESTIMATE ); 
-  plan = fftw_plan_dft_r2c( dimension, t, const_cast<double*>(myImage.data()), frequency_repr, FFTW_MEASURE ); 
+  plan = fftw_plan_dft_r2c( dimension, t, const_cast<double*>(myImage.data()), frequency_repr, FFTW_ESTIMATE ); 
 
   //computation
    fftw_execute(plan);

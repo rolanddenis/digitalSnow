@@ -1,9 +1,9 @@
 #ifndef FFT_H
 #define FFT_H
 
+#include <complex>
 #include <fftw3.h>
 
-#include <complex>
 
 #include <DGtal/images/CImage.h>
 #include <DGtal/images/ImageContainerBySTLVector.h>
