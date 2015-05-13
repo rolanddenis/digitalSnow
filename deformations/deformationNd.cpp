@@ -548,7 +548,7 @@ int main(int argc, char** argv)
 
       // ApproximatedMultiImage
       using real = double;
-      using LabelledMap = DGtal::LabelledMap<real, 64, long unsigned int, 3, 4>;
+      using LabelledMap = DGtal::LabelledMap<real, 64, long unsigned int, 8, 4>;
       using Approximation = DGtal::approximations::NegativeTolValueApproximation<real>;
       //using Approximation = DGtal::approximations::NoValueApproximation<real>;
       using BoundingBox = AxisAlignedBoundingBox< Domain, unsigned int>;
@@ -579,7 +579,7 @@ int main(int argc, char** argv)
             }
           vtk << "label" << *labelImage;
         }
-      
+
       // Time integration
       double sumt = 0; 
       for (unsigned int i = 1; i <= max_step; ++i) 
@@ -595,21 +595,19 @@ int main(int argc, char** argv)
               std::stringstream s; 
               s << outputFiles << setfill('0') << std::setw(4) << (i/disp_step); 
 #if   DIMENSION == 2
-	            drawContours( *labelImage, s.str(), outputFormat ); 
+	            //drawContours( *labelImage, s.str(), outputFormat ); 
 #elif DIMENSION == 3
-              writePartition( *labelImage, s.str(), outputFormat );
+              //writePartition( *labelImage, s.str(), outputFormat );
 #endif
               
               // VTK export
               VTKWriter<Domain> vtk(s.str(), labelImage->domain());
-              /*
               for (size_t j = 0; j < evolver.getNumPhase(); ++j)
                 {
                   stringstream s_phase;
                   s_phase << "phi" << setfill('0') << std::setw(2) << j;
                   vtk << s_phase.str() << evolver.getPhase(j);
                 }
-              */
               vtk << "label" << *labelImage;
 
               // Volume of each phase

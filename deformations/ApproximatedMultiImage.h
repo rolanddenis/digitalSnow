@@ -3,6 +3,9 @@
 #include <boost/concept_check.hpp>
 #include <cstddef>
 #include <vector>
+#include <limits>
+#include <ostream>
+#include <cmath>
 
 #include <DGtal/base/LabelledMap.h>
 #include <DGtal/kernel/domains/CDomain.h>
@@ -92,6 +95,12 @@ namespace DGtal
 /// \todo move linearizer from ImageContainerBySTLVector into anonymous namespace to avoid polutting DGtal namespace.
 using namespace approximated_multi_image;
 using approximated_multi_image::linearizer;
+
+/** Informations about multiple image container
+ */
+template <typename t>
+struct MultiImageInfos;
+
 
 /**
  * Multiple images container with approximation and bounding box capabilities.
@@ -319,6 +328,49 @@ class ApproximatedMultiImage< TDomain, DGtal::LabelledMap<TData, L, TWord, N, M>
         return image;
       }
 
+
+    /// Get informations about this class
+    MultiImageInfos<Self> getInfos() const
+      {
+        using std::size_t;
+        MultiImageInfos<Self> infos;
+        infos.labelMin = std::numeric_limits<size_t>::max();
+        infos.labelMax = std::numeric_limits<size_t>::min();
+        size_t label_sum = 0;
+        size_t label_sqr_sum = 0;
+        size_t cnt = 0;
+        std::array<size_t, L> support; support.fill(0);
+        infos.imageVolume.fill(0);
+
+        for ( auto const& point_values : myImages )
+          {
+            const size_t size = point_values.size();
+            infos.labelMin = std::min( infos.labelMin, size );
+            infos.labelMax = std::max( infos.labelMax, size );
+            label_sum += size;
+            label_sqr_sum += size*size;
+
+            for ( auto const& label_value : point_values )
+              {
+                ++(support[label_value.first]);
+                infos.imageVolume[label_value.first] += label_value.second;
+              }
+
+            ++cnt;
+          }
+
+        infos.labelMean = double(label_sum) / cnt;
+        infos.labelSDeviation = std::sqrt( double(label_sqr_sum)/cnt - std::pow(infos.labelMean, 2) );
+
+        for ( size_t i = 0; i < L; ++i )
+          {
+            infos.imageSupport[i] = double(support[i]) / cnt;
+            infos.imageBB[i] = double( getBoundingBox(i).size() ) / cnt;
+          }
+
+        return infos;
+      }
+
     /// Reference to an approximated value.
     class Reference
       {
@@ -374,7 +426,59 @@ class ApproximatedMultiImage< TDomain, DGtal::LabelledMap<TData, L, TWord, N, M>
     std::vector<BoundingBox> myBoundingBoxes;
     Point myExtent;
     
-  };
+  }; // class ApproximatedMultiImage
+
+  /// Informations about this class
+  template <
+    typename TDomain,
+    typename TData, unsigned int L, typename TWord, unsigned int N, unsigned int M,
+    typename TApproximation,
+    typename TBoundingBox
+  >
+  struct MultiImageInfos< DGtal::ApproximatedMultiImage< TDomain, DGtal::LabelledMap<TData, L, TWord, N, M>, TApproximation, TBoundingBox > > 
+    {
+      std::size_t labelMin, labelMax;
+      double labelMean, labelSDeviation;
+      std::array<TData, L> imageVolume;
+      std::array<double, L> imageSupport;
+      std::array<double, L> imageBB;
+    };
+
+  /// Display of ApproximatedMultiImage informations
+  //
+  template <
+    typename TDomain,
+    typename TData, unsigned int L, typename TWord, unsigned int N, unsigned int M,
+    typename TApproximation,
+    typename TBoundingBox
+  >
+  std::ostream& operator<< ( std::ostream& out, typename DGtal::MultiImageInfos< DGtal::ApproximatedMultiImage< TDomain, DGtal::LabelledMap<TData, L, TWord, N, M>, TApproximation, TBoundingBox > > const& infos )
+    {
+      out << "Label count: "
+          << "min=" << infos.labelMin << " ; "
+          << "max=" << infos.labelMax << " ; "
+          << "mean=" << infos.labelMean << " ; "
+          << "sdev=" << infos.labelSDeviation
+          << std::endl;
+
+      bool first_label = true;
+      for ( std::size_t i = 0; i < L; ++i ) 
+        {
+          if ( infos.imageVolume[i] > 0 )
+            {
+              if (! first_label) out << " ; ";
+              out << "#" << i
+                  << " V"  << infos.imageVolume[i]
+                  << " S"  << std::fixed << std::setprecision(1) << 100*infos.imageSupport[i]
+                  << " BB" << 100*infos.imageBB[i]
+                  << " R"  << std::setprecision(2) << infos.imageBB[i]/infos.imageSupport[i];
+              first_label = false;
+            }
+        }
+      out << std::endl;
+
+      return out;
+    }
 
 } // namespace DGtal
 

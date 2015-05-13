@@ -37,6 +37,8 @@ public:
       mySteps.emplace_back( Step{ "Other", myTime - steps_time } );
 
       dispMe(true);
+
+      return myTime;
     }
 
   void beginStep( std::string const& aShortDesc )
@@ -55,6 +57,7 @@ public:
     {
       mySteps.back().second = myStepClock.stopClock();
       dispMe(false);
+      return mySteps.back().second;
     }
 
 private:

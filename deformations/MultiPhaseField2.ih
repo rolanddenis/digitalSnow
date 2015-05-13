@@ -29,6 +29,7 @@
  */
 
 #include <vector>
+#include <iostream>
 
 #include <DGtal/images/SimpleThresholdForegroundPredicate.h>
 #include "InlineTrace.h"
@@ -365,6 +366,8 @@ DGtal::MultiPhaseField2< TLabelImage, TFieldImage, DGtal::ApproximatedMultiImage
       }
     trace.endBlock();
   }
+
+  trace.info() << myFields.getInfos() << std::endl;
 
   return aT; 
 }
