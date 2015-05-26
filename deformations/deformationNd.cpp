@@ -207,7 +207,7 @@ int main(int argc, char** argv)
       else if ( (vm["shape"].as<std::string>()) == "ball" )
         initWithBallPredicate( *labelImage, c, (dsize*3/5)/2 ); 
       else
-        initWithMultipleBalls( *labelImage, 6,  (dsize/5) * 0.5, 1 );
+        initWithMultipleBalls( *labelImage, 5,  (dsize/5) * 0.5, 1 );
       
       trace.info() << "starting interface initialized with a " << shape << std::endl;
 
@@ -548,7 +548,7 @@ int main(int argc, char** argv)
 
       // ApproximatedMultiImage
       using real = double;
-      using LabelledMap = DGtal::LabelledMap<real, 64, long unsigned int, 8, 4>;
+      using LabelledMap = DGtal::LabelledMap<real, 128, long unsigned int, 10, 8>;
       using Approximation = DGtal::approximations::NegativeTolValueApproximation<real>;
       //using Approximation = DGtal::approximations::NoValueApproximation<real>;
       using BoundingBox = AxisAlignedBoundingBox< Domain, unsigned int>;
@@ -578,6 +578,9 @@ int main(int argc, char** argv)
               vtk << s_phase.str() << evolver.getPhase(j);
             }
           vtk << "label" << *labelImage;
+          //vtk << "phi00" << evolver.getPhase(0);
+          //vtk << "phi01" << evolver.getPhase(1);
+          //vtk << "phi93" << evolver.getPhase(93);
         }
 
       // Time integration
@@ -587,7 +590,9 @@ int main(int argc, char** argv)
           DGtal::trace.info() << "iteration # " << i << std::endl; 
 
           // Update
+          trace.beginBlock("Iteration");
           evolver.update( tstep ); 
+          trace.endBlock();
 
           // Display
           if ( (i % disp_step) == 0 ) 
@@ -609,14 +614,19 @@ int main(int argc, char** argv)
                   vtk << s_phase.str() << evolver.getPhase(j);
                 }
               vtk << "label" << *labelImage;
+              //vtk << "phi00" << evolver.getPhase(0);
+              //vtk << "phi01" << evolver.getPhase(1);
+              //vtk << "phi93" << evolver.getPhase(93);
 
               // Volume of each phase
+              /*
               DGtal::trace.info() << ( dimension == 2 ? "Area: " : "Volume: " );
               for (size_t j = 0; j < evolver.getNumPhase(); ++j)
                 {
                   DGtal::trace.info() << "V(" << j << ") = " << getVolume<double>(evolver.getPhase(j));
                 }
               DGtal::trace.info() << std::endl;
+              */
 
             }
 

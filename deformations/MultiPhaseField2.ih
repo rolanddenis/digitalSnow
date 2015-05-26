@@ -31,6 +31,8 @@
 #include <vector>
 #include <iostream>
 
+#include <Eigen/SVD>
+
 #include <DGtal/images/SimpleThresholdForegroundPredicate.h>
 #include "InlineTrace.h"
 
@@ -97,9 +99,19 @@ DGtal::MultiPhaseField2< TLabelImage, TFieldImage, DGtal::ApproximatedMultiImage
       myFields.setValue( point, 0, 1 - sum );
     }
 
+  // Calculating initial volume
+  trace.beginBlock("Initial volumes");
+  myInitVolume.resize(myLabels.size(), 0);
+  for ( auto const& point : domain )
+    {
+      for ( auto v = myFields(point) )
+        myInitVolume[v.first] =+ v.second;
+    }
+  trace.endBlock();
+
   // Initialize FFTW <- has nothing to do here ... just for dev
   if ( fftw_init_threads() == 0 ) std::cout << "!!! Parallel FFTW initialization failed !!!" << std::endl;
-  fftw_plan_with_nthreads( 1 );
+  fftw_plan_with_nthreads( 32 );
 
 }
 
@@ -131,54 +143,6 @@ DGtal::MultiPhaseField2< TLabelImage, TFieldImage, DGtal::ApproximatedMultiImage
   Domain domain = myFields.domain();
 
   // Diffusion
-  /*
-  trace.beginBlock("Diffusion");
-  using FFT  =  FFT<TFieldImage>;
-  using IFFT = IFFT<typename FFT::ComplexImage>; 
-  for ( size_t i = 0; i < myLabels.size(); ++i )
-    {
-      itrace.beginBlock("Diffusion");
-      itrace.beginStep("Read");
-      //auto bb_field = myFields.getBBImage(i, Point::diagonal(10)); // Bounding box & periodicity ?!!!
-      auto bb_field = myFields[i];
-      TFieldImage field(bb_field);
-
-      typename FFT::ComplexImage freq(field.domain());
-      FFT(field).compute( freq );
-
-      itrace.beginStep("Conv");
-      auto const extent = freq.extent();
-      for ( auto const& point : freq.domain() )
-        {
-
-          double norm2 = 0;
-          for ( size_t j = 0; j < TFieldImage::dimension; ++j)
-            {
-              double coord = static_cast<double>(point[j]) / extent[j];
-              if ( coord >= 0.5 ) coord -= 1.;
-              norm2 += coord*coord;
-            }
-          const double c = std::exp( -4*M_PI*M_PI*aT*norm2 );
-
-          // New value
-          auto const v = freq(point);
-          freq.setValue( point, { c*std::real(v), c*std::imag(v) } );
-        }
-
-      // Back in spatial space
-      IFFT(freq).compute(field);
-
-      // Store the result
-      itrace.beginStep("Write");
-      std::copy( field.begin(), field.end(), bb_field.begin() );
-
-      itrace.endBlock();
-    }
-  trace.endBlock();
-  */
-  // End diffusion
-  
-  // Diffusion
   trace.beginBlock("Diffusion");
   using FFT  =  RealFFT<Domain, real>;
   for ( size_t i = 0; i < myLabels.size(); ++i )
@@ -207,7 +171,6 @@ DGtal::MultiPhaseField2< TLabelImage, TFieldImage, DGtal::ApproximatedMultiImage
       // Forward transformation
       itrace.beginStep("fftw");
       fft.forwardFFT(FFTW_MEASURE);
-      //fft.forwardFFT();
 
       itrace.beginStep("Conv");
       auto const extent = fft.getSpatialExtent();
@@ -233,7 +196,6 @@ DGtal::MultiPhaseField2< TLabelImage, TFieldImage, DGtal::ApproximatedMultiImage
       // Back in spatial space
       itrace.beginStep("ifftw");
       fft.backwardFFT(FFTW_MEASURE);
-      //fft.backwardFFT();
 
       // Store the result
       itrace.beginStep("Write");
@@ -255,6 +217,8 @@ DGtal::MultiPhaseField2< TLabelImage, TFieldImage, DGtal::ApproximatedMultiImage
   trace.endBlock();
   // End diffusion
 
+  bool reaction1 = false;
+  if (reaction1) {
   // Phase overlap
   trace.beginBlock("Phase overlap");
   TFieldImage phase_overlap(domain);
@@ -317,36 +281,97 @@ DGtal::MultiPhaseField2< TLabelImage, TFieldImage, DGtal::ApproximatedMultiImage
       for ( size_t i = 0; i < myLabels.size(); ++i )
         {
           const real u = myFields.getValueByIndex(id, i);
-          //const real p = (u == 0) ? 0 : u*(u-1) * ( (2*u-1) + volume_loss[i] );
-          const real p = (u == 0) ? 0 : ( u*(u-1) *(2*u-1) - volume_loss[i]*std::abs(u*(1-u)) );
+          const real p = (u == 0) ? 0 : u*(u-1) * ( (2*u-1) + volume_loss[i] );
+          //const real p = (u == 0) ? 0 : ( u*(u-1) *(2*u-1) - volume_loss[i]*std::abs(u*(1-u)) );
           const real v = u - dummy * (p - phase_overlap(point));
           myFields.setValue(point, i, v, id);
         }
     }
   trace.endBlock();
   // End evolution - Method A
+  } // end block
+
+  // Reaction
+  if (!reaction1)
+    {
+      itrace.beginBlock("Reaction");
+      const real dummy = aT / (myEpsilon * myEpsilon);
+      for ( auto const& point : domain )
+        {
+          const size_t id = myFields.linearized(point);
+          // Need for a mutable iterator over values ...
+          for ( size_t i = 0; i < myLabels.size(); ++i )
+            {
+              const real u = myFields.getValueByIndex(id, i);
+              if ( u != 0 )
+                {
+                  myFields.setValue(point, i, u - dummy * u * (u-1) * (2*u-1), id);
+                }
+            }
+        }
+      itrace.endBlock();
+
+      itrace.beginBlock("Lagrangian");
+      auto phi = [](real u) { return u; };
+
+      itrace.beginStep("linear_system");
+      const size_t phase_cnt = myInitVolume.size();
+      Eigen::MatrixXd M( phase_cnt );
+      Eigen::VectorXd b( phase_cnt );
+      M.fill(0);
+
+      for ( size_t i = 0; i < phase_cnt; ++i )
+        b(i) = myInitVolume[i];
+
+      for ( auto const& point : domain )
+        {
+          auto const& values = myFields(point);
+          
+          real sum_u = 0;
+          real sum_phiu = 0;
+          for ( auto const v : values )
+            {
+              sum_u += values.second;
+              sum_phiu += phi(values.second);
+            }
+
+          for ( size_t i = 0; i < phase_cnt; ++i )
+            {
+              const real ui = values[i];
+              const real phi_ui = phi(ui);
+              const real weighted_phiu = phi_ui / sum_phiu;
+
+              M(i,i)  += std::abs( ui * (1-ui) );
+              b(i)    += -ui + weighted_phiu * ( sum_ui - 1 );
+              for ( size_t j = 0; j < phase_cnt; ++j )
+                {
+                  const real uj = values[j];
+                  M(i,j) -= weighted_phiu * std::abs( uj * (1-uj) );
+                }
+            }
+        }
+      itrace.endStep();
+
+      itrace.beginStep("svd");
+      Eigen::JacobiSVD<Eigen::MatrixXd> svd(M, ComputeFullU | ComputeFullV);
+      auto s = svd.singularValues();
+      for ( size_t i = 0; i < phase_cnt-1; ++i )
+        s[i] = 1 / s[i];
+      M = svd.matrixU() * s.asDiagonal() * svd.matrixV().transpose();
+      Eigen::VectorXd mu = M * b;
+                  
+
+
+
+            }
+        }
+
+    }
+
 
   
   /// update image of labels
   {
-    //default label
-       //std::fill( myLabelImage.range().begin(), myLabelImage.range().end(), myDefaultLabel); 
-
-    /*
-    //other labels
-    typename std::vector<FieldImagePtr>::const_iterator it = myFields.begin(); 
-    typename std::vector<Label>::const_iterator itLabel = myLabels.begin();  
-    
-    for ( ; it != myFields.end(); ++it, ++itLabel)
-      {
-	for (typename Domain::ConstIterator itPt = domain.begin(); itPt != domain.end(); ++itPt)
-	  {
-	    if ((*it)->operator()(*itPt) >= 0.5)
-	      myLabelImage.setValue( *itPt, *itLabel ); 
-	  }   
-      }
-    */
-
     trace.beginBlock("Updating Label");
     for ( auto const& point : domain )
       {
@@ -367,7 +392,9 @@ DGtal::MultiPhaseField2< TLabelImage, TFieldImage, DGtal::ApproximatedMultiImage
     trace.endBlock();
   }
 
+  trace.beginBlock("Statistics");
   trace.info() << myFields.getInfos() << std::endl;
+  trace.endBlock();
 
   return aT; 
 }
