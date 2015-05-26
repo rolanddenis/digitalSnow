@@ -84,9 +84,9 @@ private:
   void dispMe( bool isLast = false )
     {
       if ( isLast )
-          myStream << "\r[" << myDesc << ":" << formatTime(myTime) << "] ";
+          myStream << "\r[\e[1m" << myDesc << "\e[0m:" << formatTime(myTime) << "] ";
       else
-          myStream << "[" << myDesc << "] ";
+          myStream << "[\e[1m" << myDesc << "\e[0m] ";
 
       bool is_first = true;
       for ( auto const& step : mySteps )
