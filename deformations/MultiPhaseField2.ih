@@ -36,7 +36,7 @@
 #include <DGtal/images/SimpleThresholdForegroundPredicate.h>
 #include "InlineTrace.h"
 
-//#include <omp.h>
+#include <omp.h>
 #include "RealFFT.h"
 
 
@@ -335,7 +335,8 @@ DGtal::MultiPhaseField2< TLabelImage, TFieldImage, DGtal::ApproximatedMultiImage
               sum_u += v.second;
               sum_phiu += phi(v.second);
             }
-
+          
+          #pragma omp parallel for
           for ( size_t i = 0; i < phase_cnt; ++i )
             {
               const real ui = myFields.getValueByIndex(id, i);
