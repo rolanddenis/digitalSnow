@@ -336,19 +336,18 @@ DGtal::MultiPhaseField2< TLabelImage, TFieldImage, DGtal::ApproximatedMultiImage
               sum_phiu += phi(v.second);
             }
           
-          #pragma omp parallel for
-          for ( size_t i = 0; i < phase_cnt; ++i )
+          for ( auto const& vi : myFields(point) )
             {
-              const real ui = myFields.getValueByIndex(id, i);
+              const real ui = vi.second;
               const real phi_ui = phi(ui);
               const real weighted_phiu = phi_ui / sum_phiu;
 
-              M(i,i)  += std::abs( ui * (1-ui) );
-              b(i)    += -ui + weighted_phiu * ( sum_u - 1 );
-              for ( size_t j = 0; j < phase_cnt; ++j )
+              M(vi.first,vi.first)  += std::abs( ui * (1-ui) );
+              b(vi.first)    += -ui + weighted_phiu * ( sum_u - 1 );
+              for ( auto const& vj : myFields(point) )
                 {
-                  const real uj = myFields.getValueByIndex(id, j);
-                  M(i,j) -= weighted_phiu * std::abs( uj * (1-uj) );
+                  const real uj = vj.second;
+                  M(vi.first,vj.first) -= weighted_phiu * std::abs( uj * (1-uj) );
                 }
             }
         }
