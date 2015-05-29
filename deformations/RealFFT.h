@@ -17,6 +17,7 @@ namespace DGtal
 namespace
 {
 
+/// Facility to cast to complex type used by fftw
 template <typename TFFTW>
 struct FFTWComplexCast
   {
@@ -28,54 +29,113 @@ struct FFTWComplexCast
   };
 
 
+/// Ugly macro used to call to fftw functions depending on the value type (fftw_*, fftwf_* & fftwl_*)
+#define FFTW_WRAPPER_GEN(suffix)                                                                                         \
+    using size_t  = std::size_t;                                                                                         \
+    using complex = fftw ## suffix ## _complex;                                                                          \
+    using plan = fftw ## suffix ## _plan;                                                                                \
+    using self = FFTWWrapper<real>;                                                                                      \
+                                                                                                                         \
+    static inline void*   malloc( size_t n )      noexcept { return fftw ## suffix ## _malloc(n); }                      \
+    static inline void    free( void* p )         noexcept { fftw ## suffix ## _free(p); }                               \
+    static inline void    execute( const plan p ) noexcept { fftw ## suffix ## _execute(p); }                            \
+    static inline void    destroy_plan( plan p )  noexcept { fftw ## suffix ## _destroy_plan(p); }                       \
+                                                                                                                         \
+    template < typename C >                                                                                              \
+    static inline                                                                                                        \
+    plan plan_dft_r2c( int rank, const int* n, real* in, C* out, unsigned flags ) noexcept                               \
+      {                                                                                                                  \
+        return fftw ## suffix ## _plan_dft_r2c(rank, n, in, FFTWComplexCast<self>::apply(out), flags);                   \
+      }                                                                                                                  \
+                                                                                                                         \
+    template < typename C >                                                                                              \
+    static inline                                                                                                        \
+    plan plan_dft_c2r( int rank, const int* n, C* in, real* out, unsigned flags ) noexcept                               \
+      {                                                                                                                  \
+        return fftw ## suffix ## _plan_dft_c2r(rank, n, FFTWComplexCast<self>::apply(in), out, flags);                   \
+      }                                                                                                                  \
+                                                                                                                         \
+    template < typename C >                                                                                              \
+    static inline                                                                                                        \
+    void execute_dft_r2c( const plan p, real* in, C* out ) noexcept                                                      \
+      {                                                                                                                  \
+        fftw ## suffix ## _execute_dft_r2c(p, in, FFTWComplexCast<self>::apply(out));                                    \
+      }                                                                                                                  \
+                                                                                                                         \
+    template < typename C >                                                                                              \
+    static inline                                                                                                        \
+    void execute_dft_c2r( const plan p, C* in, real* out ) noexcept                                                      \
+      {                                                                                                                  \
+        fftw ## suffix ## _execute_dft_c2r(p, FFTWComplexCast<self>::apply(in), out);                                    \
+      }                                                                                                                  \
+                                                                                                                         \
+    /** Plan creation with fft way specifier.                                                                            \
+     *                                                                                                                   \
+     * @param way FFTW_FORWARD for real->complex FFT, FFTW_BACKWARD for the reverse way.                                 \
+     */                                                                                                                  \
+    template < typename C >                                                                                              \
+    static inline                                                                                                        \
+    plan plan_dft( int rank, const int* n, real* in, C* out, int way, unsigned flags ) noexcept                          \
+      {                                                                                                                  \
+        if ( way == FFTW_FORWARD )                                                                                       \
+          return plan_dft_r2c( rank, n, in, out, flags );                                                                \
+        else                                                                                                             \
+          return plan_dft_c2r( rank, n, out, in, flags );                                                                \
+      }                                                                                                                  \
+                                                                                                                         \
+    /** Plan execution with fft way specifier.                                                                           \
+     *                                                                                                                   \
+     * @param way FFTW_FORWARD for real->complex FFT, FFTW_BACKWARD for the reverse way.                                 \
+     */                                                                                                                  \
+    template < typename C >                                                                                              \
+    static inline                                                                                                        \
+    void execute_dft( const plan p, real* in, C* out, int way ) noexcept                                                 \
+      {                                                                                                                  \
+        if ( way == FFTW_FORWARD )                                                                                       \
+          execute_dft_r2c( p, in, out );                                                                                 \
+        else                                                                                                             \
+          execute_dft_c2r( p, out, in );                                                                                 \
+      }                                                                                                                  \
+
+/// Wrapper to fftw functions depending on value type.
 template <typename Real = double>
 struct FFTWWrapper;
 
+/*
+ * Wrapper implementations to fftw functions for double values.
+ * \warning Remember to link against fftw library.
+ */
 template <>
 struct FFTWWrapper<double>
   {
-    using size_t  = std::size_t;
-    using real    = double;
-    using complex = fftw_complex;
-    using plan    = fftw_plan;
-    using self    = FFTWWrapper<real>;
+    using real = double;
+    FFTW_WRAPPER_GEN()
+  };
 
-    static inline void*   malloc( size_t n )      { return fftw_malloc(n); }
-    static inline void    free( void* p )         { fftw_free(p); }
-    static inline void    execute( const plan p ) { fftw_execute(p); }
-    static inline void    destroy_plan( plan p )  { fftw_destroy_plan(p); }
+/*
+ * Wrapper implementations to fftw functions for float values.
+ * \warning Remember to link against fftwf library.
+ */
+template <>
+struct FFTWWrapper<float>
+  {
+    using real = float;
+    FFTW_WRAPPER_GEN(f)
+  };
 
-
-    template < typename C >
-    static inline
-    plan plan_dft_r2c( int rank, const int* n, real* in, C* out, unsigned flags )
-      {
-        return fftw_plan_dft_r2c(rank, n, in, FFTWComplexCast<self>::apply(out), flags);
-      }
-
-    template < typename C >
-    static inline
-    plan plan_dft_c2r( int rank, const int* n, C* in, real* out, unsigned flags )
-      {
-        return fftw_plan_dft_c2r(rank, n, FFTWComplexCast<self>::apply(in), out, flags);
-      }
-
-    template < typename C >
-    static inline
-    void execute_dft_r2c( const plan p, real* in, C* out )
-      {
-        fftw_execute_dft_r2c(p, in, FFTWComplexCast<self>::apply(out));
-      }
-
-    template < typename C >
-    static inline
-    void execute_dft_c2r( const plan p, C* in, real* out )
-      {
-        fftw_execute_dft_c2r(p, FFTWComplexCast<self>::apply(in), out);
-      }
+/*
+ * Wrapper implementations to fftw functions for float values.
+ * \warning Remember to link against fftwl library.
+ */
+template <>
+struct FFTWWrapper<long double>
+  {
+    using real = long double;
+    FFTW_WRAPPER_GEN(l)
   };
 
 } // anonymous namespace
+
 
 /** Generic real-complex backward&forward FFT class
  * @tparam  TDomain Type of the domain over which the FFT will be performed.
