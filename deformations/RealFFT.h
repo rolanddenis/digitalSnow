@@ -4,7 +4,7 @@
 #include <stdexcept>
 #include <new>
 
-#include <complex> // To be included before fftw:  http://www.fftw.org/doc/Complex-numbers.html#Complex-numbers
+#include <complex> // To be included before fftw: see http://www.fftw.org/doc/Complex-numbers.html#Complex-numbers
 #include <fftw3.h>
 
 #include <DGtal/kernel/domains/HyperRectDomain.h>
@@ -12,6 +12,9 @@
 #include <algorithm>
 
 namespace DGtal
+{
+
+namespace
 {
 
 template <typename TFFTW>
@@ -72,28 +75,40 @@ struct FFTWWrapper<double>
       }
   };
 
+} // anonymous namespace
 
+/** Generic real-complex backward&forward FFT class
+ * @tparam  TDomain Type of the domain over which the FFT will be performed.
+ * @tparam  T       Values type.
+ */
 template <
   class TDomain, 
   typename T = double
 >
 class RealFFT;
 
+/** Specialization for FFT over HyperRectDomain.
+ * @tparam  TSpace  Type of the space.
+ * @tparam  T       Values type.
+ */
 template <typename TSpace, typename T>
 class RealFFT< HyperRectDomain<TSpace>, T >
   {
+  private:
+    using FFTW = FFTWWrapper<T>;
+
   public:
     using Space   = TSpace;
     using Domain  = HyperRectDomain<Space>;
     using Point   = typename Domain::Point;
     using Dimension = typename Domain::Dimension;
     using Real = T;
-    using FFTW = FFTWWrapper<T>;
-    //using Complex = typename FFTW::complex;
     using Complex = std::complex<Real>;
     static const Dimension dimension = Domain::dimension;
 
-    /// Constructor.
+    /** Constructor.
+     * @param aDomain The domain over which the transform will be performed.
+     */
     RealFFT( Domain const& aDomain ) noexcept
         : mySpatialDomain{ aDomain }
         , mySpatialExtent{ mySpatialDomain.upperBound() - mySpatialDomain.lowerBound() + Point::diagonal(1) }
@@ -108,13 +123,18 @@ class RealFFT< HyperRectDomain<TSpace>, T >
         FFTW::free( myStorage );
       }
 
-    /// Checks if storage is valid.
+    /** Checks if storage is valid.
+     * @return true if there is an allocated storage, false otherwise.
+     */
     bool isValid() const noexcept
       {
         return myStorage != nullptr;
       }
 
     /** Padding when using real datas. 
+     *
+     * @return the number of real values used as padding along the last dimension.
+     *
      *  \see http://www.fftw.org/doc/Multi_002dDimensional-DFTs-of-Real-Data.html#Multi_002dDimensional-DFTs-of-Real-Data 
      */
     inline  
@@ -159,15 +179,17 @@ class RealFFT< HyperRectDomain<TSpace>, T >
     inline Domain const& getSpatialDomain() const noexcept { return mySpatialDomain; }
 
     /// Get frequential domain.
-    inline Domain const& getFreqDomain() const noexcept    { return myFreqDomain; }
+    inline Domain const& getFreqDomain()    const noexcept { return myFreqDomain; }
 
     /// Get spatial domain extent.
-    inline Point const& getSpatialExtent()  const noexcept { return mySpatialExtent; }
+    inline Point  const& getSpatialExtent() const noexcept { return mySpatialExtent; }
         
     /// Get frequential domain extent.
-    inline Point const& getFreqExtent()     const noexcept { return myFreqExtent; }
+    inline Point  const& getFreqExtent()    const noexcept { return myFreqExtent; }
 
     /** Forward transformation (spatial -> frequential)
+     *
+     * @param flags Planner flags. \see http://www.fftw.org/fftw3_doc/Planner-Flags.html#Planner-Flags 
      */
     void forwardFFT( unsigned flags = FFTW_ESTIMATE )
       {
@@ -179,14 +201,18 @@ class RealFFT< HyperRectDomain<TSpace>, T >
           n[dimension-i-1] = mySpatialExtent[i];
 
         // Create the plan for this transformation
+        // Only FFTW_ESTIMATE flag preserve input.
         if ( flags & FFTW_ESTIMATE )
           {
             p = FFTW::plan_dft_r2c( dimension, n, getSpatialStorage(), getFreqStorage(), FFTW_ESTIMATE );
           }
         else
           {
-            // Strategy to preserve input datas while creating DFT plan.
+            // Strategy to preserve input datas while creating DFT plan:
+            // - Firstly, checks if a plan already exists for this dimensions.
             p = FFTW::plan_dft_r2c( dimension, n, getSpatialStorage(), getFreqStorage(), FFTW_WISDOM_ONLY | flags );
+
+            // - Otherwise, create fake input to create the plan.
             if ( p == NULL )
               {
                 void* tmp = FFTW::malloc( sizeof(Complex) * myFreqDomain.size() );
@@ -206,7 +232,9 @@ class RealFFT< HyperRectDomain<TSpace>, T >
         FFTW::destroy_plan( p );
       }
 
-    /** backward transformation (frequential -> spatial)
+    /** Backward transformation (frequential -> spatial)
+     *
+     * @param flags Planner flags. \see http://www.fftw.org/fftw3_doc/Planner-Flags.html#Planner-Flags 
      */
     void backwardFFT( unsigned flags = FFTW_ESTIMATE )
       {
@@ -224,8 +252,11 @@ class RealFFT< HyperRectDomain<TSpace>, T >
           }
         else
           {
-            // Strategy to preserve input datas while creating DFT plan.
+            // Strategy to preserve input datas while creating DFT plan:
+            // - Firstly, checks if a plan already exists for this dimensions.
             p = FFTW::plan_dft_c2r( dimension, n, getFreqStorage(), getSpatialStorage(), FFTW_WISDOM_ONLY | flags );
+            
+            // - Otherwise, create fake input to create the plan.
             if ( p == NULL )
               {
                 void* tmp = FFTW::malloc( sizeof(Complex) * myFreqDomain.size() );
