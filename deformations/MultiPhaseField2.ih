@@ -358,7 +358,7 @@ DGtal::MultiPhaseField2< TLabelImage, TFieldImage, DGtal::ApproximatedMultiImage
       auto s = svd.singularValues();
       for ( size_t i = 0; i < phase_cnt-1; ++i )
         s[i] = 1 / s[i];
-      M = svd.matrixU() * s.asDiagonal() * svd.matrixV().transpose();
+      M = svd.matrixV() * s.asDiagonal() * svd.matrixU().transpose();
       VectorXd mu = M * b;
       itrace.endStep();
 
