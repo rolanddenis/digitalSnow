@@ -1,15 +1,13 @@
 #pragma once
 
-#include <cstddef>
-#include <stdexcept>
-#include <new>
+#include <cstddef>    // std::size_t
+#include <stdexcept>  // Exceptions
+#include <new>        // std::bad_alloc exception
 
-#include <complex> // To be included before fftw: see http://www.fftw.org/doc/Complex-numbers.html#Complex-numbers
+#include <complex>    // To be included before fftw: see http://www.fftw.org/doc/Complex-numbers.html#Complex-numbers
 #include <fftw3.h>
 
 #include <DGtal/kernel/domains/HyperRectDomain.h>
-
-#include <algorithm>
 
 namespace DGtal
 {
@@ -29,7 +27,12 @@ struct FFTWComplexCast
   };
 
 
-/// Ugly macro used to call to fftw functions depending on the value type (fftw_*, fftwf_* & fftwl_*)
+/** Ugly macro used to call to fftw functions depending on the value type (fftw_*, fftwf_* & fftwl_*)
+ *
+ * \see http://www.fftw.org/doc/Multi_002dDimensional-DFTs-of-Real-Data.html
+ * \see http://www.fftw.org/doc/Real_002ddata-DFTs.html
+ * \see http://www.fftw.org/doc/Precision.html#Precision
+ */
 #define FFTW_WRAPPER_GEN(suffix)                                                                                         \
     using size_t  = std::size_t;                                                                                         \
     using complex = fftw ## suffix ## _complex;                                                                          \
@@ -137,9 +140,11 @@ struct FFTWWrapper<long double>
 } // anonymous namespace
 
 
-/** Generic real-complex backward&forward FFT class
+/** Generic real-complex backward and forward Fast Fourier Transform.
  * @tparam  TDomain Type of the domain over which the FFT will be performed.
  * @tparam  T       Values type.
+ *
+ * \see http://www.fftw.org/doc/index.html
  */
 template <
   class TDomain, 
@@ -247,11 +252,12 @@ class RealFFT< HyperRectDomain<TSpace>, T >
     /// Get frequential domain extent.
     inline Point  const& getFreqExtent()    const noexcept { return myFreqExtent; }
 
-    /** Forward transformation (spatial -> frequential)
+    /** Fast Fourier Transformation.
      *
      * @param flags Planner flags. \see http://www.fftw.org/fftw3_doc/Planner-Flags.html#Planner-Flags 
+     * @param way   The direction of the transform: FFTW_FORWARD for real->complex, FFTW_BACKWARD for complex->real.
      */
-    void forwardFFT( unsigned flags = FFTW_ESTIMATE )
+    void doFFT( unsigned flags = FFTW_ESTIMATE, int way = FFTW_FORWARD )
       {
         typename FFTW::plan p;
 
@@ -264,20 +270,20 @@ class RealFFT< HyperRectDomain<TSpace>, T >
         // Only FFTW_ESTIMATE flag preserve input.
         if ( flags & FFTW_ESTIMATE )
           {
-            p = FFTW::plan_dft_r2c( dimension, n, getSpatialStorage(), getFreqStorage(), FFTW_ESTIMATE );
+            p = FFTW::plan_dft( dimension, n, getSpatialStorage(), getFreqStorage(), way, FFTW_ESTIMATE );
           }
         else
           {
             // Strategy to preserve input datas while creating DFT plan:
             // - Firstly, checks if a plan already exists for this dimensions.
-            p = FFTW::plan_dft_r2c( dimension, n, getSpatialStorage(), getFreqStorage(), FFTW_WISDOM_ONLY | flags );
+            p = FFTW::plan_dft( dimension, n, getSpatialStorage(), getFreqStorage(), way, FFTW_WISDOM_ONLY | flags );
 
             // - Otherwise, create fake input to create the plan.
             if ( p == NULL )
               {
                 void* tmp = FFTW::malloc( sizeof(Complex) * myFreqDomain.size() );
                 if ( tmp == nullptr )  throw std::bad_alloc{};
-                p = FFTW::plan_dft_r2c( dimension, n, reinterpret_cast<Real*>(tmp), reinterpret_cast<Complex*>(tmp), flags );
+                p = FFTW::plan_dft( dimension, n, reinterpret_cast<Real*>(tmp), reinterpret_cast<Complex*>(tmp), way, flags );
                 FFTW::free(tmp);
               }
           }
@@ -286,54 +292,30 @@ class RealFFT< HyperRectDomain<TSpace>, T >
         if ( p == NULL ) throw std::runtime_error("No valid DFT plan founded.");
 
         // Gogogo !
-        FFTW::execute_dft_r2c( p, getSpatialStorage(), getFreqStorage() );
+        FFTW::execute_dft( p, getSpatialStorage(), getFreqStorage(), way );
 
         // Destroying plan
         FFTW::destroy_plan( p );
       }
 
+    /** Forward transformation (spatial -> frequential)
+     *
+     * @param flags Planner flags. \see http://www.fftw.org/fftw3_doc/Planner-Flags.html#Planner-Flags 
+     */
+    inline
+    void forwardFFT( unsigned flags = FFTW_ESTIMATE )
+      {
+        doFFT( flags, FFTW_FORWARD );
+      }
+    
     /** Backward transformation (frequential -> spatial)
      *
      * @param flags Planner flags. \see http://www.fftw.org/fftw3_doc/Planner-Flags.html#Planner-Flags 
      */
+    inline
     void backwardFFT( unsigned flags = FFTW_ESTIMATE )
       {
-        typename FFTW::plan p;
-
-        // Transform dimensions
-        int n[dimension];
-        for (size_t i = 0; i < dimension; ++i)
-          n[dimension-i-1] = mySpatialExtent[i];
-
-        // Create the plan for this transformation
-        if ( flags & FFTW_ESTIMATE )
-          {
-            p = FFTW::plan_dft_c2r( dimension, n, getFreqStorage(), getSpatialStorage(), FFTW_ESTIMATE );
-          }
-        else
-          {
-            // Strategy to preserve input datas while creating DFT plan:
-            // - Firstly, checks if a plan already exists for this dimensions.
-            p = FFTW::plan_dft_c2r( dimension, n, getFreqStorage(), getSpatialStorage(), FFTW_WISDOM_ONLY | flags );
-            
-            // - Otherwise, create fake input to create the plan.
-            if ( p == NULL )
-              {
-                void* tmp = FFTW::malloc( sizeof(Complex) * myFreqDomain.size() );
-                if ( tmp == nullptr )  throw std::bad_alloc{};
-                p = FFTW::plan_dft_c2r( dimension, n, reinterpret_cast<Complex*>(tmp), reinterpret_cast<Real*>(tmp), flags );
-                FFTW::free(tmp);
-              }
-          }
-
-        // We must have a valid plan now ...
-        if ( p == NULL ) throw std::runtime_error("No valid DFT plan founded.");
-
-        // Fire in the hole !
-        FFTW::execute_dft_c2r( p, getFreqStorage(), getSpatialStorage() );
-
-        // Destroying plan
-        FFTW::destroy_plan( p );
+        doFFT( flags, FFTW_BACKWARD );
       }
 
   private:
