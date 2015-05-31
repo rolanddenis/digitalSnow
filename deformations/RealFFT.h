@@ -106,7 +106,7 @@ struct FFTWWrapper;
 
 /*
  * Wrapper implementations to fftw functions for double values.
- * \warning Remember to link against fftw library.
+ * \warning Remember to link against fftw3 library.
  */
 template <>
 struct FFTWWrapper<double>
@@ -117,7 +117,7 @@ struct FFTWWrapper<double>
 
 /*
  * Wrapper implementations to fftw functions for float values.
- * \warning Remember to link against fftwf library.
+ * \warning Remember to link against fftw3f library.
  */
 template <>
 struct FFTWWrapper<float>
@@ -128,7 +128,7 @@ struct FFTWWrapper<float>
 
 /*
  * Wrapper implementations to fftw functions for float values.
- * \warning Remember to link against fftwl library.
+ * \warning Remember to link against fftw3l library.
  */
 template <>
 struct FFTWWrapper<long double>
