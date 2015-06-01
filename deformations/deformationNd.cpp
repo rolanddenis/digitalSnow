@@ -196,7 +196,7 @@ int main(int argc, char** argv)
     }
   else
     {
-      DGtal::trace.beginBlock("image reading..."); 
+      DGtal::trace.beginBlock("image generating..."); 
       Point p = Point::diagonal(0);
       Point q = Point::diagonal(dsize); 
       Point c = Point::diagonal(dsize/2); 
