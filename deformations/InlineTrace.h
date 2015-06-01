@@ -3,7 +3,7 @@
 #include <ostream>
 #include <string>
 #include <sstream>
-#include <DGtal/base/Clock.h>
+#include <boost/timer/timer.hpp>
 
 namespace DGtal
 {
@@ -13,32 +13,40 @@ class InlineTrace
 public:
   InlineTrace( std::ostream& aStream )
       : myStream(aStream)
-    {}
+    {
+      myGlobalClock.stop();
+      myStepClock.stop();
+    }
 
   void beginBlock( std::string const& aDesc = "Block" )
     {
       myDesc = aDesc;
       mySteps.clear();
       dispMe();
-      myGlobalClock.startClock();
+      myGlobalClock.start();
 
     }
 
   double endBlock()
     {
-      myTime = myGlobalClock.stopClock();
+      myGlobalClock.stop();
+      myTime = myGlobalClock.elapsed();
 
       if ( isRunningStep() )
         endStep();
 
-      double steps_time = 0;
+      Time other_time = myTime;
       for ( auto const& step : mySteps )
-        steps_time += step.second;
-      mySteps.emplace_back( Step{ "Other", myTime - steps_time } );
+        {
+          other_time.wall -= step.second.wall;
+          other_time.user -= step.second.user;
+          other_time.system -= step.second.system;
+        }
+      mySteps.emplace_back( Step{ "Other", other_time } );
 
       dispMe(true);
 
-      return myTime;
+      return static_cast<double>(myTime.wall)/1e6;
     }
 
   void beginStep( std::string const& aShortDesc )
@@ -49,30 +57,33 @@ public:
       if ( mySteps.size() > 0 ) myStream << " ; ";
       myStream << aShortDesc << "...\r" << std::flush;
 
-      mySteps.emplace_back( Step{aShortDesc, -1} );
-      myStepClock.startClock();
+      mySteps.emplace_back( Step{aShortDesc, {-1,-1,-1} } );
+      myStepClock.start();
     }
 
   double endStep()
     {
-      mySteps.back().second = myStepClock.stopClock();
+      myStepClock.stop();
+      mySteps.back().second = myStepClock.elapsed();
       dispMe(false);
-      return mySteps.back().second;
+      return static_cast<double>(mySteps.back().second.wall)/1e6;
     }
 
 private:
-  using Step = std::pair<std::string, double>;
+  using Time = boost::timer::cpu_times;
+  using Step = std::pair<std::string, Time>;
 
   inline
   bool isRunningStep()
     {
-      return mySteps.size() > 0 && mySteps.back().second == -1;
+      return mySteps.size() > 0 && mySteps.back().second.wall == -1;
     }
 
-  std::string formatTime( double aTime )
+  std::string formatTime( Time aTime )
     {
       std::stringstream format;
-      format << setprecision(0) << std::fixed << aTime << "ms";
+      format  << setprecision(0) << std::fixed << static_cast<double>(aTime.wall)/1e6 << "ms"
+              << "(x" << setprecision(1) << std::fixed << static_cast<double>(aTime.user+aTime.system)/aTime.wall << ")";
       return format.str();
     }
 
@@ -104,8 +115,8 @@ private:
   std::ostream& myStream;
   std::string myDesc;
   std::list<Step> mySteps;
-  Clock myGlobalClock, myStepClock;
-  double myTime;
+  boost::timer::cpu_timer myGlobalClock, myStepClock;
+  Time myTime;
 
 };
 

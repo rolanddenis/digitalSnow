@@ -22,7 +22,7 @@ include_directories(${Boost_INCLUDE_DIRS})
 link_directories(${Boost_LIBRARY_DIRS})
 
 # Workaround for strange bug while trying to include boost_program_options
-SET(BOOST_LIBRARIES ${BOOST_LIBRARIES} boost_program_options)
+SET(BOOST_LIBRARIES ${BOOST_LIBRARIES} boost_program_options boost_timer)
 
 #fftw
 SET(FFTW fftw3 fftw3_threads m pthread)
