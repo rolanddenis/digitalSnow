@@ -3,6 +3,9 @@ PROJECT(Deformations)
 #C++11
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11")
 
+#Release
+set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -march=native -mtune=native")
+
 #DGtal
 CMAKE_MINIMUM_REQUIRED(VERSION 2.6)
 
@@ -14,7 +17,7 @@ LINK_DIRECTORIES(${DGTAL_LIBRARY_DIRS})
 
 #Inclusion de Boost
 include(FindBoost)
-find_package(Boost 1.49.0 COMPONENTS program_options)
+find_package(Boost 1.49.0 COMPONENTS program_options timer)
 message(STATUS "Found Boost: ${Boost_LIBRARIES} in ${Boost_LIBRARY_DIRS} and ${Boost_INCLUDE_DIRS} ")
 message(STATUS "More precisely: ${Boost_PROGRAM_OPTIONS_LIBRARY} ")
 link_directories(${Boost_LIBRARY_DIRS})
