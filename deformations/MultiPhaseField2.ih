@@ -29,6 +29,7 @@
  */
 
 #include <vector>
+#include <sstream>
 #include <iostream>
 
 #include <Eigen/SVD>
@@ -57,7 +58,7 @@ template <
 >
 inline
 DGtal::MultiPhaseField2< TLabelImage, TFieldImage, DGtal::ApproximatedMultiImage<TDomain, TContainer, TApproximation, TBoundingBox> >
-::MultiPhaseField2(LabelImage& aI, typename TFieldImage::Value epsilon)
+::MultiPhaseField2(LabelImage& aI, typename TFieldImage::Value epsilon, bool calcDistance )
   : myLabelImage( aI ),
     myFields{ myLabelImage.domain(), TApproximation{1e-8} },
     myEpsilon{ epsilon }
@@ -74,53 +75,70 @@ DGtal::MultiPhaseField2< TLabelImage, TFieldImage, DGtal::ApproximatedMultiImage
   // Store labels
   myLabels.insert(myLabels.end(), labels.cbegin(), labels.cend() );
 
-  // For each label, build the corresponding phase field
-  for ( std::size_t i = 1; i < myLabels.size(); ++i )
+  // Initialize phase fields
+  if ( calcDistance )
     {
-      std::cerr << "Region of label " << myLabels[i] << std::endl; 
+      // For each label, build the corresponding phase field
+      for ( std::size_t i = 1; i < myLabels.size(); ++i )
+        {
+          std::ostringstream dummy{};
+          dummy << "Label " << myLabels[i];
+          itrace.beginBlock( dummy.str() );
 
-      /// new phase field
-      FieldImage image(domain); 
+          /// new phase field
+          FieldImage image(domain); 
 
-      /// DT computation
-      getSignedDistance( myLabels[i], image );
+          /// DT computation
+          getSignedDistance( myLabels[i], image );
 
-      // Profile computation
-      Profile profile( myEpsilon );  //TODO get epsilon from myEvolver or even better its profile function
-      std::transform(image.begin(), image.end(), myFields[i].begin(), profile);       
+          // Profile computation
+          Profile profile( myEpsilon );  //TODO get epsilon from myEvolver or even better its profile function
+          std::transform(image.begin(), image.end(), myFields[i].begin(), profile);       
+
+          itrace.endBlock();
+        }
+
+      // Build the air field (#0)
+      // NB : maybe better if we rescale all fields ?
+      itrace.beginBlock("Label 0");
+      for ( auto const& point : domain )
+        {
+          typename TFieldImage::Value sum = 0;
+          for ( auto v : myFields(point) )  sum += v.second;
+          myFields.setValue( point, 0, 1 - sum );
+        }
+      itrace.endBlock();
     }
-
-  // Build the air field (#0)
-  // NB : maybe better if we rescale all fields ?
-  std::cerr << "Region of label 0" << std::endl; 
-  for ( auto const& point : domain )
+  else
     {
-      typename TFieldImage::Value sum = 0;
-      for ( auto v : myFields(point) )  sum += v.second;
-      myFields.setValue( point, 0, 1 - sum );
-    }
-
-  /*  
-  for ( auto const& point : domain )
-    {
-      myFields.setValue( point, myLabelImage(point), 1 );
-    }
-  */
+      // Simply set 1 where a label is present.
+      itrace.beginBlock("Init phases");
+      for ( auto const& point : domain )
+        {
+          size_t i = 0;
+          for ( auto const label = myLabelImage(point); i < myLabels.size() && myLabels[i] != label; ++i) {}
+          myFields.setValue( point, i, 1 );
+        }
+      itrace.endBlock();
+     }
 
   // Calculating initial volume
-  trace.beginBlock("Initial volumes");
+  itrace.beginBlock("Initial volumes");
   myInitVolume.resize(myLabels.size(), 0);
   for ( auto const& point : domain )
     {
       for ( auto v : myFields(point) )
         myInitVolume[v.first] += v.second;
     }
-  trace.endBlock();
+  itrace.endBlock();
 
   // Initialize FFTW <- has nothing to do here ... just for dev
   if ( fftw_init_threads() == 0 ) std::cout << "!!! Parallel FFTW initialization failed !!!" << std::endl;
   fftw_plan_with_nthreads( std::thread::hardware_concurrency() );
 
+  trace.beginBlock("Statistics");
+  trace.info() << myFields.getInfos() << std::endl;
+  trace.endBlock();
 }
 
 template <

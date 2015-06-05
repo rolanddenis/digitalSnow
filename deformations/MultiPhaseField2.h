@@ -147,11 +147,8 @@ namespace DGtal
     /**
      * Constructor.
      * @param aI an image of labels
-     * @param aE any phase field evolver
-     * @param aDefaultLabel label used for points that
-     * does not belong to any region after evolution
      */
-    MultiPhaseField2(LabelImage& aI, Value epsilon);
+    MultiPhaseField2(LabelImage& aI, Value epsilon, bool calcDistance = true);
 
     /**
      * Destructor. Does nothing.
