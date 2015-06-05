@@ -90,7 +90,9 @@ int main(int argc, char** argv)
   size_t disp_step  = 1;      // Display step
   size_t max_step = 1;        // Maximum number of steps
   string shape = "ball";      // Generated shape
-  string algo  = "levelSet";  // Algorithm used for evolution
+  size_t phase_cnt = 2;       // Number of phases in each dimension (for mballs and rand initizaliation)
+  string algo  = "massiveMultiPhaseField";  // Algorithm used for evolution
+  bool   no_dist = false;     // Don't calculate the distance function to initiliaze phase field (for <massiveMultiPhaseField>)
   double balloon = 0.;        // Balloon Force
   double epsilon = 3.;        // Interface width
   bool flagWithCstVol = false;  // Volume Conservation
@@ -111,12 +113,15 @@ int main(int argc, char** argv)
     ("inputImage,i",    po::value<string>(), "Binary image to initialize the starting interface (vol format)" )
     ("domainSize,d",    po::value<size_t>(&dsize)->default_value(dsize), "Domain size (if default starting interface)" )
     ("shape,s",         po::value<string>(&shape)->default_value(shape), 
-        "Generated shape: either <ball>, <flower> or <mballs> " )
+        "Generated shape: either <ball>, <flower>, <mballs> or <rand>" )
+    ("phaseCnt,p",      po::value<size_t>(&phase_cnt)->default_value(phase_cnt),
+        "Number of phases along each dimension, for <mballs> and <rand> shapes." )
     ("timeStep,t",      po::value<double>(&tstep)->default_value(tstep), "Time step for the evolution" )
     ("displayStep",     po::value<size_t>(&disp_step)->default_value(disp_step), "Number of time steps between 2 drawings" )
     ("stepsNumber,n",   po::value<size_t>(&max_step)->default_value(max_step), "Maximal number of steps" )
     ("algo,a",          po::value<string>(&algo)->default_value(algo), 
         "can be: \n <levelSet>  \n or <phaseField> \n or <multiPhaseField> \n or <massiveMultiPhaseField> \n or <localLevelSet>" )
+    ("noDist",          po::bool_switch(&no_dist), "don't initialize the phase field with distance function, for <massiveMultiPhaseField>.")
     ("balloonForce,k",  po::value<double>(&balloon)->default_value(balloon), "Balloon force" )
     ("epsilon,e",       po::value<double>(&epsilon)->default_value(epsilon), "Interface width (only for phase fields)" )
     ("withCstVol",      po::bool_switch(&flagWithCstVol), "with volume conservation (only for phase fields)" )
@@ -161,9 +166,9 @@ int main(int argc, char** argv)
 #endif
 
   // Generated shape
-  if ( vm.count("inputImage") == 0 && shape != "ball" && shape != "flower" && shape != "mballs" )
+  if ( vm.count("inputImage") == 0 && shape != "ball" && shape != "flower" && shape != "mballs" && shape != "rand")
     {
-      trace.info() << "if no input file is specified, shape is expected to be either <ball>, <flower> or <mballs> " << std::endl;
+      trace.info() << "if no input file is specified, shape is expected to be either <ball>, <flower>, <mballs> or <rand>" << std::endl;
       return 1;
     }
 
@@ -206,8 +211,10 @@ int main(int argc, char** argv)
         initWithFlowerPredicate( *labelImage, c, (dsize*3/5)/2, (dsize*1/5)/2, 5 );
       else if ( (vm["shape"].as<std::string>()) == "ball" )
         initWithBallPredicate( *labelImage, c, (dsize*3/5)/2 ); 
+      else if ( (vm["shape"].as<std::string>()) == "mballs" )
+        initWithMultipleBalls( *labelImage, phase_cnt,  (dsize/phase_cnt) * 0.5, 1 );
       else
-        initWithMultipleBalls( *labelImage, 5,  (dsize/5) * 0.5, 1 );
+        initRandomly( *labelImage, std::pow(phase_cnt, DIMENSION) );
       
       trace.info() << "starting interface initialized with a " << shape << std::endl;
 
@@ -555,7 +562,7 @@ int main(int argc, char** argv)
       using ApproximatedMultiImage = DGtal::ApproximatedMultiImage<Domain, LabelledMap, Approximation, BoundingBox>;
 
       // Multi phase-field
-      MultiPhaseField2< LabelImage, FieldImage, ApproximatedMultiImage > evolver(*labelImage, epsilon);
+      MultiPhaseField2< LabelImage, FieldImage, ApproximatedMultiImage > evolver(*labelImage, epsilon, !no_dist);
       
       DGtal::trace.beginBlock( "Deformation (massive multi phase field)" );
 
