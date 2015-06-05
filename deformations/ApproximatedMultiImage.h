@@ -6,6 +6,7 @@
 #include <limits>
 #include <ostream>
 #include <cmath>
+#include <utility>
 
 #include <DGtal/base/LabelledMap.h>
 #include <DGtal/kernel/domains/CDomain.h>
@@ -101,6 +102,25 @@ using approximated_multi_image::linearizer;
 template <typename t>
 struct MultiImageInfos;
 
+/// Memory usage of multiple LabelledMap based on the size histogram.
+template <
+  typename TData, typename TWord,
+  typename TDomain,
+  typename TSizeHist
+>
+size_t getMultiImageMemoryUsage(
+    TDomain const& aDomain,
+    TSizeHist const& aSizeHist,
+    unsigned int L, unsigned int N, unsigned int M
+);
+
+/// Find best parameters for LabelledMap given the size histogram.
+template <
+  typename TData, typename TWord,
+  typename TDomain,
+  typename TSizeHist
+>
+std::pair<unsigned int, unsigned int> getOptimalLabelledMap( TDomain const& aDomain, TSizeHist const& aSizeHist, unsigned int L );
 
 /**
  * Multiple images container with approximation and bounding box capabilities.
@@ -341,6 +361,7 @@ class ApproximatedMultiImage< TDomain, DGtal::LabelledMap<TData, L, TWord, N, M>
         size_t cnt = 0;
         std::array<size_t, L> support; support.fill(0);
         infos.imageVolume.fill(0);
+        infos.labelHist.fill(0);
 
         for ( auto const& point_values : myImages )
           {
@@ -349,6 +370,7 @@ class ApproximatedMultiImage< TDomain, DGtal::LabelledMap<TData, L, TWord, N, M>
             infos.labelMax = std::max( infos.labelMax, size );
             label_sum += size;
             label_sqr_sum += size*size;
+            ++infos.labelHist[size];
 
             for ( auto const& label_value : point_values )
               {
@@ -367,6 +389,12 @@ class ApproximatedMultiImage< TDomain, DGtal::LabelledMap<TData, L, TWord, N, M>
             infos.imageSupport[i] = double(support[i]) / cnt;
             infos.imageBB[i] = double( getBoundingBox(i).size() ) / cnt;
           }
+
+        infos.memoryUsage = getMultiImageMemoryUsage<TData,TWord>( myDomain, infos.labelHist, L, N, M );
+        auto const bestSettings = getOptimalLabelledMap<TData,TWord>( myDomain, infos.labelHist, L );
+        infos.bestN = bestSettings.first;
+        infos.bestM = bestSettings.second;
+        infos.bestMemoryUsage = getMultiImageMemoryUsage<TData,TWord>( myDomain, infos.labelHist, L, infos.bestN, infos.bestM );
 
         return infos;
       }
@@ -437,12 +465,79 @@ class ApproximatedMultiImage< TDomain, DGtal::LabelledMap<TData, L, TWord, N, M>
   >
   struct MultiImageInfos< DGtal::ApproximatedMultiImage< TDomain, DGtal::LabelledMap<TData, L, TWord, N, M>, TApproximation, TBoundingBox > > 
     {
-      std::size_t labelMin, labelMax;
-      double labelMean, labelSDeviation;
-      std::array<TData, L> imageVolume;
-      std::array<double, L> imageSupport;
-      std::array<double, L> imageBB;
+      std::size_t labelMin, labelMax; // Minimum and maximum number of labels stored in each point.
+      double labelMean, labelSDeviation; // Mean and standard deviation of the number of labels.
+      std::array<size_t, L+1> labelHist; // Histogram of the number of labels stored.
+      std::array<TData, L> imageVolume; // Volume of each image.
+      std::array<double, L> imageSupport; // Relative support of each image (in [0,1]).
+      std::array<double, L> imageBB; // Relative volume of the bounding box of each image (in [0,1]).
+      size_t memoryUsage; // Memory usage of this structure
+      unsigned int bestN, bestM; // Optimal LabelledMap settings.
+      size_t bestMemoryUsage; // Memory usage for the optimal LabelledMap settings.
     };
+
+  /// Memory usage of multiple LabelledMap based on the size histogram.
+  template <
+    typename TData, typename TWord,
+    typename TDomain,
+    typename TSizeHist
+  >
+  size_t getMultiImageMemoryUsage(
+      TDomain const& aDomain,
+      TSizeHist const& aSizeHist,
+      unsigned int L, unsigned int N, unsigned int M
+  )
+    {
+      const size_t sizeof_LabelledMap = 
+            sizeof(TWord) * ( L/(8*sizeof(TWord)) + ( L % 8*sizeof(TWord) == 0 ? 0 : 1 ) )
+          + N * sizeof(TData) + std::max(sizeof(TData), sizeof(TData*));
+
+      const size_t sizeof_LastBlock = M * sizeof(TData) + sizeof(TData*);
+      
+      size_t usage = 0;
+      for ( unsigned int i = N+2; i <= L; ++i )
+        usage += aSizeHist[i] * ( (i-N)/M + ( (i-N) % M == 0 ? 0 : 1 ) );
+
+
+      usage = sizeof_LastBlock * usage + aDomain.size() * sizeof_LabelledMap;
+
+      return usage;
+    }
+
+  /// Find best parameters for LabelledMap given the size histogram.
+  template <
+    typename TData, typename TWord,
+    typename TDomain,
+    typename TSizeHist
+  >
+  std::pair<unsigned int, unsigned int> 
+      getOptimalLabelledMap( TDomain const& aDomain, TSizeHist const& aSizeHist, unsigned int L )
+    {
+      std::pair<unsigned int, unsigned int> param = { 1, 1 };
+      const size_t domain_size = aDomain.size();
+      size_t min_mem = getMultiImageMemoryUsage<TData,TWord>(aDomain, aSizeHist, L, param.first, param.second);
+      size_t max_N = min_mem/sizeof(TData) + ( min_mem % sizeof(TData) == 0 ? 0 : 1 );
+
+      for ( unsigned int N = 1; N < L && N < max_N; ++N )
+        {
+          size_t last_mem = std::numeric_limits<size_t>::max();
+          for ( unsigned int M = 1; M < L; ++M )
+            {
+              const size_t mem = getMultiImageMemoryUsage<TData,TWord>(aDomain, aSizeHist, L, N, M);
+              if ( mem >= last_mem ) break;
+              last_mem = mem;
+              if ( mem < min_mem || ( mem == min_mem && (N > param.first || M > param.second) ) )
+                {
+                  min_mem = mem;
+                  param.first = N;
+                  param.second = M;
+                }
+            }
+          max_N = min_mem/sizeof(TData) + ( min_mem % sizeof(TData) == 0 ? 0 : 1 );
+        }
+
+      return param;
+    }
 
   /// Display of ApproximatedMultiImage informations
   //
@@ -459,6 +554,11 @@ class ApproximatedMultiImage< TDomain, DGtal::LabelledMap<TData, L, TWord, N, M>
           << "max=" << infos.labelMax << " ; "
           << "mean=" << infos.labelMean << " ; "
           << "sdev=" << infos.labelSDeviation
+          << std::endl;
+
+      out << "Best settings: N=" << infos.bestN << "(" << N 
+          << ") ; M=" << infos.bestM << "(" << M 
+          << ") ; memory=" << infos.bestMemoryUsage << "(" << infos.memoryUsage << ")"
           << std::endl;
 
       bool first_label = true;
