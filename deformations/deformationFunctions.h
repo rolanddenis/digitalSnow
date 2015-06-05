@@ -9,8 +9,10 @@
 #define deformationFunctions_h
 
 #include <numeric> // Algorithms
+#include <algorithm>
 #include <cmath>
 #include <vector>
+#include <random>
 
 //images
 #include <DGtal/images/ImageContainerBySTLVector.h>
@@ -231,6 +233,14 @@ void initWithFlowerPredicate(TImage& img, const typename TImage::Point& c, doubl
   }
 }
 
+/** Initialize an image with balls.
+ * The balls are equally distributed in the domain.
+ *
+ * @param[in,out]   img     The image to initialize.
+ * @param[in]       count   The number of balls along each dimension (can be different for each dimension).
+ * @param[in]       radius  The radius of the balls.
+ * @param[in]       buffer  Empties positions on the domain border.
+ */
 template < typename TImage >
 void initWithMultipleBalls( TImage& img, std::vector<std::size_t> const& count, double radius, std::size_t buffer = 0 )
 {
@@ -272,10 +282,64 @@ void initWithMultipleBalls( TImage& img, std::vector<std::size_t> const& count, 
     }
 }
 
+/** Initialize an image with balls.
+ * The balls are equally distributed in the domain.
+ * @remarks It is a special case with same number of balls along each dimension.
+ *
+ * @param[in,out]   img     The image to initialize.
+ * @param[in]       count   The number of balls along each dimension (same for each dimension).
+ * @param[in]       radius  The radius of the balls.
+ * @param[in]       buffer  Empties positions on the domain border.
+ */
 template < typename TImage >
 void initWithMultipleBalls( TImage& img, std::size_t count, double radius, std::size_t buffer = 0 )
 {
   initWithMultipleBalls( img, std::vector<std::size_t>(TImage::dimension, count), radius, buffer );
+}
+
+/** Initialize an image with random label with equal volume.
+ * For each point of the domain, a label is randomly choosen so that each label occupies the
+ * same volume.
+ *
+ * @param[in,out] img     The image to initialize.
+ * @param[in]     count   The total number of labels.
+ */
+template < typename TImage >
+void initRandomly( TImage& img, std::size_t count )
+{
+  using std::size_t;
+
+  const size_t total_size = img.domain().size();
+
+  // Filling basket for each phase.
+  size_t basket[count];
+  std::vector<size_t> available(count);
+  size_t acc = 0;
+  for ( size_t i = 0; i < count; ++i )
+    {
+      basket[i] = (total_size+acc)/count;
+      acc += total_size - basket[i]*count;
+      available[i] = i;
+    }
+  
+  // Filling image
+  std::random_device rd;
+  std::mt19937 gen(rd());
+  for ( auto const& point : img.domain() )
+    {
+      /// @TODO parameters for those lines.
+      const size_t id = std::uniform_int_distribution<>(0, available.size()-1)(gen);
+      //const size_t id = std::uniform_int_distribution<>(0, std::min(static_cast<size_t>(4),available.size())-1)(gen);
+      //const size_t id = std::min( static_cast<size_t>(std::round(std::abs(std::normal_distribution<>(0, 0.5)(gen)))), available.size()-1);
+
+      const size_t label = available[id];
+      img.setValue( point, label );
+      if ( --basket[label] == 0 ) 
+        {
+          available[id] = available[available.size()-1];
+          available.pop_back();
+        }
+    }
 }
 
 
