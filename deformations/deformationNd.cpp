@@ -96,6 +96,8 @@ int main(int argc, char** argv)
   double balloon = 0.;        // Balloon Force
   double epsilon = 3.;        // Interface width
   bool flagWithCstVol = false;  // Volume Conservation
+  size_t subSamplingRatio = 1;  // Sub-Sampling ratio
+  size_t overSamplingRatio = 1; // Over-Sampling ratio
 
   string outputFiles  = "interface";  // Output files basename
 
@@ -125,6 +127,8 @@ int main(int argc, char** argv)
     ("balloonForce,k",  po::value<double>(&balloon)->default_value(balloon), "Balloon force" )
     ("epsilon,e",       po::value<double>(&epsilon)->default_value(epsilon), "Interface width (only for phase fields)" )
     ("withCstVol",      po::bool_switch(&flagWithCstVol), "with volume conservation (only for phase fields)" )
+    ("subSample",       po::value<size_t>(&subSamplingRatio)->default_value(subSamplingRatio), "sub-sampling ratio. Applied after image initialization but before over-sampling.")
+    ("overSample",      po::value<size_t>(&overSamplingRatio)->default_value(overSamplingRatio), "over-sampling ratio. Applied after image initialization and over-sampling.")
     ("outputFiles,o",   po::value<string>(&outputFiles)->default_value(outputFiles), "Output files basename" )
 #if   DIMENSION == 2
     ("outputFormat,f", po::value<string>(&outputFormat)->default_value(outputFormat), 
@@ -203,7 +207,7 @@ int main(int argc, char** argv)
     {
       DGtal::trace.beginBlock("image generating..."); 
       Point p = Point::diagonal(0);
-      Point q = Point::diagonal(dsize); 
+      Point q = Point::diagonal(dsize-1); // Domain size = q-p+1
       Point c = Point::diagonal(dsize/2); 
       labelImage = new LabelImage( Domain(p,q) ); 
 
@@ -223,6 +227,57 @@ int main(int argc, char** argv)
 
   // Domain
   Domain d = Domain( labelImage->domain().lowerBound(), labelImage->domain().upperBound() );
+  trace.info() << "Domain = " << d << std::endl << std::endl;
+
+  // Sub-sampling
+  if ( subSamplingRatio > 1 )
+    {
+      trace.beginBlock("Sub-sampling");
+      
+      const Point lower = d.lowerBound();
+      const Point upper = lower + ( d.upperBound() - lower )/subSamplingRatio; // So that the domain becomes never empty.
+      const Domain subDomain{ lower, upper };
+
+      LabelImage* subLabelImage = new LabelImage{ subDomain };
+      for ( auto point : subDomain )
+        {
+          auto const origPoint = lower + ( point - lower ) * subSamplingRatio;
+          subLabelImage->setValue(point, (*labelImage)(origPoint));
+        }
+
+      d = subDomain;
+      std::swap( labelImage, subLabelImage );
+      delete subLabelImage;
+
+      trace.info() << "Sub-sampled domain = " << d << std::endl;
+      trace.endBlock();
+      trace.info() << std::endl;
+    }
+
+  // Over-sampling
+  if ( overSamplingRatio > 1 )
+    {
+      trace.beginBlock("Over-sampling");
+
+      const Point lower = d.lowerBound();
+      const Point upper = lower + ( d.upperBound() - lower + Point::diagonal(1) ) * overSamplingRatio - Point::diagonal(1);
+      const Domain overDomain{ lower, upper };
+
+      LabelImage* overLabelImage = new LabelImage{ overDomain };
+      for ( auto point : overDomain )
+        {
+          auto const origPoint = lower + ( point - lower ) / overSamplingRatio;
+          overLabelImage->setValue(point, (*labelImage)(origPoint));
+        }
+
+      d = overDomain;
+      std::swap( labelImage, overLabelImage );
+      delete overLabelImage;
+
+      trace.info() << "Over-sampled domain = " << d << std::endl;
+      trace.endBlock();
+      trace.info() << std::endl;
+    }
 
 #if DIMENSION == 3
   // Pre-visualization for choosing camera position
@@ -606,9 +661,9 @@ int main(int argc, char** argv)
               std::stringstream s; 
               s << outputFiles << setfill('0') << std::setw(4) << (i/disp_step); 
 #if   DIMENSION == 2
-	            //drawContours( *labelImage, s.str(), outputFormat ); 
+	            drawContours( *labelImage, s.str(), outputFormat ); 
 #elif DIMENSION == 3
-              //writePartition( *labelImage, s.str(), outputFormat );
+              writePartition( *labelImage, s.str(), outputFormat );
 #endif
               
               // VTK export
@@ -649,7 +704,7 @@ int main(int argc, char** argv)
           */
 
 
-          DGtal::trace.info() << "Time spent: " << sumt << std::endl;    
+          DGtal::trace.info() << "Time spent: " << sumt << std::endl << std::endl;    
         }
 
       DGtal::trace.endBlock();
