@@ -29,6 +29,7 @@
 
 //////////////////////////////////////////////////////////////////////////////
 #include <cstdlib>
+#include <DGtal/base/Assert.h>
 //////////////////////////////////////////////////////////////////////////////
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -142,6 +143,7 @@ inline void
 AxisAlignedBoundingBox< HyperRectDomain<TSpace>, TCounter, N...>::
 removePoint( Point const& point )
 {
+  ASSERT_MSG( m_domain.isInside(point), "Point lies outside the domain." );
   removePoint_impl<0, N...>::apply( *this, point );
 }
 
@@ -153,6 +155,7 @@ inline void
 AxisAlignedBoundingBox< HyperRectDomain<TSpace>, TCounter, N...>::
 addPoint( Point const& point )
 {
+  ASSERT_MSG( m_domain.isInside(point), "Point lies outside the domain." );
   addPoint_impl<0, N...>::apply( *this, point );
 }
 
