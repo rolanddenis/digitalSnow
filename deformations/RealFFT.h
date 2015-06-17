@@ -27,7 +27,7 @@ struct FFTWComplexCast
   };
 
 
-/** Ugly macro used to call to fftw functions depending on the value type (fftw_*, fftwf_* & fftwl_*)
+/** Ugly macro used to call fftw functions depending on the value type (fftw_*, fftwf_* & fftwl_*)
  *
  * \see http://www.fftw.org/doc/Multi_002dDimensional-DFTs-of-Real-Data.html
  * \see http://www.fftw.org/doc/Real_002ddata-DFTs.html
@@ -127,7 +127,7 @@ struct FFTWWrapper<float>
   };
 
 /*
- * Wrapper implementations to fftw functions for float values.
+ * Wrapper implementations to fftw functions for long double values.
  * \warning Remember to link against fftw3l library.
  */
 template <>
@@ -257,7 +257,7 @@ class RealFFT< HyperRectDomain<TSpace>, T >
      * @param flags Planner flags. \see http://www.fftw.org/fftw3_doc/Planner-Flags.html#Planner-Flags 
      * @param way   The direction of the transform: FFTW_FORWARD for real->complex, FFTW_BACKWARD for complex->real.
      */
-    void doFFT( unsigned flags = FFTW_ESTIMATE, int way = FFTW_FORWARD )
+    void doFFT( unsigned flags = FFTW_MEASURE, int way = FFTW_FORWARD )
       {
         typename FFTW::plan p;
 
@@ -267,7 +267,7 @@ class RealFFT< HyperRectDomain<TSpace>, T >
           n[dimension-i-1] = mySpatialExtent[i];
 
         // Create the plan for this transformation
-        // Only FFTW_ESTIMATE flag preserve input.
+        // Only FFTW_ESTIMATE flag preserves input.
         if ( flags & FFTW_ESTIMATE )
           {
             p = FFTW::plan_dft( dimension, n, getSpatialStorage(), getFreqStorage(), way, FFTW_ESTIMATE );
@@ -303,7 +303,7 @@ class RealFFT< HyperRectDomain<TSpace>, T >
      * @param flags Planner flags. \see http://www.fftw.org/fftw3_doc/Planner-Flags.html#Planner-Flags 
      */
     inline
-    void forwardFFT( unsigned flags = FFTW_ESTIMATE )
+    void forwardFFT( unsigned flags = FFTW_MEASURE )
       {
         doFFT( flags, FFTW_FORWARD );
       }
@@ -313,7 +313,7 @@ class RealFFT< HyperRectDomain<TSpace>, T >
      * @param flags Planner flags. \see http://www.fftw.org/fftw3_doc/Planner-Flags.html#Planner-Flags 
      */
     inline
-    void backwardFFT( unsigned flags = FFTW_ESTIMATE )
+    void backwardFFT( unsigned flags = FFTW_MEASURE )
       {
         doFFT( flags, FFTW_BACKWARD );
       }
