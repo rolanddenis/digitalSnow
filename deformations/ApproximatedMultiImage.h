@@ -13,55 +13,10 @@
 #include "ValueApproximations.h"
 #include "NoBoundingBox.h"
 #include "ImageView.h"
+#include "Linearizer.h"
 
 namespace approximated_multi_image
 {
-
-  /**
-   * Templated static structure for linearization of the coordinates of a point.
-   *
-   * @tparam TDomain    Type of the domain.
-   * @tparam dimension  Actual working dimension (recursive process).
-   */
-  template < typename TDomain, std::size_t dimension = TDomain::dimension >
-  struct linearizer
-    {
-      using Point = typename TDomain::Point; ///< Type of a point for which we want the linearized index.
-      using Size =  typename TDomain::Size;  ///< Type of an index.
-
-      /**
-       * Return the linearized index from the coordinates of a point.
-       *
-       * @param aPoint      The point.
-       * @param lowerBound  The lowerBound of the domain.
-       * @param extent      The extent of the domain.
-       */
-      static inline
-      Size apply( Point const& aPoint, Point const& lowerBound, Point const& extent ) noexcept
-        {
-          return 
-              ( aPoint[TDomain::dimension - dimension] - lowerBound[TDomain::dimension - dimension] ) 
-            + extent[TDomain::dimension - dimension] * linearizer<TDomain, dimension-1>::apply( aPoint, lowerBound, extent );
-        }
-    };
-
-  /**
-   * Specialization of the structure linearizer for the one dimensional case.
-   *
-   * It is actually used as a terminate condition of the recursive process.
-   */
-  template < typename TDomain >
-  struct linearizer< TDomain, 1 >
-    {
-      using Point = typename TDomain::Point;
-      using Size  = typename TDomain::Size;
-
-      static inline
-      Size apply( Point const& aPoint, Point const& lowerBound, Point const& /* extent */ ) noexcept
-        {
-          return aPoint[TDomain::dimension-1] - lowerBound[TDomain::dimension-1];
-        }
-    };
 
   /**
    * Type traits to get the value type of a container.
@@ -95,7 +50,6 @@ namespace DGtal
 
 /// \todo move linearizer from ImageContainerBySTLVector into anonymous namespace to avoid polutting DGtal namespace.
 using namespace approximated_multi_image;
-using approximated_multi_image::linearizer;
 
 /** Informations about multiple image container
  */
@@ -439,11 +393,7 @@ class ApproximatedMultiImage< TDomain, DGtal::LabelledMap<TData, L, TWord, N, M>
     inline
     Size linearized( Point const& aPoint ) const
       {
-        return linearizer<Domain>::apply(
-            aPoint,
-            myDomain.lowerBound(),
-            myExtent
-        );
+        return Linearizer<Domain,ColMajorStorage>::apply(aPoint, myDomain.lowerBound(), myExtent);
       }
 
 
