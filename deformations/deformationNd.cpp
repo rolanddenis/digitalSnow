@@ -47,7 +47,6 @@ using namespace std;
 #include "AxisAlignedBoundingBox.h"
 #include "ValueApproximations.h"
 #include "ApproximatedMultiImage.h"
-#include "ImageView.h"
 #include "MultiPhaseField2.h"
 
 

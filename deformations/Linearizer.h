@@ -134,7 +134,7 @@ namespace
 } // anonymous namespace
 
 
-/** Linearization interface for HyperRectDomain.
+/** Linearization and de-linearization interface for HyperRectDomain.
  *
  * @tparam  TDomain       Type of the HyperRectDomain.
  * @tparam  TStorageOrder Storage Order (RowMajorStorage of ColMajorStorage).
@@ -147,39 +147,26 @@ struct Linearizer
   using Size = typename TDomain::Size;
 
   static inline
-  Size apply( Point aPoint, Point const& aLowerBound, Extent const& aExtent ) noexcept
+  Size getIndex( Point aPoint, Point const& aLowerBound, Extent const& aExtent ) noexcept
     {
       aPoint -= aLowerBound;
       return linearizer_impl<Size, TStorageOrder, TDomain::dimension>::apply(aPoint, aExtent);
     }
 
   static inline
-  Size apply( Point aPoint, Extent const& aExtent ) noexcept
+  Size getIndex( Point aPoint, Extent const& aExtent ) noexcept
     {
       return linearizer_impl<Size, TStorageOrder, TDomain::dimension>::apply(aPoint, aExtent);
     }
 
   static inline
-  Size apply( Point aPoint, TDomain const& aDomain ) noexcept
+  Size getIndex( Point aPoint, TDomain const& aDomain ) noexcept
     {
       return linearizer_impl<Size, TStorageOrder, TDomain::dimension>::apply(aPoint - aDomain.lowerBound(), aDomain.upperBound()-aDomain.lowerBound()+Point::diagonal(1));
     }
-};
-
-/** De-Linearization interface for HyperRectDomain.
- *
- * @tparam  TDomain       Type of the HyperRectDomain.
- * @tparam  TStorageOrder Storage Order (RowMajorStorage of ColMajorStorage).
- */
-template < typename TDomain, typename TStorageOrder = ColMajorStorage >
-struct DeLinearizer
-{
-  using Point = typename TDomain::Point;
-  using Extent = Point;
-  using Size = typename TDomain::Size;
 
   static inline
-  Point apply( Size aIndex, Point const& aLowerBound, Extent const& aExtent ) noexcept
+  Point getPoint( Size aIndex, Point const& aLowerBound, Extent const& aExtent ) noexcept
     {
       Point point{};
       delinearizer_impl<TStorageOrder, TDomain::dimension>::apply(point, aExtent, aIndex);
@@ -187,7 +174,7 @@ struct DeLinearizer
     }
 
   static inline
-  Point apply( Size aIndex, Extent const& aExtent ) noexcept
+  Point getPoint( Size aIndex, Extent const& aExtent ) noexcept
     {
       Point point{};
       delinearizer_impl<TStorageOrder, TDomain::dimension>::apply(point, aExtent, aIndex);
@@ -195,13 +182,14 @@ struct DeLinearizer
     }
 
   static inline
-  Point apply( Size aIndex, TDomain const& aDomain ) noexcept
+  Point getPoint( Size aIndex, TDomain const& aDomain ) noexcept
     {
       Point point{};
       linearizer_impl<Size, TStorageOrder, TDomain::dimension>::apply(point, aDomain.upperBound()-aDomain.lowerBound()+Point::diagonal(1), aIndex);
       return point + aDomain.lowerBound();
     }
 };
+
 } // namespace DGtal
 
 /* GNU coding style */

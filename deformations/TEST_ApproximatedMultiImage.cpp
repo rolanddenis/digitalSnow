@@ -14,7 +14,7 @@
 #include "AxisAlignedBoundingBox.h"
 #include "ValueApproximations.h"
 #include "ApproximatedMultiImage.h"
-#include "ImageView.h"
+#include "ApproximatedMultiImageView.h"
 
 int main()
 {
@@ -36,9 +36,9 @@ int main()
 
     //using ApproximatedMultiImage = DGtal::ApproximatedMultiImage<Domain, LabelledMap, Approximation>;
     using ApproximatedMultiImage = DGtal::ApproximatedMultiImage<Domain, LabelledMap, Approximation, BoundingBox>;
-    using ImageView = ImageView<ApproximatedMultiImage, image_view::BoundingBoxAsDomain>;
+    using ImageView = ApproximatedMultiImageView<ApproximatedMultiImage, image_view::BoundingBoxAsDomain>;
 
-    const Domain domain({0,0}, {1000,100,100});
+    const Domain domain({0,0,0}, {1000,100,100});
     const Approximation approx{1};
     ApproximatedMultiImage images(domain, approx);
     

@@ -17,7 +17,7 @@
 #include "ValueApproximations.h"
 #include "ApproximatedMultiImage.h"
 #include "AxisAlignedBoundingBox.h"
-#include "ImageView.h"
+#include "ApproximatedMultiImageView.h"
 
 using std::size_t;
 using namespace DGtal;
@@ -231,7 +231,7 @@ public:
         sum += myMultiImage.getValue(point, aLabel);
       */
       
-      using ImageView = DGtal::ImageView<const MultiImage, DGtal::image_view::BoundingBoxAsDomain>;
+      using ImageView = DGtal::ApproximatedMultiImageView<const MultiImage, DGtal::image_view::BoundingBoxAsDomain>;
       ImageView image_view( myMultiImage, aLabel );
       image_view.buffer() = Point::diagonal(0);
 
@@ -262,7 +262,7 @@ public:
         sum += std::sin(myMultiImage.getValue(point, aLabel)+shift);
       */
 
-      using ImageView = DGtal::ImageView<const MultiImage, DGtal::image_view::BoundingBoxAsDomain>;
+      using ImageView = DGtal::ApproximatedMultiImageView<const MultiImage, DGtal::image_view::BoundingBoxAsDomain>;
       ImageView image_view( myMultiImage, aLabel );
       image_view.buffer() = Point::diagonal(0);
 

@@ -1,0 +1,255 @@
+#pragma once
+
+#include <cstddef>
+#include <array>
+#include <type_traits>
+
+#include <boost/iterator/iterator_facade.hpp>
+#include <boost/iterator/reverse_iterator.hpp>
+#include <boost/range/iterator_range_core.hpp>
+#include <boost/iterator/iterator_traits.hpp>
+
+#include <DGtal/images/ImageContainerBySTLVector.h> // For conversion purpose
+
+#include "ImageViewIterator.h"
+
+namespace DGtal
+{
+
+namespace image_view
+{
+
+/**
+ * Policy that returns the full domain
+ */
+template < typename TApproximatedMultiImageView, typename TDomain >
+struct FullDomain
+  {
+    inline
+    TDomain domain() const
+      {
+        return static_cast<TApproximatedMultiImageView const*>(this)->myMultiImage->domain();
+      }
+  };
+
+/**
+ * Policy that returns the bounding box (with buffer) as the image domain.
+ */
+template < typename TApproximatedMultiImageView, typename TDomain >
+class BoundingBoxAsDomain
+  {
+  public:
+    using Point = typename TDomain::Point;
+
+    inline
+    TDomain domain() const
+      {
+        TApproximatedMultiImageView const& image = * static_cast<TApproximatedMultiImageView const*>(this);
+        return image.myMultiImage->getBoundingBox( image.myLabel, myBuffer );
+      }
+
+    inline
+    Point & buffer() 
+      {
+        return myBuffer;
+      }
+
+    inline
+    Point const& buffer() const
+      {
+        return myBuffer;
+      }
+
+  private:
+    Point myBuffer;
+  };
+
+} // namespace image_view
+
+
+/**
+ * Image View for ApproximatedMultiImage (but not only ?)
+ */
+template <
+  typename TMultiImage,
+  template<typename,typename> class TDomainPolicy = image_view::FullDomain
+>
+class ApproximatedMultiImageView
+    : public TDomainPolicy< ApproximatedMultiImageView<TMultiImage, TDomainPolicy>, typename TMultiImage::Domain >
+  {
+  public:
+    // Typedefs
+    using Self        = ApproximatedMultiImageView<TMultiImage, TDomainPolicy>;
+    using MultiImage  = TMultiImage;
+    using Point       = typename MultiImage::Point;
+    using Label       = typename MultiImage::Label;
+    using Domain      = typename MultiImage::Domain;
+    using Value       = typename MultiImage::Value;
+    using Reference   = typename MultiImage::Reference;
+
+    // Iterators & Ranges
+    template<class> friend class ImageViewIterator;
+    class DistanceFunctor;
+    using ConstIterator   = ImageViewIterator<Self const>;
+    using Iterator        = typename std::conditional< std::is_const<TMultiImage>::value, ConstIterator, ImageViewIterator<Self> >::type;
+    using ReverseIterator = boost::reverse_iterator<Iterator>;
+    using ConstReverseIterator = boost::reverse_iterator<ConstIterator>;
+    using Range = SimpleRandomAccessRangeFromPoint< ConstIterator, Iterator, DistanceFunctor >;
+    using ConstRange = SimpleRandomAccessConstRangeFromPoint< ConstIterator, DistanceFunctor >;
+    using Difference = std::ptrdiff_t;
+
+
+    /// Policies as friend.
+    friend TDomainPolicy<Self, Domain>;
+    using TDomainPolicy<Self, Domain>::domain;
+    
+    /// Constructor.
+    ApproximatedMultiImageView( MultiImage& aMultiImage, Label aLabel ) 
+      : myMultiImage{&aMultiImage}, myLabel{aLabel}
+    {}
+
+    /// Default constructor.
+   ApproximatedMultiImageView()
+      : myMultiImage{nullptr}, myLabel{0}
+    {}
+
+
+    /// Get a value
+    inline
+    Value getValue( Point const& aPoint ) const
+      {
+        return myMultiImage->getValue( aPoint, myLabel );
+      }
+
+    /// Set a value
+    inline
+    void setValue( Point const& aPoint, Value aValue )
+      {
+        myMultiImage->setValue( aPoint, myLabel, aValue );
+      }
+
+    /// Get a value
+    inline
+    Value operator() ( Point const& aPoint ) const
+      {
+        return getValue( aPoint );
+      }
+
+    /**
+     * Conversion to a ImageContainerBySTLVector
+     * \todo is that the efficient way ? What about move syntax ?
+     */
+    explicit operator ImageContainerBySTLVector<Domain, Value>  () const
+      {
+        ImageContainerBySTLVector<Domain, Value> image{domain()};
+        for ( auto const& point : domain() )
+          image.setValue( point, getValue( point ) );
+      
+        return image;
+      }
+
+    inline
+    Iterator begin()
+      {
+        return Iterator{this, myMultiImage->domain(), domain()};
+      }
+
+    inline
+    Iterator end()
+      {
+        return Iterator{this, myMultiImage->domain(), domain(), true};
+      }
+
+    inline
+    ConstIterator cbegin() const
+      {
+        return ConstIterator{this, myMultiImage->domain(), domain()};
+      }
+
+    inline
+    ConstIterator cend() const
+      {
+        return ConstIterator{this, myMultiImage->domain(), domain(), true};
+      }
+
+    inline
+    ReverseIterator rbegin()
+      {
+        return ReverseIterator{end()};
+      }
+
+    inline
+    ReverseIterator rend()
+      {
+        return ReverseIterator{begin()};
+      }
+
+    inline
+    ConstReverseIterator crbegin() const
+      {
+        return ConstReverseIterator{cend()};
+      }
+
+    inline
+    ConstReverseIterator crend() const
+      {
+        return ConstReverseIterator{cbegin()};
+      }
+
+    inline
+    Range range()
+      {
+        return { begin(), end(), DistanceFunctor{cbegin()} };
+      }
+
+    inline
+    ConstRange constRange() const
+      {
+        return { cbegin(), cend(), DistanceFunctor{cbegin()} };
+      }
+
+
+    class DistanceFunctor
+      {
+      public:
+        using Point = Self::Point;
+        using Difference = Self::Difference;
+
+        DistanceFunctor( ConstIterator const& anIterator )
+          : myIterator(anIterator)
+          {}
+
+        Difference operator() ( Point const& aPoint ) const
+          {
+            return myIterator.distance_to(aPoint);
+          }
+
+      private:
+        const ConstIterator  myIterator;
+      };
+
+  public: // Should be private since ImageViewIterator is a friend but g++ 4.9.1 don't care ...
+    
+    inline
+    Value dereference( Point const& /* aPoint */ , typename Point::Coordinate aFullIndex ) const
+      {
+        return myMultiImage->getValueByIndex( aFullIndex, myLabel );
+      }
+
+    inline
+    Reference dereference( Point const& aPoint, typename Point::Coordinate aFullIndex )
+      {
+        return Reference( *myMultiImage, aPoint, myLabel, aFullIndex );
+      }
+    
+  private:
+    MultiImage* myMultiImage;
+    Label       myLabel;
+
+  };
+
+} // namespace DGtal
+
+/* GNU coding style */
+/* vim: set ts=2 sw=2 expandtab cindent cinoptions=>4,n-2,{2,^-2,:2,=2,g0,h2,p5,t0,+2,(0,u0,w1,m1 : */
+

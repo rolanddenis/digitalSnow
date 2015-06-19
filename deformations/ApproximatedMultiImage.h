@@ -7,12 +7,14 @@
 #include <ostream>
 #include <cmath>
 #include <utility>
+#include <iomanip> // DEBUG
+#include <iostream> // DEBUG
 
 #include <DGtal/base/LabelledMap.h>
 #include <DGtal/kernel/domains/CDomain.h>
 #include "ValueApproximations.h"
 #include "NoBoundingBox.h"
-#include "ImageView.h"
+#include "ApproximatedMultiImageView.h"
 #include "Linearizer.h"
 
 namespace approximated_multi_image
@@ -124,10 +126,10 @@ class ApproximatedMultiImage< TDomain, DGtal::LabelledMap<TData, L, TWord, N, M>
     using Point         = typename TDomain::Point;  ///< Type of a point in the domain.
     using Size          = typename TDomain::Size;   ///< Type of the linearized index of a point.
     using ValueConstIterator = typename Container::ConstIterator;   ///< Type of the const-iterator over the values associated to a given point.
-    using FullImage     = ImageView< Self, image_view::FullDomain >; ///< Full image view.
-    using ConstFullImage = ImageView< const Self, image_view::FullDomain >; ///< Full image constant view;
-    using BBImage       = ImageView< Self, image_view::BoundingBoxAsDomain >; ///< Image view from bounding box.
-    using ConstBBImage  = ImageView< const Self, image_view::BoundingBoxAsDomain >; ///< Image constant view from bounding box.
+    using FullImage     = ApproximatedMultiImageView< Self, image_view::FullDomain >; ///< Full image view.
+    using ConstFullImage = ApproximatedMultiImageView< const Self, image_view::FullDomain >; ///< Full image constant view;
+    using BBImage       = ApproximatedMultiImageView< Self, image_view::BoundingBoxAsDomain >; ///< Image view from bounding box.
+    using ConstBBImage  = ApproximatedMultiImageView< const Self, image_view::BoundingBoxAsDomain >; ///< Image constant view from bounding box.
 
 
     // STL typedefs
@@ -393,7 +395,7 @@ class ApproximatedMultiImage< TDomain, DGtal::LabelledMap<TData, L, TWord, N, M>
     inline
     Size linearized( Point const& aPoint ) const
       {
-        return Linearizer<Domain,ColMajorStorage>::apply(aPoint, myDomain.lowerBound(), myExtent);
+        return Linearizer<Domain,ColMajorStorage>::getIndex(aPoint, myDomain.lowerBound(), myExtent);
       }
 
 
@@ -464,7 +466,6 @@ class ApproximatedMultiImage< TDomain, DGtal::LabelledMap<TData, L, TWord, N, M>
       getOptimalLabelledMap( TDomain const& aDomain, TSizeHist const& aSizeHist, unsigned int L )
     {
       std::pair<unsigned int, unsigned int> param = { 1, 1 };
-      const size_t domain_size = aDomain.size();
       size_t min_mem = getMultiImageMemoryUsage<TData,TWord>(aDomain, aSizeHist, L, param.first, param.second);
       size_t max_N = min_mem/sizeof(TData) + ( min_mem % sizeof(TData) == 0 ? 0 : 1 );
 
