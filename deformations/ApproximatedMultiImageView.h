@@ -12,6 +12,8 @@
 #include <DGtal/images/ImageContainerBySTLVector.h> // For conversion purpose
 
 #include "ImageViewIterator.h"
+#include "IteratorFacade.h"
+#include "Linearizer.h"
 
 namespace DGtal
 {
@@ -30,6 +32,8 @@ struct FullDomain
       {
         return static_cast<TApproximatedMultiImageView const*>(this)->myMultiImage->domain();
       }
+  protected:
+    ~FullDomain() {}
   };
 
 /**
@@ -62,6 +66,9 @@ class BoundingBoxAsDomain
 
   private:
     Point myBuffer;
+  
+  protected:
+    ~BoundingBoxAsDomain() {}
   };
 
 } // namespace image_view
@@ -76,6 +83,7 @@ template <
 >
 class ApproximatedMultiImageView
     : public TDomainPolicy< ApproximatedMultiImageView<TMultiImage, TDomainPolicy>, typename TMultiImage::Domain >
+    , public IteratorFacade< ApproximatedMultiImageView<TMultiImage, TDomainPolicy> >
   {
   public:
     // Typedefs
@@ -89,16 +97,9 @@ class ApproximatedMultiImageView
 
     // Iterators & Ranges
     template<class> friend class ImageViewIterator;
-    class DistanceFunctor;
-    using ConstIterator   = ImageViewIterator<Self const>;
-    using Iterator        = typename std::conditional< std::is_const<TMultiImage>::value, ConstIterator, ImageViewIterator<Self> >::type;
-    using ReverseIterator = boost::reverse_iterator<Iterator>;
-    using ConstReverseIterator = boost::reverse_iterator<ConstIterator>;
-    using Range = SimpleRandomAccessRangeFromPoint< ConstIterator, Iterator, DistanceFunctor >;
-    using ConstRange = SimpleRandomAccessConstRangeFromPoint< ConstIterator, DistanceFunctor >;
-    using Difference = std::ptrdiff_t;
-
-
+    using Iterator = typename IteratorTraits<Self>::Iterator;
+    using ConstIterator = typename IteratorTraits<Self>::ConstIterator;
+    
     /// Policies as friend.
     friend TDomainPolicy<Self, Domain>;
     using TDomainPolicy<Self, Domain>::domain;
@@ -172,62 +173,6 @@ class ApproximatedMultiImageView
         return ConstIterator{this, myMultiImage->domain(), domain(), true};
       }
 
-    inline
-    ReverseIterator rbegin()
-      {
-        return ReverseIterator{end()};
-      }
-
-    inline
-    ReverseIterator rend()
-      {
-        return ReverseIterator{begin()};
-      }
-
-    inline
-    ConstReverseIterator crbegin() const
-      {
-        return ConstReverseIterator{cend()};
-      }
-
-    inline
-    ConstReverseIterator crend() const
-      {
-        return ConstReverseIterator{cbegin()};
-      }
-
-    inline
-    Range range()
-      {
-        return { begin(), end(), DistanceFunctor{cbegin()} };
-      }
-
-    inline
-    ConstRange constRange() const
-      {
-        return { cbegin(), cend(), DistanceFunctor{cbegin()} };
-      }
-
-
-    class DistanceFunctor
-      {
-      public:
-        using Point = Self::Point;
-        using Difference = Self::Difference;
-
-        DistanceFunctor( ConstIterator const& anIterator )
-          : myIterator(anIterator)
-          {}
-
-        Difference operator() ( Point const& aPoint ) const
-          {
-            return myIterator.distance_to(aPoint);
-          }
-
-      private:
-        const ConstIterator  myIterator;
-      };
-
   public: // Should be private since ImageViewIterator is a friend but g++ 4.9.1 don't care ...
     
     inline
@@ -247,6 +192,39 @@ class ApproximatedMultiImageView
     Label       myLabel;
 
   };
+
+template <
+  typename TMultiImage,
+  template<typename,typename> class TDomainPolicy
+>
+class IteratorTraits< ApproximatedMultiImageView<TMultiImage, TDomainPolicy> >
+  {
+public:
+    using Self          = ApproximatedMultiImageView<TMultiImage, TDomainPolicy>;
+    using ConstIterator = ImageViewIterator<Self const>;
+    using Iterator      = typename std::conditional< std::is_const<TMultiImage>::value, ConstIterator, ImageViewIterator<Self> >::type;
+    
+    class DistanceFunctor
+      {
+      public:
+        using Domain = typename Self::Domain;
+        using Point = typename Self::Point;
+        using Difference = typename Self::Difference;
+
+        DistanceFunctor( Self const* anImageView )
+          : myDomain( anImageView->domain() )
+          {}
+
+        Difference operator() ( Point const& aPoint ) const
+          {
+            return Linearizer<Domain, ColMajorStorage>::getIndex( aPoint, myDomain );
+          }
+
+      private:
+        const Domain myDomain;
+      };
+  };
+
 
 } // namespace DGtal
 
