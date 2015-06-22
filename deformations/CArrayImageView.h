@@ -9,6 +9,23 @@
 namespace DGtal
 {
 
+/** Image view for c-style array.
+ *
+ * This creates an image (concepts::CImage compatible) given a pointer to his
+ * allocated memory and two domains:
+ * - the definition (full) domain whose size is equal to the allocated size.
+ * - the viewable domain, a subset of the full-domain, on which the image is accessible.
+ *
+ * The available iterators can return the corresponding point and are faster than using
+ * an iterator over the domain (see ImageViewIterator). Reverse iterators and ranges are 
+ * defined in the inherited class IteratorFacade.
+ *
+ * @warning The allocated memory must be column-major ordered.
+ * @warning The domain is supposed to be an HyperRectDomain.
+ *
+ * @tparam TDomain  Type of the domain (must be an HyperRectDomain).
+ * @tparam TValue   Type of the stored values.
+ */
 template < 
   typename TDomain,
   typename TValue
@@ -23,16 +40,21 @@ class CArrayImageView
     using Value = TValue;
     using Domain = TDomain;
     using Point = typename Domain::Point;
-    using Linearizer = DGtal::Linearizer<Domain, ColMajorStorage>;
+    using Linearizer = DGtal::Linearizer<Domain, ColMajorStorage>; ///< Linearization of the points.
 
     // Iterators & Ranges
     template <class> friend class ImageViewIterator;
-    using Iterator = typename IteratorTraits<Self>::Iterator;
-    using ConstIterator = typename IteratorTraits<Self>::ConstIterator;
+    using Iterator = typename IteratorTraits<Self>::Iterator; ///< Mutable iterator.
+    using ConstIterator = typename IteratorTraits<Self>::ConstIterator; ///< Constant iterator.
 
-    /// Default constructor.
+    /** Default constructor.
+     *
+     * Empty allocated memory on empty domains.
+     */
     CArrayImageView()
       : myStorage{nullptr}
+      , myFullDomain{}
+      , myViewDomain{}
       {}
 
     /// Constructor from storage, full domain and viewable domain.
@@ -48,7 +70,10 @@ class CArrayImageView
         );
       }
 
-    /// Constructor from storage and full domain.
+    /** Constructor from storage and full domain.
+     *
+     * The viewable domain is then the full domain.
+     */
     CArrayImageView( Value* aStorage, Domain const& aFullDomain )
         : CArrayImageView( aStorage, aFullDomain, aFullDomain )
       {
@@ -59,53 +84,89 @@ class CArrayImageView
         : CArrayImageView( other.myStorage, other.myFullDomain, aViewDomain )
       {}
    
-    /// Get image domain.
+    /**
+     * @return the image viewable domain.
+     */
     inline
     Domain domain() const
       {
         return myViewDomain;
       }
+
+    /**
+     * @return the full domain where the allocated memory is defined.
+     */
+    inline
+    Domain fullDomain() const
+      {
+        return myFullDomain;
+      }
     
-    /// Get a value
+    /**
+     * @return the value given a point lying inside the full domain.
+     */
     inline
     Value getValue( Point const& aPoint ) const
       {
+        BOOST_ASSERT_MSG(
+            myFullDomain.isInside(aPoint),
+            "The point is outside the full domain."
+        );
+
         return myStorage[ Linearizer::getIndex(aPoint, myFullDomain) ];
       }
 
-    /// Set a value
+    /// Set a value given a point lying inside the full domain.
     inline
     void setValue( Point const& aPoint, Value aValue )
       {
+        BOOST_ASSERT_MSG(
+            myFullDomain.isInside(aPoint),
+            "The point is outside the full domain."
+        );
+
         myStorage[ Linearizer::getIndex(aPoint, myFullDomain) ] = aValue;
       }
 
-    /// Get a value
+    /**
+     * @return the value given a point lying inside the full domain.
+     */
     inline
     Value operator() ( Point const& aPoint ) const
       {
         return getValue(aPoint);
       }
 
-    /// Iterators
+    /**
+     * @return an mutable iterator pointing to the lower bound of the viewable domain.
+     */
     inline
     Iterator begin()
       {
         return Iterator{ this, myFullDomain, myViewDomain };
       }
 
+    /**
+     * @return an mutable iterator pointing after the upper bound of the viewable domain.
+     */
     inline
     Iterator end()
       {
         return Iterator{ this, myFullDomain, myViewDomain, true };
       }
 
+    /**
+     * @return a constant iterator pointing to the lower bound of the viewable domain.
+     */
     inline
     ConstIterator cbegin() const
       {
         return ConstIterator{ this, myFullDomain, myViewDomain };
       }
 
+    /**
+     * @return a constant iterator pointing after the upper bound of the viewable domain.
+     */
     inline
     ConstIterator cend() const
       {
@@ -115,12 +176,14 @@ class CArrayImageView
 
   private:
 
+    /// Dereference of a mutable iterator.
     inline
     Value& dereference( Point const& /* aPoint */, typename Point::Coordinate aFullIndex )
       {
         return myStorage[aFullIndex];
       }
 
+    /// Dereference of a constant iterator.
     inline
     Value const& dereference( Point const& /* aPoint */, typename Point::Coordinate aFullIndex ) const
       {
@@ -128,12 +191,15 @@ class CArrayImageView
       }
 
   private:
-    Value* myStorage;
-    Domain myFullDomain;
-    Domain myViewDomain;
+    Value* myStorage;     ///< Pointer to the allocated memory.
+    Domain myFullDomain;  ///< Definition (full) domain.
+    Domain myViewDomain;  ///< Viewable domain.
   };
 
-  /// Iterator traits
+  /** Iterator traits specialized for CArrayImageView.
+   *
+   * \see ImageViewIterator
+   */
   template <
     typename TDomain,
     typename TValue
@@ -142,9 +208,13 @@ class CArrayImageView
     {
     public:
       using Self = CArrayImageView<TDomain, TValue>;
-      using Iterator = ImageViewIterator<Self>;
-      using ConstIterator = ImageViewIterator<const Self>;
+      using Iterator = ImageViewIterator<Self>; ///< Mutable iterator.
+      using ConstIterator = ImageViewIterator<const Self>; ///< Constant iterator.
 
+    /** Functor that return the distance between the domain lower bound and a given point.
+     *
+     * \see SimpleRandomAccessRangeFromPoint and SimpleRandomAccessConstRangeFromPoint.
+     */
     class DistanceFunctor
       {
       public:

@@ -5,10 +5,10 @@
 namespace DGtal
 {
 
-/// Tag for specifying a row-major storage order.
+/// Tag specifying a row-major storage order.
 struct RowMajorStorage {};
 
-/// Tag for specifying a col-major storage order.
+/// Tag specifying a col-major storage order.
 struct ColMajorStorage {};
 
 /// Tools
@@ -146,6 +146,13 @@ struct Linearizer
   using Extent = Point;
   using Size = typename TDomain::Size;
 
+  /** Linearized index of a point, given the domain lower-bound and extent.
+   *
+   * @param[in] aPoint      The point to be linearized.
+   * @param[in] aLowerBound The lower-bound of the domain.
+   * @param[in] aExtent     The extent of the domain.
+   * @return the linearized index of the point.
+   */
   static inline
   Size getIndex( Point aPoint, Point const& aLowerBound, Extent const& aExtent ) noexcept
     {
@@ -153,18 +160,39 @@ struct Linearizer
       return linearizer_impl<Size, TStorageOrder, TDomain::dimension>::apply(aPoint, aExtent);
     }
 
+  /** Linearized index of a point, given the domain extent.
+   *
+   * The lower-bound of the domain is defined to the origin.
+   *
+   * @param[in] aPoint    The Point to be linearized.
+   * @param[in] aExtent   The extent of the domain.
+   * @return the linearized index of the point.
+   */
   static inline
   Size getIndex( Point aPoint, Extent const& aExtent ) noexcept
     {
       return linearizer_impl<Size, TStorageOrder, TDomain::dimension>::apply(aPoint, aExtent);
     }
 
+  /** Linearized index of a point, given a domain.
+   *
+   * @param[in] aPoint    The Point to be linearized.
+   * @param[in] aDomain   The domain.
+   * @return the linearized index of the point.
+   */
   static inline
   Size getIndex( Point aPoint, TDomain const& aDomain ) noexcept
     {
       return linearizer_impl<Size, TStorageOrder, TDomain::dimension>::apply(aPoint - aDomain.lowerBound(), aDomain.upperBound()-aDomain.lowerBound()+Point::diagonal(1));
     }
 
+  /** De-linearization of an index, given the domain lower-bound and extent.
+   *
+   * @param[in] aIndex  The linearized index.
+   * @param[in] aLowerBound The lower-bound of the domain.
+   * @param[in] aExtent     The domain extent.
+   * @return  the point whose linearized index is aIndex.
+   */
   static inline
   Point getPoint( Size aIndex, Point const& aLowerBound, Extent const& aExtent ) noexcept
     {
@@ -173,6 +201,14 @@ struct Linearizer
       return point + aLowerBound;
     }
 
+  /** De-linearization of an index, given the domain extent.
+   *
+   * The lower-bound of the domain is set to the origin.
+   *
+   * @param[in] aIndex  The linearized index.
+   * @param[in] aExtent     The domain extent.
+   * @return  the point whose linearized index is aIndex.
+   */
   static inline
   Point getPoint( Size aIndex, Extent const& aExtent ) noexcept
     {
@@ -181,6 +217,12 @@ struct Linearizer
       return point;
     }
 
+  /** De-linearization of an index, given a domain.
+   *
+   * @param[in] aIndex    The linearized index.
+   * @param[in] aDomain   The domain.
+   * @return  the point whose linearized index is aIndex.
+   */
   static inline
   Point getPoint( Size aIndex, TDomain const& aDomain ) noexcept
     {
