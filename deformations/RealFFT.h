@@ -8,6 +8,7 @@
 #include <fftw3.h>
 
 #include <DGtal/kernel/domains/HyperRectDomain.h>
+#include "CArrayImageView.h"
 
 namespace DGtal
 {
@@ -29,9 +30,9 @@ struct FFTWComplexCast
 
 /** Ugly macro used to call fftw functions depending on the value type (fftw_*, fftwf_* & fftwl_*)
  *
- * \see http://www.fftw.org/doc/Multi_002dDimensional-DFTs-of-Real-Data.html
- * \see http://www.fftw.org/doc/Real_002ddata-DFTs.html
- * \see http://www.fftw.org/doc/Precision.html#Precision
+ * @see http://www.fftw.org/doc/Multi_002dDimensional-DFTs-of-Real-Data.html
+ * @see http://www.fftw.org/doc/Real_002ddata-DFTs.html
+ * @see http://www.fftw.org/doc/Precision.html#Precision
  */
 #define FFTW_WRAPPER_GEN(suffix)                                                                                         \
     using size_t  = std::size_t;                                                                                         \
@@ -104,9 +105,8 @@ struct FFTWComplexCast
 template <typename Real = double>
 struct FFTWWrapper;
 
-/*
- * Wrapper implementations to fftw functions for double values.
- * \warning Remember to link against fftw3 library.
+/** Wrapper implementations to fftw functions for double values.
+ * @warning Remember to link against fftw3 library.
  */
 template <>
 struct FFTWWrapper<double>
@@ -115,9 +115,8 @@ struct FFTWWrapper<double>
     FFTW_WRAPPER_GEN()
   };
 
-/*
- * Wrapper implementations to fftw functions for float values.
- * \warning Remember to link against fftw3f library.
+/** Wrapper implementations to fftw functions for float values.
+ * @warning Remember to link against fftw3f library.
  */
 template <>
 struct FFTWWrapper<float>
@@ -126,9 +125,8 @@ struct FFTWWrapper<float>
     FFTW_WRAPPER_GEN(f)
   };
 
-/*
- * Wrapper implementations to fftw functions for long double values.
- * \warning Remember to link against fftw3l library.
+/** Wrapper implementations to fftw functions for long double values.
+ * @warning Remember to link against fftw3l library.
  */
 template <>
 struct FFTWWrapper<long double>
@@ -144,7 +142,7 @@ struct FFTWWrapper<long double>
  * @tparam  TDomain Type of the domain over which the FFT will be performed.
  * @tparam  T       Values type.
  *
- * \see http://www.fftw.org/doc/index.html
+ * @see http://www.fftw.org/doc/index.html
  */
 template <
   class TDomain, 
@@ -209,7 +207,7 @@ class RealFFT< HyperRectDomain<TSpace>, T >
       }
 
     /** Get mutable spatial storage.
-     * \warning There is a padding at the end of the first dimension. \see getPadding
+     * @warning There is a padding at the end of the first dimension. \see getPadding
      */
     inline
     Real* getSpatialStorage() noexcept
@@ -218,12 +216,28 @@ class RealFFT< HyperRectDomain<TSpace>, T >
       }
 
     /** Get non-mutable spatial storage.
-     * \warning There is a padding at the end of the first dimension. \see getPadding
+     * @warning There is a padding at the end of the first dimension. \see getPadding
      */
     inline
     Real const* getSpatialStorage() const noexcept
       {
         return reinterpret_cast<Real const*>(myStorage);
+      }
+
+    /// Get mutable spatial image.
+    inline
+    CArrayImageView<Domain, Real> getSpatialImage() noexcept
+      {
+        const Domain full_domain { mySpatialDomain.lowerBound(), mySpatialDomain.upperBound() + Point::base(0, getPadding()) };
+        return { getSpatialStorage(), full_domain, mySpatialDomain };
+      }
+    
+    /// Get non-mutable spatial image.
+    inline
+    CArrayImageView<Domain, const Real> getSpatialImage() const noexcept
+      {
+        const Domain full_domain { mySpatialDomain.lowerBound(), mySpatialDomain.upperBound() + Point::base(0, getPadding()) };
+        return { getSpatialStorage(), full_domain, mySpatialDomain };
       }
 
     /// Get mutable frequential storage.
@@ -238,6 +252,20 @@ class RealFFT< HyperRectDomain<TSpace>, T >
     Complex const* getFreqStorage() const noexcept
       {
         return reinterpret_cast<Complex const*>(myStorage);
+      }
+   
+    /// Get mutable frequential image.
+    inline
+    CArrayImageView<Domain, Complex> getFreqImage() noexcept
+      {
+        return { getFreqStorage(), getFreqDomain() };
+      }
+    
+    /// Get non-mutable frequential image.
+    inline
+    CArrayImageView<Domain, const Complex> getFreqImage() const noexcept
+      {
+        return { getFreqStorage(), getFreqDomain() };
       }
     
     /// Get spatial domain.

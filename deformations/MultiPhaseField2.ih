@@ -31,6 +31,7 @@
 #include <vector>
 #include <sstream>
 #include <iostream>
+#include <algorithm>
 
 #include <Eigen/SVD>
 
@@ -183,17 +184,10 @@ DGtal::MultiPhaseField2< TLabelImage, TFieldImage, DGtal::ApproximatedMultiImage
       auto spatial_data = fft.getSpatialStorage();
 
       // Copy
-      size_t row_pos = fft.getSpatialExtent()[0];
-      for ( auto val : bb_field )
-        {
-          *(spatial_data++) = val;
-          if ( --row_pos == 0 )
-            {
-              spatial_data += fft.getPadding();
-              row_pos = fft.getSpatialExtent()[0];
-            }
-        }
-      
+      auto spatial_image = fft.getSpatialImage();
+      std::copy( bb_field.cbegin(), bb_field.cend(), spatial_image.begin() );  
+
+
       // Forward transformation
       itrace.beginStep("fftw");
       fft.forwardFFT(FFTW_MEASURE);
@@ -249,18 +243,8 @@ DGtal::MultiPhaseField2< TLabelImage, TFieldImage, DGtal::ApproximatedMultiImage
 
       // Store the result
       itrace.beginStep("Write");
-      spatial_data = fft.getSpatialStorage();
-      row_pos = fft.getSpatialExtent()[0];
       const size_t n = fft.getSpatialDomain().size();
-      for ( auto it = bb_field.begin(), it_end = bb_field.end(); it != it_end; ++it )
-        {
-          *it = *(spatial_data++) / n;
-          if ( --row_pos == 0 )
-            {
-              spatial_data += fft.getPadding();
-              row_pos = fft.getSpatialExtent()[0];
-            }
-        }
+      std::transform( spatial_image.cbegin(), spatial_image.cend(), bb_field.begin(), [n] (real v) { return v/n; } );
 
       itrace.endBlock();
     }
