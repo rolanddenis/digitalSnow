@@ -193,8 +193,9 @@ DGtal::MultiPhaseField2< TLabelImage, TFieldImage, DGtal::ApproximatedMultiImage
       fft.forwardFFT(FFTW_MEASURE);
 
       itrace.beginStep("Conv");
+     
       auto const extent = fft.getSpatialExtent();
-      auto freq_data = fft.getFreqStorage();
+      auto freq_image = fft.getFreqImage();
       
       auto const freq_domain = fft.getFreqDomain();
       const size_t N_thread = omp_get_max_threads();
@@ -209,17 +210,12 @@ DGtal::MultiPhaseField2< TLabelImage, TFieldImage, DGtal::ApproximatedMultiImage
           pt_begin[dim-1] = pt_begin[dim-1] + (pos*extent[dim-1])/N_thread;
 
           Domain curr_domain { pt_begin, pt_end };
-          freq_data = fft.getFreqStorage();
-          size_t cum_prod = 1;
-          for ( size_t d = 0; d < dim; ++d )
-            {
-              freq_data += (pt_begin[d] - freq_domain.lowerBound()[d]) * cum_prod;
-              cum_prod *= fft.getFreqExtent()[d];
-            }
+          auto curr_freq_image = decltype(freq_image)(freq_image, curr_domain ); // Not very clean ...
 
-          #pragma omp task firstprivate(curr_domain, freq_data)
-          for ( auto const& point : curr_domain )
+          #pragma omp task firstprivate(curr_freq_image)
+          for ( auto it = curr_freq_image.begin(), it_end = curr_freq_image.end() ; it != it_end ; ++it )
             {
+              const auto point = it.getPoint();
               double norm2 = 0;
               for ( size_t j = 0; j < TFieldImage::dimension; ++j)
                 {
@@ -231,8 +227,8 @@ DGtal::MultiPhaseField2< TLabelImage, TFieldImage, DGtal::ApproximatedMultiImage
 
               // New value
 
-              auto const v = *reinterpret_cast<std::complex<real>*>(freq_data);
-              *(freq_data++) = { c*std::real(v), c*std::imag(v) };
+              auto const v = *it;
+              *it = { c*std::real(v), c*std::imag(v) };
             }
 
         }
