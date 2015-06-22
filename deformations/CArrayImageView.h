@@ -1,6 +1,6 @@
 #pragma once
 
-#include <boost/static_assert.hpp>
+#include <boost/assert.hpp>
 
 #include "ImageViewIterator.h"
 #include "IteratorFacade.h"
@@ -180,6 +180,10 @@ class CArrayImageView
     inline
     Value& dereference( Point const& /* aPoint */, typename Point::Coordinate aFullIndex )
       {
+        BOOST_ASSERT_MSG(
+            aFullIndex >= 0 && static_cast<typename Domain::Size>(aFullIndex) < myFullDomain.size(),
+            "linearized index out of bounds !"
+        );
         return myStorage[aFullIndex];
       }
 
@@ -187,6 +191,10 @@ class CArrayImageView
     inline
     Value const& dereference( Point const& /* aPoint */, typename Point::Coordinate aFullIndex ) const
       {
+        BOOST_ASSERT_MSG(
+            aFullIndex >= 0 && static_cast<typename Domain::Size>(aFullIndex) < myFullDomain.size(),
+            "linearized index out of bounds !"
+        );
         return myStorage[aFullIndex];
       }
 
@@ -228,6 +236,10 @@ class CArrayImageView
 
           Difference operator() ( Point const& aPoint ) const
             {
+              BOOST_ASSERT_MSG(
+                  myDomain.isInside(aPoint),
+                  "The point is outside the domain !"
+              );
               return Linearizer<Domain, ColMajorStorage>::getIndex( aPoint, myDomain );
             }
 

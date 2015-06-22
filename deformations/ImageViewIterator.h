@@ -2,6 +2,7 @@
 
 #include <type_traits>
 #include <boost/iterator/iterator_facade.hpp>
+#include <boost/assert.hpp>
 #include "Linearizer.h"
 
 
@@ -58,7 +59,17 @@ class ImageViewIterator
       , myViewExtent( myViewDomain.upperBound() - myViewDomain.lowerBound() + Point::diagonal(1) )
       , myPoint{ aPoint }
       , myFullIndex( Self::Linearizer::getIndex( myPoint - myFullDomain.lowerBound(), myFullExtent ) )
-      {}
+      {
+        BOOST_ASSERT_MSG(
+               myFullDomain.lowerBound().isLower( myViewDomain.lowerBound() )
+            && myFullDomain.upperBound().isUpper( myViewDomain.upperBound() ),
+            "The viewable domain must be included into the full domain."
+        );
+        BOOST_ASSERT_MSG(
+            myViewDomain.isInside(aPoint),
+            "The point is outside the viewable domain !"
+        );
+      }
 
     /// Copy constructor with type interoperability.
     template < typename TOtherIterableClass >
@@ -191,6 +202,10 @@ class ImageViewIterator
     inline
     std::ptrdiff_t distance_to( Point const& aPoint ) const 
       {
+        BOOST_ASSERT_MSG(
+            myViewDomain.isInside(aPoint),
+            "The point is outside the viewable domain !"
+        );
         return static_cast<std::ptrdiff_t>( Self::Linearizer::getIndex( aPoint - myPoint, myViewExtent ) );
       }
 
