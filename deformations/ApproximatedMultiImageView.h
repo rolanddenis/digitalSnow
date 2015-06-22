@@ -4,11 +4,6 @@
 #include <array>
 #include <type_traits>
 
-#include <boost/iterator/iterator_facade.hpp>
-#include <boost/iterator/reverse_iterator.hpp>
-#include <boost/range/iterator_range_core.hpp>
-#include <boost/iterator/iterator_traits.hpp>
-
 #include <DGtal/images/ImageContainerBySTLVector.h> // For conversion purpose
 
 #include "ImageViewIterator.h"
@@ -173,7 +168,7 @@ class ApproximatedMultiImageView
         return ConstIterator{this, myMultiImage->domain(), domain(), true};
       }
 
-  public: // Should be private since ImageViewIterator is a friend but g++ 4.9.1 don't care ...
+  public: // Should be private since ImageViewIterator is a friend but g++ 4.9.1 don't care ... (no prob with clang++)
     
     inline
     Value dereference( Point const& /* aPoint */ , typename Point::Coordinate aFullIndex ) const

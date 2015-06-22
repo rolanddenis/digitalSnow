@@ -73,7 +73,7 @@ class ImageViewIterator
 
     /// Copy constructor with type interoperability.
     template < typename TOtherIterableClass >
-    ImageViewIterator( 
+    explicit ImageViewIterator( 
         ImageViewIterator<TOtherIterableClass> const& other,
         typename std::enable_if< std::is_convertible<TOtherIterableClass*, IterableClass*>::value >::type* = 0 
     )
@@ -91,7 +91,7 @@ class ImageViewIterator
     ImageViewIterator( 
         ImageViewIterator<TOtherIterableClass> && other,
         typename std::enable_if< std::is_convertible<TOtherIterableClass*, IterableClass*>::value >::type* = 0 
-    )
+    ) noexcept
       : myIterableClassPtr( std::move(other.myIterableClassPtr) )
       , myFullDomain{ std::move(other.myFullDomain) }
       , myViewDomain{ std::move(other.myViewDomain) }
@@ -105,7 +105,7 @@ class ImageViewIterator
     ~ImageViewIterator() 
       {}
 
-    /// Copy assignment constructor with type interoperability.
+    /// Copy assignment with type interoperability.
     template < typename TOtherIterableClass >
     typename std::enable_if< std::is_convertible<TOtherIterableClass*, IterableClass*>::value, Self& >::type
     operator= ( 
@@ -184,7 +184,6 @@ class ImageViewIterator
     ImageViewIterator( IterableClass* anIterableClassPtr, Domain const& aFullDomain, bool /* last */ ) 
       : ImageViewIterator{ anIterableClassPtr, aFullDomain, aFullDomain, true }
       {
-        increment();
       }
 
     /**
@@ -206,7 +205,11 @@ class ImageViewIterator
             myViewDomain.isInside(aPoint),
             "The point is outside the viewable domain !"
         );
-        return static_cast<std::ptrdiff_t>( Self::Linearizer::getIndex( aPoint - myPoint, myViewExtent ) );
+        // return static_cast<std::ptrdiff_t>( Self::Linearizer::getIndex( aPoint - myPoint, myViewExtent ) ); // <- bad idea if aPoint is before myPoint
+        return 
+            static_cast<std::ptrdiff_t>( Linearizer::getIndex(aPoint, myViewDomain.lowerBound(), myViewExtent) )
+          - static_cast<std::ptrdiff_t>( Linearizer::getIndex(myPoint, myViewDomain.lowerBound(), myViewExtent) );
+
       }
 
   private:

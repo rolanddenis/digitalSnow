@@ -174,7 +174,7 @@ class CArrayImageView
       }
       
 
-  private:
+  public: // Should be private since ImageViewIterator is a friend but g++ 4.9.1 don't care ... (no prob with clang++)
 
     /// Dereference of a mutable iterator.
     inline
