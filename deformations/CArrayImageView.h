@@ -211,29 +211,29 @@ class CArrayImageView
       using Iterator = ImageViewIterator<Self>; ///< Mutable iterator.
       using ConstIterator = ImageViewIterator<const Self>; ///< Constant iterator.
 
-    /** Functor that return the distance between the domain lower bound and a given point.
-     *
-     * \see SimpleRandomAccessRangeFromPoint and SimpleRandomAccessConstRangeFromPoint.
-     */
-    class DistanceFunctor
-      {
-      public:
-        using Domain = typename Self::Domain;
-        using Point = typename Self::Point;
-        using Difference = typename Self::Difference;
+      /** Functor that return the distance between the domain lower bound and a given point.
+       *
+       * \see SimpleRandomAccessRangeFromPoint and SimpleRandomAccessConstRangeFromPoint.
+       */
+      class DistanceFunctor
+        {
+        public:
+          using Domain = typename Self::Domain;
+          using Point = typename Self::Point;
+          using Difference = typename Self::Difference;
 
-        DistanceFunctor( Self const* anImageView )
-          : myDomain( anImageView->domain() )
-          {}
+          DistanceFunctor( Self const* anImageView )
+            : myDomain( anImageView->domain() )
+            {}
 
-        Difference operator() ( Point const& aPoint ) const
-          {
-            return Linearizer<Domain, ColMajorStorage>::getIndex( aPoint, myDomain );
-          }
+          Difference operator() ( Point const& aPoint ) const
+            {
+              return Linearizer<Domain, ColMajorStorage>::getIndex( aPoint, myDomain );
+            }
 
-      private:
-        const Domain myDomain;
-      };
+        private:
+          const Domain myDomain; ///< Stored domain to avoid iterator corruption if domain changed.
+        };
 
     };
 
