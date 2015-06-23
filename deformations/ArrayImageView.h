@@ -1,6 +1,9 @@
 #pragma once
 
 #include <boost/assert.hpp>
+#include <boost/concept/assert.hpp>
+#include <boost/iterator/iterator_concepts.hpp>
+#include <iterator>
 
 #include "ImageViewIterator.h"
 #include "IteratorFacade.h"
@@ -28,16 +31,23 @@ namespace DGtal
  */
 template < 
   typename TDomain,
-  typename TValue
+  typename TArrayIterator
 >
-class CArrayImageView
-    : public IteratorFacade< CArrayImageView<TDomain,TValue> >
+class ArrayImageView
+    : public IteratorFacade< ArrayImageView<TDomain,TArrayIterator> >
   {
+
+  // Check Random-access iterator concept on TIterator
+  BOOST_CONCEPT_ASSERT( (boost_concepts::RandomAccessTraversalConcept<TArrayIterator>) );
 
   public:
     // Typedefs
-    using Self = CArrayImageView<TDomain, TValue>;
-    using Value = TValue;
+    using Self = ArrayImageView<TDomain, TArrayIterator>;
+    using ArrayIterator = TArrayIterator;
+    using Value = typename std::iterator_traits<ArrayIterator>::value_type;
+    using Reference = typename std::iterator_traits<ArrayIterator>::reference;
+    using ConstReference = const Reference;
+
     using Domain = TDomain;
     using Point = typename Domain::Point;
     using Linearizer = DGtal::Linearizer<Domain, ColMajorStorage>; ///< Linearization of the points.
@@ -51,15 +61,15 @@ class CArrayImageView
      *
      * Empty allocated memory on empty domains.
      */
-    CArrayImageView()
-      : myStorage{nullptr}
+    ArrayImageView()
+      : myArrayIterator{nullptr}
       , myFullDomain{}
       , myViewDomain{}
       {}
 
     /// Constructor from storage, full domain and viewable domain.
-    CArrayImageView( Value* aStorage, Domain const& aFullDomain, Domain const& aViewDomain )
-        : myStorage(aStorage)
+    ArrayImageView( ArrayIterator anArrayIterator, Domain const& aFullDomain, Domain const& aViewDomain )
+        : myArrayIterator(anArrayIterator)
         , myFullDomain{ aFullDomain }
         , myViewDomain{ aViewDomain }
       {
@@ -74,14 +84,14 @@ class CArrayImageView
      *
      * The viewable domain is then the full domain.
      */
-    CArrayImageView( Value* aStorage, Domain const& aFullDomain )
-        : CArrayImageView( aStorage, aFullDomain, aFullDomain )
+    ArrayImageView( ArrayIterator anArrayIterator, Domain const& aFullDomain )
+        : ArrayImageView( anArrayIterator, aFullDomain, aFullDomain )
       {
       }
 
     /// Copy constructor with other viewable domain.
-    CArrayImageView( Self const& other, Domain const& aViewDomain )
-        : CArrayImageView( other.myStorage, other.myFullDomain, aViewDomain )
+    ArrayImageView( Self const& other, Domain const& aViewDomain )
+        : ArrayImageView( other.myArrayIterator, other.myFullDomain, aViewDomain )
       {}
    
     /**
@@ -113,7 +123,7 @@ class CArrayImageView
             "The point is outside the full domain."
         );
 
-        return myStorage[ Linearizer::getIndex(aPoint, myFullDomain) ];
+        return myArrayIterator[ Linearizer::getIndex(aPoint, myFullDomain) ];
       }
 
     /// Set a value given a point lying inside the full domain.
@@ -125,7 +135,7 @@ class CArrayImageView
             "The point is outside the full domain."
         );
 
-        myStorage[ Linearizer::getIndex(aPoint, myFullDomain) ] = aValue;
+        myArrayIterator[ Linearizer::getIndex(aPoint, myFullDomain) ] = aValue;
       }
 
     /**
@@ -145,6 +155,24 @@ class CArrayImageView
       {
         return Iterator{ this, myFullDomain, myViewDomain };
       }
+    
+    /**
+     * @return a constant iterator pointing to the lower bound of the viewable domain.
+     */
+    inline
+    ConstIterator begin() const
+      {
+        return ConstIterator{ this, myFullDomain, myViewDomain };
+      }
+    
+    /**
+     * @return a constant iterator pointing to the lower bound of the viewable domain (C++11).
+     */
+    inline
+    ConstIterator cbegin() const
+      {
+        return ConstIterator{ this, myFullDomain, myViewDomain };
+      }
 
     /**
      * @return an mutable iterator pointing after the upper bound of the viewable domain.
@@ -154,18 +182,18 @@ class CArrayImageView
       {
         return Iterator{ this, myFullDomain, myViewDomain, true };
       }
-
-    /**
-     * @return a constant iterator pointing to the lower bound of the viewable domain.
-     */
-    inline
-    ConstIterator cbegin() const
-      {
-        return ConstIterator{ this, myFullDomain, myViewDomain };
-      }
-
+    
     /**
      * @return a constant iterator pointing after the upper bound of the viewable domain.
+     */
+    inline
+    ConstIterator end() const
+      {
+        return ConstIterator{ this, myFullDomain, myViewDomain, true };
+      }
+    
+    /**
+     * @return a constant iterator pointing after the upper bound of the viewable domain (C++11).
      */
     inline
     ConstIterator cend() const
@@ -178,28 +206,28 @@ class CArrayImageView
 
     /// Dereference of a mutable iterator.
     inline
-    Value& dereference( Point const& /* aPoint */, typename Point::Coordinate aFullIndex )
+    Reference dereference( Point const& /* aPoint */, typename Point::Coordinate aFullIndex )
       {
         BOOST_ASSERT_MSG(
             aFullIndex >= 0 && static_cast<typename Domain::Size>(aFullIndex) < myFullDomain.size(),
             "linearized index out of bounds !"
         );
-        return myStorage[aFullIndex];
+        return myArrayIterator[aFullIndex];
       }
 
     /// Dereference of a constant iterator.
     inline
-    Value const& dereference( Point const& /* aPoint */, typename Point::Coordinate aFullIndex ) const
+    ConstReference dereference( Point const& /* aPoint */, typename Point::Coordinate aFullIndex ) const
       {
         BOOST_ASSERT_MSG(
             aFullIndex >= 0 && static_cast<typename Domain::Size>(aFullIndex) < myFullDomain.size(),
             "linearized index out of bounds !"
         );
-        return myStorage[aFullIndex];
+        return myArrayIterator[aFullIndex];
       }
 
   private:
-    Value* myStorage;     ///< Pointer to the allocated memory.
+    ArrayIterator myArrayIterator; ///< Pointer to the allocated memory.
     Domain myFullDomain;  ///< Definition (full) domain.
     Domain myViewDomain;  ///< Viewable domain.
   };
@@ -210,12 +238,12 @@ class CArrayImageView
    */
   template <
     typename TDomain,
-    typename TValue
+    typename TArrayIterator
   >
-  class IteratorTraits< CArrayImageView<TDomain, TValue> >
+  class IteratorTraits< ArrayImageView<TDomain, TArrayIterator> >
     {
     public:
-      using Self = CArrayImageView<TDomain, TValue>;
+      using Self = ArrayImageView<TDomain, TArrayIterator>;
       using Iterator = ImageViewIterator<Self>; ///< Mutable iterator.
       using ConstIterator = ImageViewIterator<const Self>; ///< Constant iterator.
 

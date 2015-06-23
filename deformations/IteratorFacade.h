@@ -63,7 +63,7 @@ class IteratorFacade
     inline
     ConstReverseIterator crbegin() const
       {
-        return ConstReverseIterator{ static_cast<TDerived*>(this)->cend() };
+        return ConstReverseIterator{ static_cast<TDerived*>(this)->end() };
       }
 
     /**
@@ -73,7 +73,7 @@ class IteratorFacade
     inline
     ConstReverseIterator crend() const
       {
-        return ConstReverseIterator{ static_cast<TDerived*>(this)->cbegin() };
+        return ConstReverseIterator{ static_cast<TDerived*>(this)->begin() };
       }
 
     /**
@@ -100,8 +100,8 @@ class IteratorFacade
       {
         TDerived const* const derived = static_cast<TDerived const*>(this);
         return { 
-            derived->cbegin(), 
-            derived->cend(), 
+            derived->begin(), 
+            derived->end(), 
             typename IteratorTraits<TDerived>::DistanceFunctor( derived )
         };
       }

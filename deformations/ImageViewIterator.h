@@ -73,7 +73,7 @@ class ImageViewIterator
 
     /// Copy constructor with type interoperability.
     template < typename TOtherIterableClass >
-    explicit ImageViewIterator( 
+    ImageViewIterator( 
         ImageViewIterator<TOtherIterableClass> const& other,
         typename std::enable_if< std::is_convertible<TOtherIterableClass*, IterableClass*>::value >::type* = 0 
     )

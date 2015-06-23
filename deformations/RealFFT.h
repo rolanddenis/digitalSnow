@@ -8,7 +8,7 @@
 #include <fftw3.h>
 
 #include <DGtal/kernel/domains/HyperRectDomain.h>
-#include "CArrayImageView.h"
+#include "ArrayImageView.h"
 
 namespace DGtal
 {
@@ -226,7 +226,7 @@ class RealFFT< HyperRectDomain<TSpace>, T >
 
     /// Get mutable spatial image.
     inline
-    CArrayImageView<Domain, Real> getSpatialImage() noexcept
+    ArrayImageView<Domain, Real*> getSpatialImage() noexcept
       {
         const Domain full_domain { mySpatialDomain.lowerBound(), mySpatialDomain.upperBound() + Point::base(0, getPadding()) };
         return { getSpatialStorage(), full_domain, mySpatialDomain };
@@ -234,7 +234,7 @@ class RealFFT< HyperRectDomain<TSpace>, T >
     
     /// Get non-mutable spatial image.
     inline
-    CArrayImageView<Domain, const Real> getSpatialImage() const noexcept
+    ArrayImageView<Domain, const Real*> getSpatialImage() const noexcept
       {
         const Domain full_domain { mySpatialDomain.lowerBound(), mySpatialDomain.upperBound() + Point::base(0, getPadding()) };
         return { getSpatialStorage(), full_domain, mySpatialDomain };
@@ -256,14 +256,14 @@ class RealFFT< HyperRectDomain<TSpace>, T >
    
     /// Get mutable frequential image.
     inline
-    CArrayImageView<Domain, Complex> getFreqImage() noexcept
+    ArrayImageView<Domain, Complex*> getFreqImage() noexcept
       {
         return { getFreqStorage(), getFreqDomain() };
       }
     
     /// Get non-mutable frequential image.
     inline
-    CArrayImageView<Domain, const Complex> getFreqImage() const noexcept
+    ArrayImageView<Domain, const Complex*> getFreqImage() const noexcept
       {
         return { getFreqStorage(), getFreqDomain() };
       }
