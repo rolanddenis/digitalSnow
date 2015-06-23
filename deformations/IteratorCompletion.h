@@ -17,19 +17,19 @@ namespace DGtal
  *   (see SimpleRandomAccessRangeFromPoint and SimpleRandomAccessConstRangeFromPoint)
  */
 template < typename TDerived >
-class IteratorTraits;
+class IteratorCompletionTraits;
 
 /// Class that uses CRTP to add reverse iterators and ranges to a derived class.
 template < 
   typename TDerived
 >
-class IteratorFacade
+class IteratorCompletion
   {
   public:
 
-    using Iterator        = typename IteratorTraits<TDerived>::Iterator;
-    using ConstIterator   = typename IteratorTraits<TDerived>::ConstIterator;
-    using DistanceFunctor = typename IteratorTraits<TDerived>::DistanceFunctor;
+    using Iterator        = typename IteratorCompletionTraits<TDerived>::Iterator;
+    using ConstIterator   = typename IteratorCompletionTraits<TDerived>::ConstIterator;
+    using DistanceFunctor = typename IteratorCompletionTraits<TDerived>::DistanceFunctor;
 
     using ReverseIterator       = boost::reverse_iterator<Iterator>;
     using ConstReverseIterator  = boost::reverse_iterator<ConstIterator>;
@@ -47,6 +47,26 @@ class IteratorFacade
       }
 
     /**
+     * @return  a constant reverse-iterator pointing to the last value.
+     * @warning the derived class must have a cend() method.
+     */
+    inline
+    ConstReverseIterator rbegin() const
+      {
+        return ConstReverseIterator{ static_cast<TDerived*>(this)->end() };
+      }
+    
+    /**
+     * @return  a constant reverse-iterator pointing to the last value (C++11).
+     * @warning the derived class must have a cend() method.
+     */
+    inline
+    ConstReverseIterator crbegin() const
+      {
+        return ConstReverseIterator{ static_cast<TDerived*>(this)->end() };
+      }
+    
+    /**
      * @return  a mutable reverse-iterator pointing before the first value.
      * @warning the derived class must have a end() method.
      */
@@ -57,17 +77,17 @@ class IteratorFacade
       }
 
     /**
-     * @return  a constant reverse-iterator pointing to the last value.
-     * @warning the derived class must have a cend() method.
+     * @return  a constant reverse-iterator pointing before the first value.
+     * @warning the derived class must have a cbegin() method.
      */
     inline
-    ConstReverseIterator crbegin() const
+    ConstReverseIterator rend() const
       {
-        return ConstReverseIterator{ static_cast<TDerived*>(this)->end() };
+        return ConstReverseIterator{ static_cast<TDerived*>(this)->begin() };
       }
-
+    
     /**
-     * @return  a constant reverse-iterator pointing before the first value.
+     * @return  a constant reverse-iterator pointing before the first value (C++11).
      * @warning the derived class must have a cbegin() method.
      */
     inline
@@ -87,7 +107,7 @@ class IteratorFacade
         return { 
             derived->begin(), 
             derived->end(),
-            typename IteratorTraits<TDerived>::DistanceFunctor( derived )
+            typename IteratorCompletionTraits<TDerived>::DistanceFunctor( derived )
         };
       }
 
@@ -102,14 +122,14 @@ class IteratorFacade
         return { 
             derived->begin(), 
             derived->end(), 
-            typename IteratorTraits<TDerived>::DistanceFunctor( derived )
+            typename IteratorCompletionTraits<TDerived>::DistanceFunctor( derived )
         };
       }
 
   protected:
 
     /// Protected destructor to avoid memory leak.
-    ~IteratorFacade()
+    ~IteratorCompletion()
       {}
   };
 

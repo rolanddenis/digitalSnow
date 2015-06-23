@@ -7,7 +7,7 @@
 #include <iterator>
 
 #include "ImageViewIterator.h"
-#include "IteratorFacade.h"
+#include "IteratorCompletion.h"
 #include "Linearizer.h"
 
 namespace DGtal
@@ -41,7 +41,7 @@ template <
   typename TArrayIterator
 >
 class ArrayImageView< HyperRectDomain<TSpace>, TArrayIterator >
-    : public IteratorFacade< ArrayImageView< HyperRectDomain<TSpace>,TArrayIterator> >
+    : public IteratorCompletion< ArrayImageView< HyperRectDomain<TSpace>,TArrayIterator> >
   {
 
   // Check Random-access iterator concept on TArrayIterator
@@ -61,8 +61,8 @@ class ArrayImageView< HyperRectDomain<TSpace>, TArrayIterator >
 
     // Iterators & Ranges
     template <class> friend class ImageViewIterator;
-    using Iterator = typename IteratorTraits<Self>::Iterator; ///< Mutable iterator.
-    using ConstIterator = typename IteratorTraits<Self>::ConstIterator; ///< Constant iterator.
+    using Iterator = typename IteratorCompletionTraits<Self>::Iterator; ///< Mutable iterator.
+    using ConstIterator = typename IteratorCompletionTraits<Self>::ConstIterator; ///< Constant iterator.
 
     /** Default constructor.
      *
@@ -243,13 +243,13 @@ class ArrayImageView< HyperRectDomain<TSpace>, TArrayIterator >
 
   /** Iterator traits specialized for ArrayImageView.
    *
-   * \see ImageViewIterator
+   * \see IteratorCompletion
    */
   template <
     typename TDomain,
     typename TArrayIterator
   >
-  class IteratorTraits< ArrayImageView<TDomain, TArrayIterator> >
+  class IteratorCompletionTraits< ArrayImageView<TDomain, TArrayIterator> >
     {
     public:
       using Self = ArrayImageView<TDomain, TArrayIterator>;

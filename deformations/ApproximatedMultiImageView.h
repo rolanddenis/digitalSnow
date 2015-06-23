@@ -7,7 +7,7 @@
 #include <DGtal/images/ImageContainerBySTLVector.h> // For conversion purpose
 
 #include "ImageViewIterator.h"
-#include "IteratorFacade.h"
+#include "IteratorCompletion.h"
 #include "Linearizer.h"
 
 namespace DGtal
@@ -78,7 +78,7 @@ template <
 >
 class ApproximatedMultiImageView
     : public TDomainPolicy< ApproximatedMultiImageView<TMultiImage, TDomainPolicy>, typename TMultiImage::Domain >
-    , public IteratorFacade< ApproximatedMultiImageView<TMultiImage, TDomainPolicy> >
+    , public IteratorCompletion< ApproximatedMultiImageView<TMultiImage, TDomainPolicy> >
   {
   public:
     // Typedefs
@@ -92,8 +92,8 @@ class ApproximatedMultiImageView
 
     // Iterators & Ranges
     template<class> friend class ImageViewIterator;
-    using Iterator = typename IteratorTraits<Self>::Iterator;
-    using ConstIterator = typename IteratorTraits<Self>::ConstIterator;
+    using Iterator = typename IteratorCompletionTraits<Self>::Iterator;
+    using ConstIterator = typename IteratorCompletionTraits<Self>::ConstIterator;
     
     /// Policies as friend.
     friend TDomainPolicy<Self, Domain>;
@@ -192,7 +192,7 @@ template <
   typename TMultiImage,
   template<typename,typename> class TDomainPolicy
 >
-class IteratorTraits< ApproximatedMultiImageView<TMultiImage, TDomainPolicy> >
+class IteratorCompletionTraits< ApproximatedMultiImageView<TMultiImage, TDomainPolicy> >
   {
 public:
     using Self          = ApproximatedMultiImageView<TMultiImage, TDomainPolicy>;
