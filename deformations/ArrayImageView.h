@@ -1,6 +1,7 @@
 #pragma once
 
 #include <boost/assert.hpp>
+#include <boost/static_assert.hpp>
 #include <boost/concept/assert.hpp>
 #include <boost/iterator/iterator_concepts.hpp>
 #include <iterator>
@@ -12,43 +13,49 @@
 namespace DGtal
 {
 
-/** Image view for c-style array.
+/** Image view for generic arrays.
  *
- * This creates an image (concepts::CImage compatible) given a pointer to his
- * allocated memory and two domains:
- * - the definition (full) domain whose size is equal to the allocated size.
+ * This creates an image (concepts::CImage compatible) given a random-access iterator 
+ * that spans an array of data, and two domains:
+ * - the definition (full) domain whose size is equal to the data size.
  * - the viewable domain, a subset of the full-domain, on which the image is accessible.
  *
- * The available iterators can return the corresponding point and are faster than using
- * an iterator over the domain (see ImageViewIterator). Reverse iterators and ranges are 
- * defined in the inherited class IteratorFacade.
+ * The available iterators for this image can return the corresponding point and are
+ * faster than using an iterator over the domain (see ImageViewIterator). 
+ * Reverse iterators and ranges are defined in the inherited class IteratorFacade.
  *
- * @warning The allocated memory must be column-major ordered.
+ * @warning The array must be column-major ordered.
  * @warning The domain is supposed to be an HyperRectDomain.
  *
  * @tparam TDomain  Type of the domain (must be an HyperRectDomain).
- * @tparam TValue   Type of the stored values.
+ * @tparam TArrayIterator Type of a random-access iterator over the datas (can be a T* pointer).
  */
 template < 
   typename TDomain,
   typename TArrayIterator
 >
-class ArrayImageView
-    : public IteratorFacade< ArrayImageView<TDomain,TArrayIterator> >
+class ArrayImageView;
+
+template <
+  typename TSpace,
+  typename TArrayIterator
+>
+class ArrayImageView< HyperRectDomain<TSpace>, TArrayIterator >
+    : public IteratorFacade< ArrayImageView< HyperRectDomain<TSpace>,TArrayIterator> >
   {
 
-  // Check Random-access iterator concept on TIterator
+  // Check Random-access iterator concept on TArrayIterator
   BOOST_CONCEPT_ASSERT( (boost_concepts::RandomAccessTraversalConcept<TArrayIterator>) );
 
   public:
     // Typedefs
-    using Self = ArrayImageView<TDomain, TArrayIterator>;
+    using Self = ArrayImageView<HyperRectDomain<TSpace>, TArrayIterator>;
     using ArrayIterator = TArrayIterator;
     using Value = typename std::iterator_traits<ArrayIterator>::value_type;
     using Reference = typename std::iterator_traits<ArrayIterator>::reference;
     using ConstReference = const Reference;
 
-    using Domain = TDomain;
+    using Domain = HyperRectDomain<TSpace>;
     using Point = typename Domain::Point;
     using Linearizer = DGtal::Linearizer<Domain, ColMajorStorage>; ///< Linearization of the points.
 
@@ -67,7 +74,7 @@ class ArrayImageView
       , myViewDomain{}
       {}
 
-    /// Constructor from storage, full domain and viewable domain.
+    /// Constructor from iterator, full domain and viewable domain.
     ArrayImageView( ArrayIterator anArrayIterator, Domain const& aFullDomain, Domain const& aViewDomain )
         : myArrayIterator(anArrayIterator)
         , myFullDomain{ aFullDomain }
@@ -80,7 +87,7 @@ class ArrayImageView
         );
       }
 
-    /** Constructor from storage and full domain.
+    /** Constructor from iterator and full domain.
      *
      * The viewable domain is then the full domain.
      */
@@ -120,6 +127,8 @@ class ArrayImageView
       {
         BOOST_ASSERT_MSG(
             myFullDomain.isInside(aPoint),
+
+
             "The point is outside the full domain."
         );
 
@@ -202,7 +211,7 @@ class ArrayImageView
       }
       
 
-  public: // Should be private since ImageViewIterator is a friend but g++ 4.9.1 don't care ... (no prob with clang++)
+  public: // Should be private since ImageViewIterator is a friend but g++ 4.9.1 don't care ... (no prob with clang++ 3.5.0)
 
     /// Dereference of a mutable iterator.
     inline
@@ -232,7 +241,7 @@ class ArrayImageView
     Domain myViewDomain;  ///< Viewable domain.
   };
 
-  /** Iterator traits specialized for CArrayImageView.
+  /** Iterator traits specialized for ArrayImageView.
    *
    * \see ImageViewIterator
    */
