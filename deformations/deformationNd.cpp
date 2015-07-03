@@ -217,7 +217,8 @@ int main(int argc, char** argv)
       else if ( (vm["shape"].as<std::string>()) == "mballs" )
         initWithMultipleBalls( *labelImage, phase_cnt,  (dsize/phase_cnt) * 0.5, 1 );
       else
-        initRandomly( *labelImage, std::pow(phase_cnt, DIMENSION) );
+        initRandomly( *labelImage, phase_cnt );
+        //initRandomly( *labelImage, std::pow(phase_cnt, DIMENSION) );
       
       trace.info() << "starting interface initialized with a " << shape << std::endl;
 
@@ -609,7 +610,7 @@ int main(int argc, char** argv)
 
       // ApproximatedMultiImage
       using real = double;
-      using LabelledMap = DGtal::LabelledMap<real, 64, long unsigned int, 3, 3>;
+      using LabelledMap = DGtal::LabelledMap<real, 64, long unsigned int, 1, 2>;
       using Approximation = DGtal::approximations::NegativeTolValueApproximation<real>;
       //using Approximation = DGtal::approximations::NoValueApproximation<real>;
       using BoundingBox = AxisAlignedBoundingBox< Domain, unsigned int>;
@@ -643,8 +644,11 @@ int main(int argc, char** argv)
           vtk << "label" << *labelImage;
         }
 
+      // Informations
+      evolver.dispInfos();
+
       // Time integration
-      double sumt = 0; 
+      double sumt = 0;
       for (unsigned int i = 1; i <= max_step; ++i) 
         {
           DGtal::trace.info() << "iteration # " << i << std::endl; 
@@ -657,6 +661,15 @@ int main(int argc, char** argv)
           // Display
           if ( (i % disp_step) == 0 ) 
             {
+              // Update labels
+              const std::size_t label_cnt = evolver.updateLabels();
+
+              // Display phase field informations
+              evolver.dispInfos();
+
+              // Export
+              trace.beginBlock("Export");
+
               std::stringstream s; 
               s << outputFiles << setfill('0') << std::setw(4) << (i/disp_step); 
 #if   DIMENSION == 2
@@ -686,6 +699,10 @@ int main(int argc, char** argv)
                 }
               DGtal::trace.info() << std::endl;
               */
+
+              trace.endBlock();
+
+              if ( label_cnt == 0 ) break;
 
             }
 

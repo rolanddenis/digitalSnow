@@ -76,6 +76,7 @@ DGtal::MultiPhaseField2< TLabelImage, TFieldImage, DGtal::ApproximatedMultiImage
 
   // Store labels
   myLabels.insert(myLabels.end(), labels.cbegin(), labels.cend() );
+  // TODO: check number of label
 
   // Initialize phase fields
   if ( calcDistance )
@@ -127,16 +128,21 @@ DGtal::MultiPhaseField2< TLabelImage, TFieldImage, DGtal::ApproximatedMultiImage
   // Calculating initial volume
   itrace.beginBlock("Initial volumes");
   myInitVolume.resize(myLabels.size(), 0);
+  /*
   for ( auto const& point : domain )
     {
       for ( auto v : myFields(point) )
         myInitVolume[v.first] += v.second;
     }
+  */
+  std::fill( myInitVolume.begin(), myInitVolume.end(), static_cast<Value>(domain.size()) / myLabels.size() );
+
   itrace.endBlock();
 
   // Initialize FFTW <- has nothing to do here ... just for dev
   if ( fftw_init_threads() == 0 ) std::cout << "!!! Parallel FFTW initialization failed !!!" << std::endl;
   fftw_plan_with_nthreads( std::thread::hardware_concurrency() );
+  //fftw_plan_with_nthreads(2);
 
   trace.beginBlock("Statistics");
   trace.info() << myFields.getInfos() << std::endl;
@@ -419,48 +425,82 @@ DGtal::MultiPhaseField2< TLabelImage, TFieldImage, DGtal::ApproximatedMultiImage
       itrace.endStep();
     }
   itrace.endBlock();
-
-
   
+  return aT; 
+}
+
+template <
+  typename TLabelImage,
+  typename TFieldImage,
+  typename TDomain, typename TContainer, typename TApproximation, typename TBoundingBox
+>
+inline
+std::size_t
+DGtal::MultiPhaseField2< TLabelImage, TFieldImage, DGtal::ApproximatedMultiImage<TDomain, TContainer, TApproximation, TBoundingBox> >
+::updateLabels()
+{
   /// update image of labels
-  {
-    trace.beginBlock("Updating Label");
-    for ( auto const& point : domain )
-      {
-        const size_t id = myFields.linearized(point);
-        Label max_label;
-        real max_value = 0;
-        for ( std::size_t i = 0; i < myLabels.size(); ++i )
-          {
-            real value = myFields.getValueByIndex(id, i);
-            if (value >= max_value)
-              {
-                max_value = value;
-                max_label = myLabels[i];
-              }
-          }
+  trace.beginBlock("Updating Label");
+  size_t diff_cnt = 0;
+  for ( auto const& point : myFields.domain() )
+    {
+      const size_t id = myFields.linearized(point);
+      Label max_label;
+      Value max_value = 0;
+      for ( std::size_t i = 0; i < myLabels.size(); ++i )
+        {
+          Value value = myFields.getValueByIndex(id, i);
+          if (value >= max_value)
+            {
+              max_value = value;
+              max_label = myLabels[i];
+            }
+        }
 
-        myLabelImage.setValue( point, max_label );
-      }
-    trace.endBlock();
-  }
+      if ( myLabelImage(point) != max_label ) ++diff_cnt;
+      myLabelImage.setValue( point, max_label );
+    }
+  trace.info() << "Movement on " << diff_cnt << " cells (" << std::fixed << std::setprecision(5) << (100.0*diff_cnt)/myFields.domain().size() << "%)" << std::endl;
+  trace.endBlock();
 
+  return diff_cnt;
+}
+
+template <
+  typename TLabelImage,
+  typename TFieldImage,
+  typename TDomain, typename TContainer, typename TApproximation, typename TBoundingBox
+>
+inline
+void
+DGtal::MultiPhaseField2< TLabelImage, TFieldImage, DGtal::ApproximatedMultiImage<TDomain, TContainer, TApproximation, TBoundingBox> >
+::dispInfos() const
+{
   itrace.beginBlock("Statistics");
+  
   itrace.beginStep("LabelledMap");
   const auto fields_info = myFields.getInfos();
+  
   itrace.beginStep("Perimeters");
   const auto perimeters = getPerimeters();
   itrace.endBlock();
   
   std::cout << fields_info << std::endl;
+ 
+  std::cout << std::setprecision(5);
+
   for ( std::size_t i = 0; i < perimeters.size(); ++i )
     std::cout << "P" << i << "=" << perimeters[i] << " ";
   std::cout << std::endl;
-  
 
-  return aT; 
+  // Morgan'cost
+  Value perimeter_sum = 0;
+  for ( auto value : perimeters ) perimeter_sum += value;
+  perimeter_sum /= 2 * std::pow( myFields.domain().size(), static_cast<double>(Domain::dimension-1)/Domain::dimension ) ;
+  const Value morgan_cost = perimeter_sum / std::pow( perimeters.size(), 1./3. );
+  std::cout << "Morgan's cost = " << morgan_cost << std::endl;
 }
-
+  
 template <
   typename TLabelImage,
   typename TFieldImage,

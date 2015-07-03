@@ -165,6 +165,16 @@ namespace DGtal
      */
     double update(const double& aT);
 
+    /**
+     * Updates image of labels and returns modification count.
+     */
+    std::size_t updateLabels();
+
+    /**
+     * Calculates and diplays informations about the phase fields.
+     */
+    void dispInfos() const;
+
 
     /**
      * Checks the validity/consistency of the object.

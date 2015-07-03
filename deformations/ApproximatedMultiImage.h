@@ -500,6 +500,8 @@ class ApproximatedMultiImage< TDomain, DGtal::LabelledMap<TData, L, TWord, N, M>
   >
   std::ostream& operator<< ( std::ostream& out, typename DGtal::MultiImageInfos< DGtal::ApproximatedMultiImage< TDomain, DGtal::LabelledMap<TData, L, TWord, N, M>, TApproximation, TBoundingBox > > const& infos )
     {
+      out << std::setprecision(2);
+      
       out << "Label count: "
           << "min=" << infos.labelMin << " ; "
           << "max=" << infos.labelMax << " ; "
