@@ -32,6 +32,7 @@
 #include <sstream>
 #include <iostream>
 #include <algorithm>
+#include <cmath>
 
 #include <Eigen/SVD>
 
@@ -444,9 +445,18 @@ DGtal::MultiPhaseField2< TLabelImage, TFieldImage, DGtal::ApproximatedMultiImage
     trace.endBlock();
   }
 
-  trace.beginBlock("Statistics");
-  trace.info() << myFields.getInfos() << std::endl;
-  trace.endBlock();
+  itrace.beginBlock("Statistics");
+  itrace.beginStep("LabelledMap");
+  const auto fields_info = myFields.getInfos();
+  itrace.beginStep("Perimeters");
+  const auto perimeters = getPerimeters();
+  itrace.endBlock();
+  
+  std::cout << fields_info << std::endl;
+  for ( std::size_t i = 0; i < perimeters.size(); ++i )
+    std::cout << "P" << i << "=" << perimeters[i] << " ";
+  std::cout << std::endl;
+  
 
   return aT; 
 }
@@ -589,6 +599,55 @@ DGtal::MultiPhaseField2< TLabelImage, TFieldImage, DGtal::ApproximatedMultiImage
   return FieldImage(myFields[i]);
 }
 
+/**
+ * Return the perimeter of each phase.
+ */
+template <
+  typename TLabelImage,
+  typename TFieldImage,
+  typename TDomain, typename TContainer, typename TApproximation, typename TBoundingBox
+>
+std::vector<typename TFieldImage::Value>
+DGtal::MultiPhaseField2< TLabelImage, TFieldImage, DGtal::ApproximatedMultiImage<TDomain, TContainer, TApproximation, TBoundingBox> >
+::getPerimeters() const
+{
+  std::vector<Value> perimeters( getNumPhase(), 0 );
+  std::vector<Value> tmp( getNumPhase() );
+  
+  auto const& domain = myFields.domain();
+  for ( auto const& point : domain )
+    {
+      for ( std::size_t d = 0; d < Domain::dimension; ++d )
+        {
+          std::fill( tmp.begin(), tmp.end(), 0 );
+
+          for ( typename Point::Coordinate pos = -1; pos <= 1; pos += 2 )
+            {
+              auto curr_point = point + Point::base(d, pos);
+              if ( ! domain.isInside(curr_point) )
+                curr_point[d] -= pos*( domain.upperBound()[d] - domain.lowerBound()[d] + 1 );
+
+              for ( auto value : myFields(curr_point) )
+                {
+                  tmp[value.first] += pos*value.second;
+                }
+            }
+
+          for ( std::size_t i = 0; i < getNumPhase(); ++i )
+            perimeters[i] += 0.5 * myEpsilon * std::pow( 0.5 * tmp[i], 2 );
+        }
+
+      for ( auto value : myFields(point) )
+        perimeters[value.first] += 0.5 * std::pow(value.second, 2) * std::pow(1-value.second, 2) / myEpsilon;
+
+    }
+
+  // Coefficient in the gamma-convergence of the Ginzburg-Landau energy to the perimeter.
+  for ( auto& value : perimeters )
+    value *= 6;
+
+  return perimeters;
+}
 
 ///////////////////////////////////////////////////////////////////////////////
 // Implementation of inline functions                                        //

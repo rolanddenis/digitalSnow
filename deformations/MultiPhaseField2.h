@@ -189,6 +189,11 @@ namespace DGtal
      */
     FieldImage getPhase( size_t i ) const;
 
+    /**
+     * Return the perimeter of each phase fields
+     */
+    std::vector<Value> getPerimeters() const;
+
     // ------------------------- Hidden services ------------------------------
   protected:
 
