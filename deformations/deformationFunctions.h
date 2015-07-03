@@ -309,37 +309,31 @@ void initRandomly( TImage& img, std::size_t count )
 {
   using std::size_t;
 
-  const size_t total_size = img.domain().size();
+  size_t total_size = img.domain().size();
 
   // Filling basket for each phase.
   size_t basket[count];
-  std::vector<size_t> available(count);
   size_t acc = 0;
   for ( size_t i = 0; i < count; ++i )
     {
       basket[i] = (total_size+acc)/count;
       acc += total_size - basket[i]*count;
-      available[i] = i;
     }
-  
-  // Filling image
+ 
   std::random_device rd;
   std::mt19937 gen(rd());
   for ( auto const& point : img.domain() )
     {
-      /// @TODO parameters for those lines.
-      const size_t id = std::uniform_int_distribution<>(0, available.size()-1)(gen);
-      //const size_t id = std::uniform_int_distribution<>(0, std::min(static_cast<size_t>(4),available.size())-1)(gen);
-      //const size_t id = std::min( static_cast<size_t>(std::round(std::abs(std::normal_distribution<>(0, 0.5)(gen)))), available.size()-1);
+      size_t id = std::uniform_int_distribution<>(0, total_size-1)(gen);
+      size_t label = 0;
+      for ( ; label < count && id >= basket[label]; ++label )
+        id -= basket[label];
 
-      const size_t label = available[id];
       img.setValue( point, label );
-      if ( --basket[label] == 0 ) 
-        {
-          available[id] = available[available.size()-1];
-          available.pop_back();
-        }
+      --basket[label];
+      --total_size;
     }
+
 }
 
 
