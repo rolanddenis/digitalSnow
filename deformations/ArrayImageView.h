@@ -75,21 +75,21 @@ namespace DGtal
    * @warning The domain must be an HyperRectDomain.
    * @warning C++11 needs to be enable in order to use this class.
    *
-   * @tparam TDomain  Type of the domain (must be an HyperRectDomain).
    * @tparam TArrayIterator Type of a random-access iterator over the datas (can be a T* pointer).
+   * @tparam TDomain  Type of the domain (must be an HyperRectDomain).
    */
   template < 
-    typename TDomain,
-    typename TArrayIterator
+    typename TArrayIterator,
+    typename TDomain
   >
   class ArrayImageView;
 
   template <
-    typename TSpace,
-    typename TArrayIterator
+    typename TArrayIterator,
+    typename TSpace
   >
-  class ArrayImageView< HyperRectDomain<TSpace>, TArrayIterator >
-      : public IteratorCompletion< ArrayImageView< HyperRectDomain<TSpace>,TArrayIterator> >
+  class ArrayImageView< TArrayIterator, HyperRectDomain<TSpace> >
+      : public IteratorCompletion< ArrayImageView< TArrayIterator, HyperRectDomain<TSpace> > >
     {
 
     // Checks Random-access iterator concept on TArrayIterator
@@ -97,7 +97,7 @@ namespace DGtal
 
     public:
       // Typedefs
-      using Self = ArrayImageView<HyperRectDomain<TSpace>, TArrayIterator>;
+      using Self = ArrayImageView<TArrayIterator, HyperRectDomain<TSpace> >;
       using ArrayIterator = TArrayIterator;
       using Value = typename std::iterator_traits<ArrayIterator>::value_type;
       using Reference = typename std::iterator_traits<ArrayIterator>::reference;
@@ -344,13 +344,13 @@ namespace DGtal
    * \see IteratorCompletion
    */
   template <
-    typename TDomain,
-    typename TArrayIterator
+    typename TArrayIterator,
+    typename TDomain
   >
-  class IteratorCompletionTraits< ArrayImageView<TDomain, TArrayIterator> >
+  class IteratorCompletionTraits< ArrayImageView<TArrayIterator, TDomain> >
     {
     public:
-      using Self = ArrayImageView<TDomain, TArrayIterator>;
+      using Self = ArrayImageView<TArrayIterator, TDomain>;
       using Iterator = ImageViewIterator<Self>; ///< Mutable iterator.
       using ConstIterator = ImageViewIterator<const Self>; ///< Constant iterator.
 
@@ -391,11 +391,11 @@ namespace DGtal
    * @return the output stream after the writing.
    */
   template <
-    typename TDomain,
-    typename TArrayIterator
+    typename TArrayIterator,
+    typename TDomain
   >
   std::ostream&
-  operator<< ( std::ostream & out, const ArrayImageView<TDomain, TArrayIterator> & object )
+  operator<< ( std::ostream & out, const ArrayImageView<TArrayIterator, TDomain> & object )
     {
       object.selfDisplay( out );
       return out;
@@ -404,20 +404,20 @@ namespace DGtal
   
   // ------------------ ArrayImageView construction helpers ----------------
   template <
-    typename TDomain,
-    typename TArrayIterator
+    typename TArrayIterator,
+    typename TDomain
   >
-  ArrayImageView< TDomain, TArrayIterator >
+  ArrayImageView< TArrayIterator, TDomain >
   make_ArrayImageViewFromIterator( TArrayIterator anArrayIterator, TDomain const& aFullDomain, TDomain const& aViewDomain )
     {
       return { anArrayIterator, aFullDomain, aViewDomain };
     }
   
   template <
-    typename TDomain,
-    typename TArrayIterator
+    typename TArrayIterator,
+    typename TDomain
   >
-  ArrayImageView< TDomain, TArrayIterator >
+  ArrayImageView< TArrayIterator, TDomain >
   make_ArrayImageViewFromIterator( TArrayIterator anArrayIterator, TDomain const& aFullDomain )
     {
       return { anArrayIterator, aFullDomain, aFullDomain };
@@ -427,7 +427,7 @@ namespace DGtal
     typename TImage,
     typename TDomain = typename TImage::Domain
   >
-  ArrayImageView< typename TImage::Iterator, TDomain >
+  ArrayImageView< TDomain, typename TImage::Iterator >
   make_ArrayImageViewFromImage( TImage & anImage, TDomain const& aViewDomain )
     {
       BOOST_CONCEPT_ASSERT( (DGtal::concepts::CImage<TImage>) );
@@ -438,7 +438,7 @@ namespace DGtal
     typename TImage,
     typename TDomain = typename TImage::Domain
   >
-  ArrayImageView< typename TImage::Iterator, TDomain >
+  ArrayImageView< TDomain, typename TImage::Iterator >
   make_ArrayImageViewFromImage( TImage & anImage )
     {
       BOOST_CONCEPT_ASSERT( (DGtal::concepts::CImage<TImage>) );

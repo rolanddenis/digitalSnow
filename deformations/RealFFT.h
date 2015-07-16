@@ -226,7 +226,7 @@ class RealFFT< HyperRectDomain<TSpace>, T >
 
     /// Get mutable spatial image.
     inline
-    ArrayImageView<Domain, Real*> getSpatialImage() noexcept
+    ArrayImageView<Real*, Domain> getSpatialImage() noexcept
       {
         const Domain full_domain { mySpatialDomain.lowerBound(), mySpatialDomain.upperBound() + Point::base(0, getPadding()) };
         return { getSpatialStorage(), full_domain, mySpatialDomain };
@@ -234,7 +234,7 @@ class RealFFT< HyperRectDomain<TSpace>, T >
     
     /// Get non-mutable spatial image.
     inline
-    ArrayImageView<Domain, const Real*> getSpatialImage() const noexcept
+    ArrayImageView<const Real*, Domain> getSpatialImage() const noexcept
       {
         const Domain full_domain { mySpatialDomain.lowerBound(), mySpatialDomain.upperBound() + Point::base(0, getPadding()) };
         return { getSpatialStorage(), full_domain, mySpatialDomain };
@@ -256,14 +256,14 @@ class RealFFT< HyperRectDomain<TSpace>, T >
    
     /// Get mutable frequential image.
     inline
-    ArrayImageView<Domain, Complex*> getFreqImage() noexcept
+    ArrayImageView<Complex*, Domain> getFreqImage() noexcept
       {
         return { getFreqStorage(), getFreqDomain() };
       }
     
     /// Get non-mutable frequential image.
     inline
-    ArrayImageView<Domain, const Complex*> getFreqImage() const noexcept
+    ArrayImageView<Complex*, Domain> getFreqImage() const noexcept
       {
         return { getFreqStorage(), getFreqDomain() };
       }
