@@ -47,14 +47,14 @@ namespace DGtal
   /////////////////////////////////////////////////////////////////////////////
   
   /** 
-   * @brief Tag (empty struct) specifying a row-major storage order.
+   * @brief Tag (empty structure) specifying a row-major storage order.
    *
    * @see Linearizer
    */
   struct RowMajorStorage {};
 
   /** 
-   * @brief Tag (empty struct) specifying a col-major storage order.
+   * @brief Tag (empty structure) specifying a col-major storage order.
    *
    * @see Linearizer
    */

@@ -1,304 +1,282 @@
+/**
+ *  This program is free software: you can redistribute it and/or modify
+ *  it under the terms of the GNU Lesser General Public License as
+ *  published by the Free Software Foundation, either version 3 of the
+ *  License, or  (at your option) any later version.
+ *
+ *  This program is distributed in the hope that it will be useful,
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *  GNU General Public License for more details.
+ *
+ *  You should have received a copy of the GNU General Public License
+ *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ *
+ **/
+
 #pragma once
 
+/**
+ * @file ImageViewIterator.h
+ * @author Roland Denis (\c roland.denis@univ-smb.fr )
+ * LAboratory of MAthematics - LAMA (CNRS, UMR 5127), University of Savoie, France
+ *
+ * @date 2015/06/19
+ *
+ * This file is part of the DGtal library.
+ */
+
+#if defined(ImageViewIterator_RECURSES)
+#error Recursive header files inclusion detected in ImageViewIterator.h
+#else // defined(ImageViewIterator_RECURSES)
+/** Prevents recursive inclusion of headers. */
+#define ImageViewIterator_RECURSES
+
+#if !defined ImageViewIterator_h
+/** Prevents repeated inclusion of headers. */
+#define ImageViewIterator_h
+
+//////////////////////////////////////////////////////////////////////////////
+// Inclusions
+#include <ostream>
 #include <type_traits>
 #include <boost/iterator/iterator_facade.hpp>
-#include <boost/assert.hpp>
 #include "Linearizer.h"
-
+//////////////////////////////////////////////////////////////////////////////
 
 namespace DGtal
 {
 
-/** Random access iterator over an image given his definition domain and viewable domain.
- *
- * In order to work, the iterable class must expose a dereference method that,
- * given a point and an index (column-major ordered), return:
- * - a mutable reference to the corresponding value for a mutable iterator.
- * - a copy or a constant reference to the corresponding value for a constant iterator.
- *
- * @warning The iterable class must have Domain typedef.
- *
- * @tparam TIterableClass   Type of the iterable class.
- */
-template <
-  typename TIterableClass
->
-class ImageViewIterator
-  : public boost::iterator_facade <
-      ImageViewIterator<TIterableClass>,
-      typename TIterableClass::Value,
-      std::random_access_iterator_tag,
-      decltype( ((TIterableClass*)nullptr)->dereference( TIterableClass::Point::diagonal(0), typename TIterableClass::Point::Coordinate(0) ) )
-    >
-  {
-  public:
-    using Self = ImageViewIterator<TIterableClass>;
-    using IterableClass = TIterableClass;
-    using Domain = typename IterableClass::Domain; // or in template with default value ?
-    using Point = typename Domain::Point;
-    using Linearizer = DGtal::Linearizer<Domain, ColMajorStorage>; // hard-coded, but must be later set as template.
-    using Reference = decltype( ((IterableClass*)nullptr)->dereference( Point::diagonal(0), typename Point::Coordinate(0) ) );
+  /////////////////////////////////////////////////////////////////////////////
+  /**
+   * \brief Aim: Random access iterator over an image given his definition domain and viewable domain.
 
-    /// Default constructor.
-    ImageViewIterator()  
-        : myIterableClassPtr(nullptr)
-      {}
+   * Description of template class 'ImageViewIterator' <p>
+   * This iterator spans the viewable domain using a given iterator than spans
+   * the whole definition domain of the iterable class. This iterator provides access to the iterable class through classical iterator syntax and, in addition, exposes current point to which the iterator point to. 
+   * Thus, when it is needed to iterate over an image while knowing the current point ( for example, when filling an image with a formulae that depends on the point), it is faster to use this iterator instead of a classical domain iterator and the use of operator() and setValue. 
+   *
+   * In order to work, the iterable class must expose a dereference method that,
+   * given a point and an index (column-major ordered), return:
+   * - a mutable reference to the corresponding value for a mutable iterator.
+   * - a copy or a constant reference to the corresponding value for a constant iterator.
+   *
+   * In addition, the iterable class must have Domain typedef.
+   *
+   * For an usage example, \see ArrayImageView.h .
+   *
+   * @tparam TIterableClass   Type of the iterable class.
+   */
+  template <
+    typename TIterableClass
+  >
+  class ImageViewIterator
+    : public boost::iterator_facade <
+        ImageViewIterator<TIterableClass>,
+        typename TIterableClass::Value,
+        std::random_access_iterator_tag,
+        decltype( ((TIterableClass*)nullptr)->dereference( TIterableClass::Point::diagonal(0), typename TIterableClass::Point::Coordinate(0) ) )
+      >
+    {
+    // ----------------------- Standard services ------------------------------
+    public:
 
-    /** Iterator from a point.
-     *
-     * @param anIterableClassPtr  Pointer to the iterable class instance.
-     * @param aFullDomain         Full domain of the image.
-     * @param aViewDomain         Viewable domain that the iterator will span.
-     * @param aPoint              Point to which the iterator will point.
-     */
-    ImageViewIterator( IterableClass* anIterableClassPtr, Domain const& aFullDomain, Domain const& aViewDomain, Point const& aPoint ) 
-      : myIterableClassPtr( anIterableClassPtr )
-      , myFullDomain{ aFullDomain }
-      , myViewDomain{ aViewDomain }
-      , myFullExtent( myFullDomain.upperBound() - myFullDomain.lowerBound() + Point::diagonal(1) )
-      , myViewExtent( myViewDomain.upperBound() - myViewDomain.lowerBound() + Point::diagonal(1) )
-      , myPoint{ aPoint }
-      , myFullIndex( Self::Linearizer::getIndex( myPoint - myFullDomain.lowerBound(), myFullExtent ) )
-      {
-        BOOST_ASSERT_MSG(
-               myFullDomain.lowerBound().isLower( myViewDomain.lowerBound() )
-            && myFullDomain.upperBound().isUpper( myViewDomain.upperBound() ),
-            "The viewable domain must be included into the full domain."
-        );
-        BOOST_ASSERT_MSG(
-            myViewDomain.isInside(aPoint),
-            "The point is outside the viewable domain !"
-        );
-      }
+      // Typedefs
+      using Self = ImageViewIterator<TIterableClass>; 
+      using IterableClass = TIterableClass; 
+      using Domain = typename IterableClass::Domain; // or in template with default value ?
+      using Point = typename Domain::Point;
+      using Linearizer = DGtal::Linearizer<Domain, ColMajorStorage>; // hard-coded, but must be later set as template.
+      using Reference = decltype( ((IterableClass*)nullptr)->dereference( Point::diagonal(0), typename Point::Coordinate(0) ) );
 
-    /// Copy constructor with type interoperability.
-    template < typename TOtherIterableClass >
-    ImageViewIterator( 
-        ImageViewIterator<TOtherIterableClass> const& other,
-        typename std::enable_if< std::is_convertible<TOtherIterableClass*, IterableClass*>::value >::type* = 0 
-    )
-      : myIterableClassPtr( other.myIterableClassPtr )
-      , myFullDomain{ other.myFullDomain }
-      , myViewDomain{ other.myViewDomain }
-      , myFullExtent{ other.myFullExtent }
-      , myViewExtent{ other.myViewExtent }
-      , myPoint{ other.myPoint }
-      , myFullIndex{ other.myFullIndex }
-      {}
+      /// Default constructor.
+      ImageViewIterator();  
 
-    /// Move constructor with type interoperability.
-    template < typename TOtherIterableClass >
-    ImageViewIterator( 
-        ImageViewIterator<TOtherIterableClass> && other,
-        typename std::enable_if< std::is_convertible<TOtherIterableClass*, IterableClass*>::value >::type* = 0 
-    ) noexcept
-      : myIterableClassPtr( std::move(other.myIterableClassPtr) )
-      , myFullDomain{ std::move(other.myFullDomain) }
-      , myViewDomain{ std::move(other.myViewDomain) }
-      , myFullExtent{ std::move(other.myFullExtent) }
-      , myViewExtent{ std::move(other.myViewExtent) }
-      , myPoint{ std::move(other.myPoint) }
-      , myFullIndex{ std::move(other.myFullIndex) }
-      {}
+      /** Iterator from a point.
+       *
+       * @param anIterableClassPtr  Pointer to the iterable class instance.
+       * @param aFullDomain         Full domain of the image.
+       * @param aViewDomain         Viewable domain that the iterator will span.
+       * @param aPoint              Point to which the iterator will point.
+       */
+      ImageViewIterator( IterableClass* anIterableClassPtr, Domain const& aFullDomain, Domain const& aViewDomain, Point const& aPoint );
 
-    /// Destructor.
-    ~ImageViewIterator() 
-      {}
+      /** Iterator pointing to the first value.
+       *
+       * @param anIterableClassPtr  Pointer to the iterable class instance.
+       * @param aFullDomain         Full domain of the image.
+       * @param aViewDomain         Viewable domain that the iterator will span.
+       * @param aPoint              Point to which the iterator will point.
+       */
+      ImageViewIterator( IterableClass* anIterableClassPtr, Domain const& aFullDomain, Domain const& aViewDomain );
+      
+      /** Iterator pointing to the first value and spanning the whole domain.
+       *
+       * @param anIterableClassPtr  Pointer to the iterable class instance.
+       * @param aFullDomain         Full domain of the image.
+       * @param aPoint              Point to which the iterator will point.
+       */
+      ImageViewIterator( IterableClass* anIterableClassPtr, Domain const& aFullDomain );
 
-    /// Copy assignment with type interoperability.
-    template < typename TOtherIterableClass >
-    typename std::enable_if< std::is_convertible<TOtherIterableClass*, IterableClass*>::value, Self& >::type
-    operator= ( 
-        ImageViewIterator<TOtherIterableClass> const& other
-    ) 
-      {
-        myIterableClassPtr = other.myIterableClassPtr;
-        myFullDomain = other.myFullDomain;
-        myViewDomain = other.myViewDomain;
-        myFullExtent = other.myFullExtent;
-        myViewExtent = other.myViewExtent;
-        myPoint = other.myPoint;
-        myFullIndex = other.myFullIndex;
-        return *this;
-      }
+      /** Iterator pointing after the last value of the viewable domain.
+       *
+       * @param anIterableClassPtr  Pointer to the iterable class instance.
+       * @param aFullDomain         Full domain of the image.
+       * @param aViewDomain         Viewable domain that the iterator will span.
+       * @param aPoint              Point to which the iterator will point.
+       */
+      ImageViewIterator( IterableClass* anIterableClassPtr, Domain const& aFullDomain, Domain const& aViewDomain, bool /* last */ ); 
 
-    /// Move assignment constructor with type interoperability.
-    template < typename TOtherIterableClass >
-    typename std::enable_if< std::is_convertible<TOtherIterableClass*, IterableClass*>::value, Self& >::type
-    operator= ( 
-        ImageViewIterator<TOtherIterableClass> && other
-    ) 
-      {
-        myIterableClassPtr = std::move(other.myIterableClassPtr);
-        myFullDomain = std::move(other.myFullDomain);
-        myViewDomain = std::move(other.myViewDomain);
-        myFullExtent = std::move(other.myFullExtent);
-        myViewExtent = std::move(other.myViewExtent);
-        myPoint = std::move(other.myPoint);
-        myFullIndex = std::move(other.myFullIndex);
-        return *this;
-      }
+      /** Iterator pointing after the last value of the whole domain.
+       *
+       * @param anIterableClassPtr  Pointer to the iterable class instance.
+       * @param aFullDomain         Full domain of the image.
+       * @param aPoint              Point to which the iterator will point.
+       */
+      ImageViewIterator( IterableClass* anIterableClassPtr, Domain const& aFullDomain, bool /* last */ );
+      
+      /** Copy constructor with type interoperability.
+       *
+       * @param other An another iterator whose iterable class pointer is convertible to the current iterable class pointer type.
+       */
+      template < typename TOtherIterableClass >
+      ImageViewIterator( 
+          ImageViewIterator<TOtherIterableClass> const& other,
+          typename std::enable_if< std::is_convertible<TOtherIterableClass*, IterableClass*>::value >::type* = 0 
+      );
+            
+      /** Move constructor with type interoperability.
+       *
+       * @param other An another iterator whose iterable class pointer is convertible to the current iterable class pointer type.
+       */
+      template < typename TOtherIterableClass >
+      ImageViewIterator( 
+          ImageViewIterator<TOtherIterableClass> && other,
+          typename std::enable_if< std::is_convertible<TOtherIterableClass*, IterableClass*>::value >::type* = 0 
+      ) noexcept;
+      
+      /// Destructor.
+      ~ImageViewIterator(); 
 
-  public:
+      /** Copy assignment with type interoperability.
+       *
+       * @param other An another iterator whose iterable class pointer is convertible to the current iterable class pointer type.
+       */
+      template < typename TOtherIterableClass >
+      typename std::enable_if< 
+          std::is_convertible<TOtherIterableClass*, IterableClass*>::value, 
+          Self& >::type
+      operator= ( 
+          ImageViewIterator<TOtherIterableClass> const& other
+      );
 
-    /** Iterator pointing to the first value.
-     *
-     * @param anIterableClassPtr  Pointer to the iterable class instance.
-     * @param aFullDomain         Full domain of the image.
-     * @param aViewDomain         Viewable domain that the iterator will span.
-     * @param aPoint              Point to which the iterator will point.
-     */
-    ImageViewIterator( IterableClass* anIterableClassPtr, Domain const& aFullDomain, Domain const& aViewDomain ) 
-        : ImageViewIterator{ anIterableClassPtr, aFullDomain, aViewDomain, aViewDomain.lowerBound() }
-      {}
-    
-    /** Iterator pointing to the first value and spanning the whole domain.
-     *
-     * @param anIterableClassPtr  Pointer to the iterable class instance.
-     * @param aFullDomain         Full domain of the image.
-     * @param aPoint              Point to which the iterator will point.
-     */
-    ImageViewIterator( IterableClass* anIterableClassPtr, Domain const& aFullDomain ) 
-        : ImageViewIterator{ anIterableClassPtr, aFullDomain, aFullDomain }
-      {}
+      /** Move assignment constructor with type interoperability.
+       *
+       * @param other An another iterator whose iterable class pointer is convertible to the current iterable class pointer type.
+       */
+      template < typename TOtherIterableClass >
+      typename std::enable_if< 
+          std::is_convertible<TOtherIterableClass*, IterableClass*>::value, 
+          Self& >::type
+      operator= ( 
+          ImageViewIterator<TOtherIterableClass> && other
+      );
+      
 
-    /** Iterator pointing after the last value of the viewable domain.
-     *
-     * @param anIterableClassPtr  Pointer to the iterable class instance.
-     * @param aFullDomain         Full domain of the image.
-     * @param aViewDomain         Viewable domain that the iterator will span.
-     * @param aPoint              Point to which the iterator will point.
-     */
-    ImageViewIterator( IterableClass* anIterableClassPtr, Domain const& aFullDomain, Domain const& aViewDomain, bool /* last */ ) 
-      : ImageViewIterator{ anIterableClassPtr, aFullDomain, aViewDomain, aViewDomain.upperBound() }
-      {
-        increment();
-      }
+      // ----------------------- Interface --------------------------------------
+    public:
+      
+      /**
+       * @return the point behind this iterator.
+       */
+      inline Point const& getPoint() const noexcept;
 
-    /** Iterator pointing after the last value of the whole domain.
-     *
-     * @param anIterableClassPtr  Pointer to the iterable class instance.
-     * @param aFullDomain         Full domain of the image.
-     * @param aPoint              Point to which the iterator will point.
-     */
-    ImageViewIterator( IterableClass* anIterableClassPtr, Domain const& aFullDomain, bool /* last */ ) 
-      : ImageViewIterator{ anIterableClassPtr, aFullDomain, aFullDomain, true }
-      {
-      }
+      /**
+       * @return the distance from this iterator to a given point.
+       */
+      inline
+      std::ptrdiff_t distance_to( Point const& aPoint ) const noexcept;
+      
+      /**
+       * Writes/Displays the object on an output stream.
+       * @param out the output stream where the object is written.
+       */
+      void selfDisplay ( std::ostream & out ) const;
 
-    /**
-     * @return the point behind this iterator.
-     */
-    inline
-    Point const& getPoint() const 
-      {
-        return myPoint;
-      }
+      /**
+       * Checks the validity/consistency of the object.
+       * @return 'true' if the object is valid, 'false' otherwise.
+       */
+      bool isValid() const;
 
-    /**
-     * @return the distance from this iterator to a given point.
-     */
-    inline
-    std::ptrdiff_t distance_to( Point const& aPoint ) const 
-      {
-        BOOST_ASSERT_MSG(
-            myViewDomain.isInside(aPoint),
-            "The point is outside the viewable domain !"
-        );
-        // return static_cast<std::ptrdiff_t>( Self::Linearizer::getIndex( aPoint - myPoint, myViewExtent ) ); // <- bad idea if aPoint is before myPoint
-        return 
-            static_cast<std::ptrdiff_t>( Linearizer::getIndex(aPoint, myViewDomain.lowerBound(), myViewExtent) )
-          - static_cast<std::ptrdiff_t>( Linearizer::getIndex(myPoint, myViewDomain.lowerBound(), myViewExtent) );
+    // ------------------------- Private Datas --------------------------------
+    private:
+      IterableClass* myIterableClassPtr; ///< Pointer to the iterable class.
+      Domain myFullDomain;  ///< Full domain of the image.
+      Domain myViewDomain;  ///< Iterable (viewable) domain of the image.
+      Point myFullExtent;   ///< Extent of the full domain.
+      Point myViewExtent;   ///< Extent of the viewable domain.
+      Point myPoint;        ///< Current point where the iterator point to.
+      typename Point::Coordinate myFullIndex; ///< Linearized index of the current point.
 
-      }
+      // ------------------------- Hidden services ------------------------------
+    private:
+      
+      // Friendship
+      template <class> friend class ImageViewIterator; //< Friendship of interoperability. \see http://www.boost.org/doc/libs/1_58_0/libs/iterator/doc/iterator_facade.html
+      friend class boost::iterator_core_access; //< Friendship of interoperability. \see http://www.boost.org/doc/libs/1_58_0/libs/iterator/doc/iterator_facade.html
 
-  private:
+      /// Increment of one step.
+      void increment();
 
-    /** Friendship of interoperability
-     * \see http://www.boost.org/doc/libs/1_58_0/libs/iterator/doc/iterator_facade.html
-     */
-    template <class> friend class ImageViewIterator;
-    friend class boost::iterator_core_access;
-  
+      /// Decrement of one step.
+      void decrement(); 
 
-    /// Increment of one step.
-    void increment() 
-      {
-        ++myFullIndex;
-        ++myPoint[0];
-        for ( std::size_t i = 1; i < Domain::dimension && myPoint[i-1] > myViewDomain.upperBound()[i-1]; ++i )
-          {
-            myPoint[i-1] = myViewDomain.lowerBound()[i-1];
-            ++myPoint[i];
-            std::size_t cum = myFullExtent[i-1] - myViewExtent[i-1];
-            for ( std::size_t j = 0; j < i-1; ++j )
-              cum *= myFullExtent[j];
+      /// Equality.
+      inline
+      bool equal( Self const& other ) const;
+      
+      /// Dereference.
+      inline
+      Reference dereference() const;
 
-            myFullIndex += cum;
-          }
-      }
-
-    /// Decrement of one step.
-    void decrement() 
-      {
-        --myFullIndex;
-        --myPoint[0];
-        for ( std::size_t i = 1; i < Domain::dimension && myPoint[i-1] < myViewDomain.lowerBound()[i-1]; ++i )
-          {
-            myPoint[i-1] = myViewDomain.upperBound()[i-1];
-            --myPoint[i];
-            std::size_t cum = myFullExtent[i-1] - myViewExtent[i-1];
-            for ( std::size_t j = 0; j < i-1; ++j )
-              cum *= myFullExtent[j];
-
-            myFullIndex -= cum;
-          }
-      }
-
-    /// Equality.
-    inline
-    bool equal( Self const& other ) const 
-      {
-        return myFullIndex == other.myFullIndex;
-      }
-
-    /// Constant dereference.
-    inline
-    Reference dereference() const
-      {
-        return myIterableClassPtr->dereference( myPoint, myFullIndex );
-      }
-
-    /// Distance to other iterator.
-    inline
-    std::ptrdiff_t distance_to( Self const& other ) const 
-      {
-        return distance_to( other.myPoint );
-      }
-
-    /// Advance by n steps. Not very efficient implementation ...
-    void advance( std::ptrdiff_t n ) 
-      {
-        const auto pos = Self::Linearizer::getIndex( myPoint, myViewDomain.lowerBound(), myViewExtent );
-        myPoint = Self::Linearizer::getPoint( pos + n, myViewDomain.lowerBound(), myViewExtent );
-        myFullIndex = Self::Linearizer::getIndex( myPoint, myFullDomain.lowerBound(), myFullExtent ); 
-      }
-
-  private:
-    IterableClass* myIterableClassPtr; ///< Pointer to the iterable class.
-    Domain myFullDomain;  ///< Full domain of the image.
-    Domain myViewDomain;  ///< Iterable (viewable) domain of the image.
-    Point myFullExtent;   ///< Extent of the full domain.
-    Point myViewExtent;   ///< Extent of the viewable domain.
-    Point myPoint;        ///< Current point where the iterator point to.
-    typename Point::Coordinate myFullIndex; ///< Linearized index of the current point.
-    
-  };
+      /// Distance to other iterator.
+      inline
+      std::ptrdiff_t distance_to( Self const& other ) const ;
+      
+      /** Advance by n steps. 
+       *
+       * \todo Find a more efficient implementation ...
+       */
+      void advance( std::ptrdiff_t n ); 
+      
+    }; // end of class ImageViewIterator
 
 
-
+  /**
+   * Overloads 'operator<<' for displaying objects of class 'ImageViewIterator'.
+   * @param out the output stream where the object is written.
+   * @param object the object of class 'ImageViewIterator' to write.
+   * @return the output stream after the writing.
+   */
+  template <typename TIterableClass>
+  std::ostream&
+  operator<< ( std::ostream & out, const ImageViewIterator<TIterableClass> & object );
 
 } // namespace DGtal
 
+
+///////////////////////////////////////////////////////////////////////////////
+// Includes inline functions.
+//#include "DGtal/images/ImageViewIterator.ih"
+#include "ImageViewIterator.ih"
+
+//                                                                           //
+///////////////////////////////////////////////////////////////////////////////
+
+#endif // !defined ImageViewIterator_h
+
+#undef ImageViewIterator_RECURSES
+#endif // else defined(ImageViewIterator_RECURSES)
 /* GNU coding style */
 /* vim: set ts=2 sw=2 expandtab cindent cinoptions=>4,n-2,{2,^-2,:2,=2,g0,h2,p5,t0,+2,(0,u0,w1,m1 : */
