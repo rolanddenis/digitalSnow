@@ -7,7 +7,6 @@
 #include <DGtal/images/ImageContainerBySTLVector.h>
 #include <DGtal/images/CImage.h>
 #include <DGtal/images/CConstImage.h>
-#include <DGtal/images/CImage.h>
 
 #include <boost/range/adaptor/reversed.hpp>
 
