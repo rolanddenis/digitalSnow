@@ -36,6 +36,8 @@
 /** Prevents repeated inclusion of headers. */
 #define ImageViewIterator_h
 
+#if __cplusplus >= 201103L
+
 //////////////////////////////////////////////////////////////////////////////
 // Inclusions
 #include <ostream>
@@ -46,7 +48,7 @@
 
 namespace DGtal
 {
-
+  
   /////////////////////////////////////////////////////////////////////////////
   /**
    * \brief Aim: Random access iterator over an image given his definition domain and viewable domain.
@@ -66,6 +68,8 @@ namespace DGtal
    * For an usage example, \see ArrayImageView.h .
    *
    * @tparam TIterableClass   Type of the iterable class.
+   *
+   * @warning C++11 needs to be enable in order to use this class.
    */
   template <
     typename TIterableClass
@@ -270,6 +274,8 @@ namespace DGtal
 // Includes inline functions.
 //#include "DGtal/images/ImageViewIterator.ih"
 #include "ImageViewIterator.ih"
+
+#endif // __cplusplus >= 201103L
 
 //                                                                           //
 ///////////////////////////////////////////////////////////////////////////////
