@@ -45,8 +45,9 @@
 #include <boost/concept/assert.hpp>
 #include <boost/iterator/iterator_concepts.hpp>
 #include <iterator>
+#include <type_traits>
 
-#include <DGtal/images/CImage.h>
+#include <DGtal/images/CConstImage.h>
 #include "ImageViewIterator.h"
 #include "IteratorCompletion.h"
 #include "Linearizer.h"
@@ -69,6 +70,47 @@ namespace DGtal
    * faster than using an iterator over the domain (see ImageViewIterator). 
    * Reverse iterators and ranges are defined in the inherited class IteratorCompletion.
    *
+   * Some helpers are available (see make_ArrayImageViewFromIterator and make_ArrayImageViewFromImage)
+   * for easy construction (with template deduction) from an iterator or an CConstImage model.
+   *
+   * The following code snippet demonstrates how to use ArrayImageView from converting a C-array to an image:
+   * @code
+   * using Space = SpaceND<2>;
+   * using Domain = HyperRectDomain<Space>;
+   * using Point = typename Space::Point;
+   * using Value = double;
+   *
+   * const Domain domain{ {0, 1}, {4, 3} };
+   *
+   *
+   * Value* data = new Value[ domain.size() ];
+   *
+   * // Convert this allocated memory to a CImage model. 
+   * ArrayImageView< Value*, Domain > image( data, domain );
+   * // Alternative syntax using the helpers:
+   * // auto image = make_ArrayImageViewFromIterator( data, domain );
+   * 
+   * // Fill the image with first coordinate of the point
+   * for ( auto it = image.begin(); it != image.end(); ++it )
+   *   {
+   *     *it = it.getPoint()[0];
+   *   }
+   *
+   * // Get a constant view on a sub-domain.
+   * const Domain sub_domain{ {1, 1}, {3, 2} };
+   * ArrayImageView< Value const*, Domain > cst_image( data, domain, sub_domain );
+   * // Alternative syntax using the helpers:
+   * // auto cst_image = make_ArrayImageViewFromImage( image, sub_domain );
+   *
+   * // Display it.
+   * for ( auto value : cst_image )
+   *   {
+   *     std::cout << value << " ";
+   *   }
+   * std::cout << std::endl;
+   *
+   * @endcode
+   *
    * @remark The given random-access iterator can be either mutable or constant.
    *
    * @warning The array must be column-major ordered.
@@ -77,6 +119,8 @@ namespace DGtal
    *
    * @tparam TArrayIterator Type of a random-access iterator over the datas (can be a T* pointer).
    * @tparam TDomain  Type of the domain (must be an HyperRectDomain).
+   *
+   *
    */
   template < 
     typename TArrayIterator,
@@ -403,6 +447,14 @@ namespace DGtal
   
   
   // ------------------ ArrayImageView construction helpers ----------------
+  
+  /** Returns an ArrayImageView from an iterator, a full domain and a viewable domain.
+   *
+   * @param anArrayIterator   A random-access iterator on the datas.
+   * @param aFullDomain       The domain span by the given iterator.
+   * @param aViewDomain       The viewable domain of this image.
+   * @return an ArrayImageView instance.
+   */
   template <
     typename TArrayIterator,
     typename TDomain
@@ -413,6 +465,14 @@ namespace DGtal
       return { anArrayIterator, aFullDomain, aViewDomain };
     }
   
+  /** Returns an ArrayImageView from an iterator and a full domain.
+   *
+   * The viewable domain will be the same as the full domain.
+   *
+   * @param anArrayIterator   A random-access iterator on the datas.
+   * @param aFullDomain       The domain span by the given iterator.
+   * @return an ArrayImageView instance.
+   */
   template <
     typename TArrayIterator,
     typename TDomain
@@ -423,25 +483,44 @@ namespace DGtal
       return { anArrayIterator, aFullDomain, aFullDomain };
     }
 
+  /** Returns an ArrayImageView from an image and a viewable domain.
+   *
+   * @param anImage       The image that models the CConstImage concept.
+   * @param aViewDomain   The viewable domain of this image.
+   */
   template <
     typename TImage,
     typename TDomain = typename TImage::Domain
   >
-  ArrayImageView< TDomain, typename TImage::Iterator >
+  // We use decltype on begin() iterator because it returns the constant iterator
+  //  if the image is constant while ::Iterator typedef returns the mutable iterator.
+  ArrayImageView< decltype( ((TImage*)nullptr)->begin() ), TDomain >
   make_ArrayImageViewFromImage( TImage & anImage, TDomain const& aViewDomain )
     {
-      BOOST_CONCEPT_ASSERT( (DGtal::concepts::CImage<TImage>) );
+      // Remove constness because CConstImage requires assignability.
+      BOOST_CONCEPT_ASSERT( (DGtal::concepts::CConstImage< typename std::remove_const<TImage>::type >) );
+      
       return { anImage.begin(), anImage.domain(), aViewDomain };
     }
   
+  /** Returns an ArrayImageView from an image.
+   *
+   * The viewable domain will be the same as the given image domain.
+   *
+   * @param anImage       The image that models the CConstImage concept.
+   */
   template <
     typename TImage,
     typename TDomain = typename TImage::Domain
   >
-  ArrayImageView< TDomain, typename TImage::Iterator >
+  // We use decltype on begin() iterator because it returns the constant iterator
+  //  if the image is constant while ::Iterator typedef returns the mutable iterator.
+  ArrayImageView< decltype( ((TImage*)nullptr)->begin() ), TDomain >
   make_ArrayImageViewFromImage( TImage & anImage )
     {
-      BOOST_CONCEPT_ASSERT( (DGtal::concepts::CImage<TImage>) );
+      // Remove constness because CConstImage requires assignability.
+      BOOST_CONCEPT_ASSERT( (DGtal::concepts::CConstImage< typename std::remove_const<TImage>::type >) ); 
+
       return { anImage.begin(), anImage.domain(), anImage.domain() };
     }
 
