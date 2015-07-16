@@ -52,7 +52,7 @@ namespace DGtal
   /////////////////////////////////////////////////////////////////////////////
   /**
    * \brief Aim: Random access iterator over an image given his definition domain and viewable domain.
-
+   *
    * Description of template class 'ImageViewIterator' <p>
    * This iterator spans the viewable domain using a given iterator than spans
    * the whole definition domain of the iterable class. This iterator provides access to the iterable class through classical iterator syntax and, in addition, exposes current point to which the iterator point to. 
