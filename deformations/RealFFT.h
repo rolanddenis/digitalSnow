@@ -8,7 +8,7 @@
 #include <fftw3.h>
 
 #include <DGtal/kernel/domains/HyperRectDomain.h>
-#include "ArrayImageView.h"
+#include <DGtal/images/ArrayImageAdapter.h>
 
 namespace DGtal
 {
@@ -226,7 +226,7 @@ class RealFFT< HyperRectDomain<TSpace>, T >
 
     /// Get mutable spatial image.
     inline
-    ArrayImageView<Real*, Domain> getSpatialImage() noexcept
+    ArrayImageAdapter<Real*, Domain> getSpatialImage() noexcept
       {
         const Domain full_domain { mySpatialDomain.lowerBound(), mySpatialDomain.upperBound() + Point::base(0, getPadding()) };
         return { getSpatialStorage(), full_domain, mySpatialDomain };
@@ -234,7 +234,7 @@ class RealFFT< HyperRectDomain<TSpace>, T >
     
     /// Get non-mutable spatial image.
     inline
-    ArrayImageView<const Real*, Domain> getSpatialImage() const noexcept
+    ArrayImageAdapter<const Real*, Domain> getSpatialImage() const noexcept
       {
         const Domain full_domain { mySpatialDomain.lowerBound(), mySpatialDomain.upperBound() + Point::base(0, getPadding()) };
         return { getSpatialStorage(), full_domain, mySpatialDomain };
@@ -256,14 +256,14 @@ class RealFFT< HyperRectDomain<TSpace>, T >
    
     /// Get mutable frequential image.
     inline
-    ArrayImageView<Complex*, Domain> getFreqImage() noexcept
+    ArrayImageAdapter<Complex*, Domain> getFreqImage() noexcept
       {
         return { getFreqStorage(), getFreqDomain() };
       }
     
     /// Get non-mutable frequential image.
     inline
-    ArrayImageView<Complex*, Domain> getFreqImage() const noexcept
+    ArrayImageAdapter<Complex*, Domain> getFreqImage() const noexcept
       {
         return { getFreqStorage(), getFreqDomain() };
       }

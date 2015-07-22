@@ -15,7 +15,7 @@
 #include "ValueApproximations.h"
 #include "NoBoundingBox.h"
 #include "ApproximatedMultiImageView.h"
-#include "Linearizer.h"
+#include <DGtal/kernel/domains/Linearizer.h>
 
 namespace approximated_multi_image
 {

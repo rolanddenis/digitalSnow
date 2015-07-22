@@ -5,10 +5,9 @@
 #include <type_traits>
 
 #include <DGtal/images/ImageContainerBySTLVector.h> // For conversion purpose
-
-#include "ImageViewIterator.h"
-#include "IteratorCompletion.h"
-#include "Linearizer.h"
+#include <DGtal/images/ArrayImageIterator.h>
+#include <DGtal/base/IteratorCompletion.h>
+#include <DGtal/kernel/domains/Linearizer.h>
 
 namespace DGtal
 {
@@ -91,7 +90,7 @@ class ApproximatedMultiImageView
     using Reference   = typename MultiImage::Reference;
 
     // Iterators & Ranges
-    template<class> friend class ImageViewIterator;
+    template<class> friend class ArrayImageIterator;
     using Iterator = typename IteratorCompletionTraits<Self>::Iterator;
     using ConstIterator = typename IteratorCompletionTraits<Self>::ConstIterator;
     
@@ -168,7 +167,7 @@ class ApproximatedMultiImageView
         return ConstIterator{this, myMultiImage->domain(), domain(), true};
       }
 
-  public: // Should be private since ImageViewIterator is a friend but g++ 4.9.1 don't care ... (no prob with clang++)
+  public: // Should be private since ArrayImageIterator is a friend but g++ 4.9.1 don't care ... (no prob with clang++)
     
     inline
     Value dereference( Point const& /* aPoint */ , typename Point::Coordinate aFullIndex ) const
@@ -196,8 +195,8 @@ class IteratorCompletionTraits< ApproximatedMultiImageView<TMultiImage, TDomainP
   {
 public:
     using Self          = ApproximatedMultiImageView<TMultiImage, TDomainPolicy>;
-    using ConstIterator = ImageViewIterator<Self const>;
-    using Iterator      = typename std::conditional< std::is_const<TMultiImage>::value, ConstIterator, ImageViewIterator<Self> >::type;
+    using ConstIterator = ArrayImageIterator<Self const>;
+    using Iterator      = typename std::conditional< std::is_const<TMultiImage>::value, ConstIterator, ArrayImageIterator<Self> >::type;
     
     class DistanceFunctor
       {
