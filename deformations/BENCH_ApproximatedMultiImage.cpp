@@ -91,13 +91,10 @@ public:
   Value sumAllImages() const
     {
       Value sum = 0;
-      //Domain const& domain = myImages[0].domain();
       for ( auto const& image : myImages )
         {
           for ( auto value : image )
             sum += value;
-          //for ( auto const& point : domain )
-          //  sum += image(point);
         }
 
       return sum;
@@ -109,9 +106,6 @@ public:
       Image const& image = myImages[aLabel];
       for ( auto value : image )
         sum += value;
-      //Domain const& domain = image.domain();
-      //for ( auto const& point : domain )
-      //  sum += image(point);
 
       return sum;
     }
@@ -224,12 +218,6 @@ public:
   Value sumOneImage( size_t aLabel ) const
     {
       Value sum = 0;
-      /*
-      // Old fashion
-      Domain const& domain = myMultiImage.getBoundingBox(aLabel);
-      for ( auto const& point : domain )
-        sum += myMultiImage.getValue(point, aLabel);
-      */
       
       using ImageView = DGtal::ApproximatedMultiImageView<const MultiImage, DGtal::image_view::BoundingBoxAsDomain>;
       ImageView image_view( myMultiImage, aLabel );
@@ -255,12 +243,6 @@ public:
   Value sumSinOneImage( size_t aLabel, Value shift = 0 ) const
     {
       Value sum = 0;
-      /*
-      // Old fashion
-      Domain const& domain = myMultiImage.getBoundingBox(aLabel);
-      for ( auto const& point : domain )
-        sum += std::sin(myMultiImage.getValue(point, aLabel)+shift);
-      */
 
       using ImageView = DGtal::ApproximatedMultiImageView<const MultiImage, DGtal::image_view::BoundingBoxAsDomain>;
       ImageView image_view( myMultiImage, aLabel );
@@ -389,7 +371,7 @@ int main()
   static const size_t M = 5; ///< Additional capacity of LabelledMap
 
   const real radius = std::sqrt(2)/2; ///< Radius of the phase as ratio of the cell size.
-  const real eps = 1; ///< Epsilon in phase-field initialization.
+  const real eps = 2; ///< Epsilon in phase-field initialization.
 
   static const size_t L = ipow(N, D); ///< Total number of images.
 
