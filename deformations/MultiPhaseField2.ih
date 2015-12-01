@@ -39,7 +39,10 @@
 #include <DGtal/images/SimpleThresholdForegroundPredicate.h>
 #include "InlineTrace.h"
 
-#include <omp.h>
+#ifdef _OPENMP
+  #include <omp.h>
+#endif
+
 #include <thread>
 #include "RealFFT.h"
 
@@ -62,7 +65,7 @@ inline
 DGtal::MultiPhaseField2< TLabelImage, TFieldImage, DGtal::ApproximatedMultiImage<TDomain, TContainer, TApproximation, TBoundingBox> >
 ::MultiPhaseField2(LabelImage& aI, typename TFieldImage::Value epsilon, bool calcDistance )
   : myLabelImage( aI ),
-    myFields{ myLabelImage.domain(), TApproximation{1e-8} },
+    myFields{ myLabelImage.domain(), TApproximation{1e-4} },
     myEpsilon{ epsilon }
 { 
  
@@ -205,7 +208,13 @@ DGtal::MultiPhaseField2< TLabelImage, TFieldImage, DGtal::ApproximatedMultiImage
       auto freq_image = fft.getFreqImage();
       
       auto const freq_domain = fft.getFreqDomain();
+
+#ifdef _OPENMP
       const size_t N_thread = omp_get_max_threads();
+#else
+      const size_t N_thread = 1;
+#endif
+
       #pragma omp parallel 
       #pragma omp single nowait
       for ( size_t pos = 0; pos < N_thread; ++pos )

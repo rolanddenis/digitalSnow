@@ -111,8 +111,6 @@ namespace DGtal
 
     using MultiImage = ApproximatedMultiImage<TDomain, TContainer, TApproximation, TBoundingBox>;
 
-    // ------------------------- Protected Datas ------------------------------
-  protected:
     // ------------------------- Private Datas --------------------------------
   private:
 
@@ -203,6 +201,12 @@ namespace DGtal
      * Return the perimeter of each phase fields
      */
     std::vector<Value> getPerimeters() const;
+
+    /// Returns a constant reference on the fields container.
+    MultiImage const& getPhasesContainer() const
+      {
+        return myFields;
+      }
 
     // ------------------------- Hidden services ------------------------------
   protected:

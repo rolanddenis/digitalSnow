@@ -8,7 +8,7 @@
 
 #include "ImageViewIterator.h"
 #include "IteratorCompletion.h"
-#include "Linearizer.h"
+#include <DGtal/kernel/domains/Linearizer.h>
 
 namespace DGtal
 {

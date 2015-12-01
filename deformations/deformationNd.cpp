@@ -3,6 +3,8 @@
 #include <cstddef>
 #include <map>
 #include <numeric>
+#include <cmath>
+#include <limits>
 
 /////////////////////
 #include <boost/program_options/options_description.hpp>
@@ -52,6 +54,7 @@ using namespace std;
 
 // Useful functions
 #include "deformationFunctions.h"
+#include "FunctorConstImage.h"
 
 // IO functions
 #include "VTKWriter.h"
@@ -610,7 +613,10 @@ int main(int argc, char** argv)
 
       // ApproximatedMultiImage
       using real = double;
-      using LabelledMap = DGtal::LabelledMap<real, 64, long unsigned int, 1, 2>;
+      
+      //using LabelledMap = DGtal::LabelledMap<real, 128, long unsigned int, 2, 11>;
+      using LabelledMap = DGtal::BigLabelledMap<real, (1ul<<7)-1, 2, 10>;
+      
       using Approximation = DGtal::approximations::NegativeTolValueApproximation<real>;
       //using Approximation = DGtal::approximations::NoValueApproximation<real>;
       using BoundingBox = AxisAlignedBoundingBox< Domain, unsigned int>;
@@ -689,6 +695,20 @@ int main(int argc, char** argv)
                 }
               */
               vtk << "label" << *labelImage;
+              vtk << "implicit" << makeFunctorConstImage( labelImage->domain(),
+                [&evolver, epsilon] ( Point const& aPoint ) -> real
+                  {
+                    real max1 = 0, max2 = 0;
+                    for ( auto value : evolver.getPhasesContainer()(aPoint) )
+                      {
+                        if ( value.second >= max1 ) { max2 = max1; max1 = value.second; }
+                        else if ( value.second > max2 ) { max2 = value.second; }
+                      }
+                    //return max1 - max2;
+                    return 2 * epsilon * std::atanh( std::max(max1 - max2, 1-1e-8) );
+                  }
+              );
+              vtk.close();
 
               // Volume of each phase
               /*

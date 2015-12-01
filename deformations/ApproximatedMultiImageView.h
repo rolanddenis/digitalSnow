@@ -8,7 +8,7 @@
 
 #include "ImageViewIterator.h"
 #include "IteratorCompletion.h"
-#include "Linearizer.h"
+#include <DGtal/kernel/domains/Linearizer.h>
 
 namespace DGtal
 {
@@ -154,6 +154,18 @@ class ApproximatedMultiImageView
     Iterator end()
       {
         return Iterator{this, myMultiImage->domain(), domain(), true};
+      }
+    
+    inline
+    ConstIterator begin() const
+      {
+        return ConstIterator{this, myMultiImage->domain(), domain()};
+      }
+
+    inline
+    ConstIterator end() const
+      {
+        return ConstIterator{this, myMultiImage->domain(), domain(), true};
       }
 
     inline
