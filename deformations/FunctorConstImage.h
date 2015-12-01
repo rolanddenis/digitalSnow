@@ -41,9 +41,8 @@ public:
     using Vertex    = Point;
     using Value     = TValue;
     using Functor   = std::function<Value(Point)>;
-    //using Value     = typename std::result_of< Functor(Point) >::type;
     
-    using ConstIterator = boost::transform_iterator< Self, typename Domain::ConstIterator >;
+    using ConstIterator = boost::transform_iterator< std::reference_wrapper<const Functor>, typename Domain::ConstIterator >;
     using ConstReverseIterator = std::reverse_iterator< ConstIterator >;
     class ConstRange;
 
@@ -102,9 +101,9 @@ public:
         using ConstReverseIterator = Self::ConstReverseIterator;
         using Point = Self::Point;
 
-        inline ConstIterator begin()  const { return { myFunctorConstImage.myDomain.begin(), myFunctorConstImage }; }
-        inline ConstIterator begin( Point const& aPoint ) const { return { myFunctorConstImage.myDomain.begin(aPoint), myFunctorConstImage }; }
-        inline ConstIterator end()    const { return { myFunctorConstImage.myDomain.end(), myFunctorConstImage }; }
+        inline ConstIterator begin()  const { return { myFunctorConstImage.myDomain.begin(), myFunctorConstImage.myFunctor }; }
+        inline ConstIterator begin( Point const& aPoint ) const { return { myFunctorConstImage.myDomain.begin(aPoint), myFunctorConstImage.myFunctor }; }
+        inline ConstIterator end()    const { return { myFunctorConstImage.myDomain.end(), myFunctorConstImage.myFunctor }; }
         
         inline ConstReverseIterator rbegin()  const { return ConstReverseIterator( end() ); }
         inline ConstReverseIterator rbegin( Point const& aPoint ) const { return ConstReverseIterator( ++begin(aPoint) ); }
