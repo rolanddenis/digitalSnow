@@ -49,11 +49,12 @@ int main ( int argc, char* argv[] )
 
   // Default parameters
   bool periodic = true;
-  Real tickness = 0;
+  Real thickness = 0;
 
   // Program options
   namespace po = boost::program_options;
-  po::options_description general_opt( "Allowed options are: " ).add_options()
+  po::options_description general_opt( "Allowed options are: " );
+  general_opt.add_options()
     ("help,h",      "display this message")
     ("periodic,p",  po::value< bool >( &periodic )->default_value( periodic ), "define if the domain is periodic.")
     ("implicit,i",  po::value< std::string >(), "real image where the level-set of value 0 represents the cell interfaces.")
@@ -75,7 +76,7 @@ int main ( int argc, char* argv[] )
   po::notify( vm );
 
   // Displaying help
-  if ( ! IsParseOK || vm.count("help") || ! vm.count("implicit") )
+  if ( ! isParseOK || vm.count("help") || ! vm.count("implicit") )
     {
       cerr  << "Usage: " << argv[0] << " -i <file> [options]" << endl
             << general_opt << endl;
@@ -87,13 +88,13 @@ int main ( int argc, char* argv[] )
   Domain domain;
 
   // Reading real image
-  RealImage realImage( Domain() );
+  RealImage* realImage = nullptr;
   if ( vm.count("implicit") )
     {
       trace.beginBlock( "Reading real image." );
       const std::string realImageName = vm["implicit"].as<std::string>();
-      realImage = GenericReader< Domain >::import( realImageName );
-      domain = realImage.domain();
+      realImage = new RealImage( GenericReader< RealImage >::import( realImageName ) );
+      domain = realImage->domain();
       trace.endBlock();
     }
 
@@ -124,7 +125,7 @@ int main ( int argc, char* argv[] )
       for ( Point pt : domain )
         {
           Cell spel = K.uSpel(pt);
-          if ( realImage(pt) <= thickness )
+          if ( (*realImage)(pt) <= thickness )
             fullComplex.insertCell( spel, unsureData );
         }
       trace.endBlock();
@@ -132,7 +133,6 @@ int main ( int argc, char* argv[] )
       trace.info() << "    K = " << fullComplex << endl;
       fullComplex.close();
       trace.info() << " C1 K = " << fullComplex << endl;
-
     }
 
   return 0;
