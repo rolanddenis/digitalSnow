@@ -58,6 +58,7 @@ using namespace std;
 
 // IO functions
 #include "VTKWriter.h"
+#include <DGtal/io/writers/RawWriter.h>
 #if   DIMENSION == 2
   #include "deformationDisplay2d.h"
   #include "DGtal/io/readers/PGMReader.h"
@@ -187,7 +188,7 @@ int main(int argc, char** argv)
 
 
   // Image and implicit function
-  typedef ImageContainerBySTLVector<Domain,short int> LabelImage;
+  typedef ImageContainerBySTLVector<Domain,short unsigned int> LabelImage;
   LabelImage* labelImage = NULL; 
 
   if (vm.count("inputImage")) 
@@ -676,13 +677,30 @@ int main(int argc, char** argv)
               // Export
               trace.beginBlock("Export");
 
+              auto const implicit = makeFunctorConstImage( labelImage->domain(),
+                [&evolver, epsilon] ( Point const& aPoint ) -> real
+                  {
+                    real max1 = 0, max2 = 0;
+                    for ( auto value : evolver.getPhasesContainer()(aPoint) )
+                      {
+                        if ( value.second >= max1 ) { max2 = max1; max1 = value.second; }
+                        else if ( value.second > max2 ) { max2 = value.second; }
+                      }
+                    //return max1 - max2;
+                    return 2 * epsilon * std::atanh( std::min(max1 - max2, real(1)-1e-8) );
+                  }
+              );
+              
               std::stringstream s; 
               s << outputFiles << setfill('0') << std::setw(4) << (i/disp_step); 
 #if   DIMENSION == 2
-	            drawContours( *labelImage, s.str(), outputFormat ); 
+//	            drawContours( *labelImage, s.str(), outputFormat ); 
 #elif DIMENSION == 3
-              writePartition( *labelImage, s.str(), outputFormat );
+//              writePartition( *labelImage, s.str(), outputFormat );
 #endif
+
+              RawWriter< decltype(implicit) >::exportRaw<real>( s.str()+".imp.raw", implicit );
+              RawWriter< LabelImage >::exportRaw<unsigned short int>( s.str()+".lab.raw", *labelImage );
               
               // VTK export
               VTKWriter<Domain> vtk(s.str(), labelImage->domain());
@@ -695,19 +713,7 @@ int main(int argc, char** argv)
                 }
               */
               vtk << "label" << *labelImage;
-              vtk << "implicit" << makeFunctorConstImage( labelImage->domain(),
-                [&evolver, epsilon] ( Point const& aPoint ) -> real
-                  {
-                    real max1 = 0, max2 = 0;
-                    for ( auto value : evolver.getPhasesContainer()(aPoint) )
-                      {
-                        if ( value.second >= max1 ) { max2 = max1; max1 = value.second; }
-                        else if ( value.second > max2 ) { max2 = value.second; }
-                      }
-                    //return max1 - max2;
-                    return 2 * epsilon * std::atanh( std::max(max1 - max2, 1-1e-8) );
-                  }
-              );
+              vtk << "implicit" << implicit;
               vtk.close();
 
               // Volume of each phase

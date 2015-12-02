@@ -53,12 +53,15 @@ namespace {
 template <typename T>
 struct VTKType;
 
+//! Type info helper for 1-dimensional types.
 template <typename T>
 struct VTKType1D 
 {
+  //! Return the dimension of the type
   static inline constexpr
   size_t dim() { return 1; }
 
+  //! Write a value to the stream.
   template < typename TStream, typename TValue >
   static inline
   void write( TStream & stream, TValue const& value )
@@ -67,45 +70,49 @@ struct VTKType1D
     }
 };
 
+//! VTK type info for bool
 template <>
-struct VTKType<double>
-{
-  static inline
-  std::string name() { return "double"; }
+struct VTKType<bool> : VTKType1D<bool> { static inline std::string name() { return "bit"; } };
 
-  static inline constexpr
-  size_t dim() { return 1; }
-
-  template < typename TStream, typename TValue >
-  static inline
-  void write( TStream & stream, TValue const& value )
-    {
-      stream << static_cast<double>(value);
-    }
-};
-
+//! VTK type info for unsigned char
 template <>
-struct VTKType<float>
-{
-  static inline
-  std::string name() { return "float"; }
+struct VTKType<unsigned char> : VTKType1D<unsigned char> { static inline std::string name() { return "unsigned_char"; } };
 
-  static inline constexpr
-  size_t dim() { return 1; }
-
-  template < typename TStream, typename TValue >
-  static inline
-  void write( TStream & stream, TValue const& value )
-    {
-      stream << static_cast<float>(value);
-    }
-};
-
+//! VTK type info for char
 template <>
-struct VTKType<short int> : VTKType1D<short int>
-{
-  static inline std::string name() { return "short"; }
-};
+struct VTKType<char> : VTKType1D<char> { static inline std::string name() { return "char"; } };
+
+//! VTK type info for unsigned short int
+template <>
+struct VTKType<unsigned short int> : VTKType1D<unsigned short int> { static inline std::string name() { return "unsigned_short"; } };
+
+//! VTK type info for short int
+template <>
+struct VTKType<short int> : VTKType1D<short int> { static inline std::string name() { return "short"; } };
+
+//! VTK type info for unsigned int
+template <>
+struct VTKType<unsigned int> : VTKType1D<unsigned int> { static inline std::string name() { return "unsigned_int"; } };
+
+//! VTK type info for int
+template <>
+struct VTKType<int> : VTKType1D<int> { static inline std::string name() { return "int"; } };
+
+//! VTK type info for unsigned long int
+template <>
+struct VTKType<unsigned long int> : VTKType1D<unsigned long int> { static inline std::string name() { return "unsigned_long"; } };
+
+//! VTK type info for long int
+template <>
+struct VTKType<long int> : VTKType1D<long int> { static inline std::string name() { return "long"; } };
+
+//! VTK type info for float
+template <>
+struct VTKType<float> : VTKType1D<float> { static inline std::string name() { return "float"; } };
+
+//! VTK type info for double
+template <> 
+struct VTKType<double> : VTKType1D<double> { static inline std::string name() { return "double"; } };
 
 //! VTK Stream writer
 template <bool Binary>
@@ -285,7 +292,7 @@ operator<< ( TImage const& field )
 template <typename TSpace, bool Binary>
 template <
   typename TImage,
-  typename T
+  typename T // = typename TImage::Value (see VTKWriter.h). 
 >
 VTKWriter< HyperRectDomain<TSpace>, Binary > &
 VTKWriter< HyperRectDomain<TSpace>, Binary >::
