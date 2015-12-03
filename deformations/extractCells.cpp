@@ -9,6 +9,7 @@
 #include <boost/program_options/options_description.hpp>
 #include <boost/program_options/parsers.hpp>
 #include <boost/program_options/variables_map.hpp>
+#include <boost/function_output_iterator.hpp>
 
 // DGtal
 #include <DGtal/base/Common.h>
@@ -203,8 +204,8 @@ int main ( int argc, char* argv[] )
 
   // Initializing Khalimsky space
   K.init(
-         domain.lowerBound() - Point::diagonal(1),
-         domain.upperBound() + Point::diagonal(1),
+         domain.lowerBound(),
+         domain.upperBound(),
          true
   );
 
@@ -245,15 +246,10 @@ int main ( int argc, char* argv[] )
             {
               Point nextPt = pt + Point::base(d);
               Point periodicNextPt = nextPt;
-              if ( periodicNextPt[d] == extent[d] )   periodicNextPt[d] = 0;
+              if ( periodicNextPt[d] == extent[d] )
+                periodicNextPt[d] = 0;
               if ( (*labelImage)(pt) != (*labelImage)(periodicNextPt) )
-                {
-                  fullComplex.insertCell( K.uIncident( spel, d, true ), unsureData );
-                  //fullComplex.insertCell( Cell( Point::diagonal(1) + 2*pt + Point::base(d) ), unsureData );
-                  // Periodicity (not sure it is needed)
-                  //if ( periodicNextPt[d] == 0 )
-                  //  fullComplex.insertCell( Cell( Point::diagonal(1) + 2*periodicNextPt - Point::base(d) ), unsureData );
-                }
+                fullComplex.insertCell( K.uIncident( spel, d, true ), unsureData );
             }
         }
 
@@ -286,23 +282,25 @@ int main ( int argc, char* argv[] )
       trace.endBlock();
     }
 
-  // Getting boundary and inner cells
-  trace.beginBlock( "Get boundary and inner cells." );
-  std::vector<Cell> innerCells;
-  std::vector<Cell> bndryCells;
+  // Fixing boundary cells
+  trace.beginBlock( "Fixing boundary cells." );
+  const Point lowerKCoords = K.uKCoords( K.lowerCell() );
+  const Point upperKCoords = K.uKCoords( K.upperCell() );
+
+  std::size_t bdryCnt = 0, innerCnt = 0;
   functions::ccops::filterCellsWithinBounds (
       fullComplex,
-      K.uKCoords( K.lowerCell() ) + Point::diagonal(2), K.uKCoords( K.upperCell() ) - Point::diagonal(2),
-      std::back_inserter( bndryCells ), std::back_inserter( innerCells )
+      lowerKCoords, upperKCoords,
+      boost::make_function_output_iterator( // Boundary cells
+          [&fullComplex, &bdryCnt] ( Cell const& cell ) { fullComplex.findCell( cell )->second.data |= CC::FIXED; ++bdryCnt; }
+      ),
+      boost::make_function_output_iterator( [&innerCnt] ( Cell ) { ++innerCnt; } ) // Inner cells
   );
-  trace.info() << innerCells.size() << " inner cells and " << bndryCells.size() << " boundary cells." << endl;
+  trace.info() << innerCnt << " inner cells and " << bdryCnt << " boundary cells." << endl;
   trace.endBlock();
 
   // Collapsing inner cells
   trace.beginBlock( "Collapsing inner cells." );
-
-  for ( auto const& cell : bndryCells )
-    fullComplex.findCell( cell )->second.data |= CC::FIXED;
 
   functions::ccops::collapse(
       fullComplex,
@@ -314,11 +312,59 @@ int main ( int argc, char* argv[] )
   trace.info() << "       K     = " << fullComplex << endl;
   trace.endBlock();
 
-  // Duplicating cells by periodicity
-  trace.beginBlock( "Duplicating cells by periodicity." );
-  const auto lowerBoundKCoords = K.uKCoords( K.uSpel( domain.lowerBound() ) );
-  const auto upperBoundKCoords = K.uKCoords( K.uSpel( domain.upperBound() ) );
+  // Fixing inner cells and freeing boundary cells.
+  trace.beginBlock( "Fixing inner cells and freeing boundary cells." );
+  
+  std::size_t innerCnt = 0;
+  std::vector<Cell> bdryCells;
+
+  functions::ccops::filterCellsWithinBounds (
+      fullComplex,
+      lowerKCoords, upperKCoords,
+      boost::make_function_output_iterator( // Boundary cells
+          [&fullComplex, &bdryCells] ( Cell const& cell ) { fullComplex.findCell(cell)->second.data &= ~CC::FIXED; bdryCells.push_back(cell); }
+      ),
+      boost::make_function_output_iterator( // Inner cells
+          [&fullComplex, &innerCnt] ( Cell const& cell ) { fullComplex.findCell( cell )->second.data |= CC::FIXED; ++innerCnt; }
+      )
+  );
+  trace.info() << innerCnt << " inner cells and " << bdryCells.size() << " boundary cells." << endl;
+  trace.endBlock();
+
+  // Fixing boundary cells incident to inner cells.
+  trace.beginBlock( "Fixing boundary cells incident to inner cells." );
+  bdryCnt = 0;
+  for ( auto const& cell : bdryCells )
+    {
+      if ( K.uDim(cell) == dimension-2 )
+        {
+          const Point ptCoords = K.uKCoors(cell);
+          for ( std::size_t i = 0; i < dimension; ++i )
+            {
+              if ( ptCoords[i] == lowerKCoords[i] || ptCoords[i] == upperKCoords[i] )
+                {
+                  const auto incCell = fullComplex.findCell( dimension-1, K.uIncident( cell, i, ptCoords[i] == lowerKCoords[i] ) );
+                  if ( incCell != fullComplex.end(dimension-1) && incCell->second & CC::FIXED != 0 )
+                    {
+                      fullComplex.findCell( dimension-2, cell )->second |= CC::FIXED;
+                      ++bdryCnt;
+                      break;
+                    }
+                }
+            }
+        }
+    }
+  trace.info() << bdryCnt << " boundary cells fixed." << endl;
+  trace.endBlock();
+
+  // Duplicating boundary cells by periodicity
+  trace.beginBlock( "Duplicating boundary cells by periodicity." );
   std::vector< std::pair<Cell,CCData> > toBeInserted;
+
+  for ( auto const& cell : bdryCells )
+    {
+      
+    }
 
   for ( std::size_t d = 0; d <= dimension; ++d )
     {
