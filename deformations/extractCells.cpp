@@ -20,6 +20,7 @@
 #include <DGtal/topology/CubicalComplexFunctions.h>
 #include <DGtal/images/ImageContainerBySTLVector.h>
 #include <DGtal/io/readers/RawReader.h>
+#include "DGtal/io/viewers/Viewer3D.h"
 
 #define DIMENSION 3
 
@@ -102,17 +103,20 @@ int main ( int argc, char* argv[] )
   using Domain  = HyperRectDomain< Space >;
   using Dimension = Space::Dimension;
   using Vector  = Space::Vector;
-  
+  using RealPoint = Space::RealPoint;
+
   using KSpace  = KhalimskySpaceND< dimension, Integer >;
   using Cell    = KSpace::Cell;
+  using Cells   = KSpace::Cells;
   using CCMap   = std::map< Cell, CubicalCellData >;
   using CC      = CubicalComplex< KSpace, CCMap >;
   using CellMapIterator = CC::CellMapIterator;
+  using CCData  = CC::Data;
 
   using Label   = unsigned short int;
   using RealImage   = ImageContainerBySTLVector<Domain, Real>;
   using LabelImage  = ImageContainerBySTLVector<Domain, Label>;
-  
+
   // Other aliases
   using std::cout;
   using std::cerr;
@@ -122,7 +126,6 @@ int main ( int argc, char* argv[] )
   Real thickness = 0;
   bool calcPriority = true;
   DGtal::uint32_t priorityScale = 100000;
-
 
   // Program options
   namespace po = boost::program_options;
@@ -134,7 +137,8 @@ int main ( int argc, char* argv[] )
     ("thickness,t", po::value< Real >( &thickness )->default_value( thickness ), "the thickening parameter for the implicit surface.")
     ("priority,p",  po::value<bool>( &calcPriority )->default_value( calcPriority ), "control if the priority is calculated (if a real image is given).")
     ("scale,s",     po::value< DGtal::uint32_t >(&priorityScale)->default_value(priorityScale), "Factor applied to the implicit data to get the cell priority.")
-    ("label,l",     po::value< std::string >(), "raw (unsigned short int) label image.")
+    ("label,l",     po::value< std::string >(), "raw (unsigned short int) label image. Used to add labels border and better calculate priority.")
+    ("view,v", po::value< std::string >()->default_value( "Normal" ), "specifies if the surface is viewed as is (Normal) or if places close to singularities are highlighted (Singular), or if unsure places should not be displayed (Hide)." )
   ;
 
   // Parsing program options
@@ -186,7 +190,7 @@ int main ( int argc, char* argv[] )
       realImage = new RealImage( RawReader< RealImage >::importRaw<Real>( realImageName, extent ) );
       trace.endBlock();
     }
-  
+
   // Reading label image
   LabelImage* labelImage = nullptr;
   if ( vm.count("label") )
@@ -198,12 +202,12 @@ int main ( int argc, char* argv[] )
     }
 
   // Initializing Khalimsky space
-  K.init( 
+  K.init(
          domain.lowerBound() - Point::diagonal(1),
          domain.upperBound() + Point::diagonal(1),
          true
   );
-  
+
   // Initializing cellular complex.
   CC fullComplex( K );
   CubicalCellData unsureData( 0 );
@@ -213,7 +217,7 @@ int main ( int argc, char* argv[] )
   if ( realImage != nullptr )
     {
       trace.beginBlock( "Filling cellular complex with thickened interface from implicit representation." );
-      
+
       for ( Point pt : domain )
         {
           Cell spel = K.uSpel(pt);
@@ -221,10 +225,10 @@ int main ( int argc, char* argv[] )
             fullComplex.insertCell( spel, unsureData );
         }
 
-      trace.info() << "    K = " << fullComplex << endl;
+      trace.info() << "           K = " << fullComplex << endl;
       fullComplex.close();
-      trace.info() << " C1 K = " << fullComplex << endl;
-      
+      trace.info() << "        C1 K = " << fullComplex << endl;
+
       trace.endBlock();
     }
 
@@ -232,9 +236,11 @@ int main ( int argc, char* argv[] )
   if ( labelImage != nullptr )
     {
       trace.beginBlock( "Separating surface from labels." );
-      
+
       for ( Point pt : domain )
         {
+          const Cell spel = K.uSpel(pt);
+
           for ( Dimension d = 0; d < dimension; ++d )
             {
               Point nextPt = pt + Point::base(d);
@@ -242,14 +248,15 @@ int main ( int argc, char* argv[] )
               if ( periodicNextPt[d] == extent[d] )   periodicNextPt[d] = 0;
               if ( (*labelImage)(pt) != (*labelImage)(periodicNextPt) )
                 {
-                  fullComplex.insertCell( Cell( Point::diagonal(1) + 2*pt + Point::base(d) ), unsureData );
+                  fullComplex.insertCell( K.uIncident( spel, d, true ), unsureData );
+                  //fullComplex.insertCell( Cell( Point::diagonal(1) + 2*pt + Point::base(d) ), unsureData );
                   // Periodicity (not sure it is needed)
                   //if ( periodicNextPt[d] == 0 )
                   //  fullComplex.insertCell( Cell( Point::diagonal(1) + 2*periodicNextPt - Point::base(d) ), unsureData );
                 }
             }
         }
-      
+
       trace.info() << " C1 K +    S = " << fullComplex << endl;
       fullComplex.close();
       trace.info() << " C1 K + C1 S = " << fullComplex << endl;
@@ -261,10 +268,10 @@ int main ( int argc, char* argv[] )
   if ( calcPriority && realImage != nullptr )
     {
       ASSERT( dimension > 0 );
-      
+
       trace.beginBlock( "Computing priority" );
 
-      for ( std::size_t i = 0; i < dimension; ++i )
+      for ( std::size_t i = 0; i <= dimension; ++i )
         {
           for ( auto it = fullComplex.begin(i), itEnd = fullComplex.end(i); it != itEnd; ++it )
             {
@@ -284,15 +291,183 @@ int main ( int argc, char* argv[] )
   std::vector<Cell> innerCells;
   std::vector<Cell> bndryCells;
   functions::ccops::filterCellsWithinBounds (
-      fullComplex, 
-      K.uKCoords( K3.lowerCell() ) + Point::diagonal(2), K3.uKCoords( K3.upperCell() ) - Point::diagonal(2),
-      std::back_inserter( bdryCells ), std::back_inserter( innerCells ) 
+      fullComplex,
+      K.uKCoords( K.lowerCell() ) + Point::diagonal(2), K.uKCoords( K.upperCell() ) - Point::diagonal(2),
+      std::back_inserter( bndryCells ), std::back_inserter( innerCells )
   );
   trace.info() << innerCells.size() << " inner cells and " << bndryCells.size() << " boundary cells." << endl;
   trace.endBlock();
-  
+
   // Collapsing inner cells
+  trace.beginBlock( "Collapsing inner cells." );
 
+  for ( auto const& cell : bndryCells )
+    fullComplex.findCell( cell )->second.data |= CC::FIXED;
 
-  return 0;
+  functions::ccops::collapse(
+      fullComplex,
+      fullComplex.begin(), fullComplex.end(),
+      typename CC::DefaultCellMapIteratorPriority{},
+      true, true, true
+  );
+
+  trace.info() << "       K     = " << fullComplex << endl;
+  trace.endBlock();
+
+  // Duplicating cells by periodicity
+  trace.beginBlock( "Duplicating cells by periodicity." );
+  const auto lowerBoundKCoords = K.uKCoords( K.uSpel( domain.lowerBound() ) );
+  const auto upperBoundKCoords = K.uKCoords( K.uSpel( domain.upperBound() ) );
+  std::vector< std::pair<Cell,CCData> > toBeInserted;
+
+  for ( std::size_t d = 0; d <= dimension; ++d )
+    {
+      for ( auto it = fullComplex.begin(d), itEnd = fullComplex.end(d); it != itEnd; ++it )
+        {
+          auto coords = K.uKCoords( it->first );
+          // Checks if the cell is in contact with the image boundary and rotate coordinates
+          bool isOnBorder = false;
+          for ( std::size_t i = 0; i < dimension; ++i )
+            {
+              if ( coords[i] <= lowerBoundKCoords[i] )
+                {
+                  isOnBorder = true;
+                  coords[i] += 2*extent[i];
+                }
+              else if ( coords[i] >= upperBoundKCoords[i] )
+                {
+                  isOnBorder = true;
+                  coords[i] -= 2*extent[i];
+                }
+            }
+
+          // Remove fixed flag and copy it on the other side.
+          it->second.data &= ~CC::FIXED;
+          toBeInserted.emplace_back( Cell{coords}, it->second );
+        }
+    }
+
+  // Insertion
+  for ( auto const& element : toBeInserted )
+    fullComplex.insertCell( element.first, element.second );
+  toBeInserted.clear();
+  
+  trace.info() << "       K + P = " << fullComplex << endl;
+  fullComplex.close();
+  trace.info() << "       K + P = " << fullComplex << endl;
+  trace.endBlock();
+
+  /*
+  // Extracting boundary cells
+  trace.beginBlock( "Get boundary and inner cells." );
+  bndryCells.clear();
+  innerCells.clear();
+  functions::ccops::filterCellsWithinBounds (
+      fullComplex,
+      K.uKCoords( K.lowerCell() ) + Point::diagonal(2), K.uKCoords( K.upperCell() ) - Point::diagonal(2),
+      std::back_inserter( bndryCells ), std::back_inserter( innerCells )
+  );
+  trace.info() << innerCells.size() << " inner cells and " << bndryCells.size() << " boundary cells." << endl;
+  trace.endBlock();
+
+  // Collapsing boundary cells
+  trace.beginBlock( "Collapsing boundary cells." );
+  
+  functions::ccops::collapse(
+      fullComplex,
+      bndryCells.cbegin(), bndryCells.cend(),
+      typename CC::DefaultCellMapIteratorPriority{},
+      true, true, true
+  );
+
+  trace.info() << "       K     = " << fullComplex << endl;
+  trace.endBlock();
+  */
+
+  //-------------- Create Mesh -------------------------------------------
+  trace.beginBlock( "Create Mesh. " );
+  std::string view = vm[ "view" ].as<std::string>();
+  bool highlight = ( view == "Singular" );
+  bool hide      = ( view == "Hide" );
+  Mesh<Point> mesh( true );
+  std::map<Cell, unsigned int> indices;
+  std::vector<Point> points;
+  int idx = 0;
+  for ( auto it = fullComplex.begin( 0 ), itEnd = fullComplex.end( 0 ); it != itEnd; ++it, ++idx )
+    {
+      Cell cell = it->first;
+      indices[ cell ] = idx;
+      points.push_back( K.uKCoords(cell)/2 - Point::diagonal(1) );
+      mesh.addVertex(   K.uKCoords(cell)/2 - Point::diagonal(1) );
+    }
+
+  for ( auto it = fullComplex.begin( 2 ), itEnd = fullComplex.end( 2 ); it != itEnd; ++it )
+    {
+      Cell cell = it->first;
+      bool fixed = it->second.data & CC::FIXED;
+      bool skip = false;
+
+      Cells bdry = fullComplex.cellBoundary( cell, true );
+      std::vector<unsigned int> face_idx;
+      for ( auto itC = bdry.begin(), itCE = bdry.end(); itC != itCE; ++itC )
+        {
+          if ( fullComplex.dim( *itC ) == 0 )
+            {
+              if ( indices.count( *itC ) != 0 )
+                face_idx.push_back( indices[ *itC ] );
+              else
+                {
+                  //skip = true;
+                  //break;
+                }
+            }
+        }
+      if ( ( ( ! fixed ) && hide ) || skip ) continue;
+      Color color = highlight
+        ? ( fixed ? Color::White : Color(128,255,128) )
+        : Color::White;
+      Vector diag03 = points[ face_idx[ 0 ] ] - points[ face_idx[ 3 ] ];
+      Vector diag12 = points[ face_idx[ 1 ] ] - points[ face_idx[ 2 ] ];
+      if ( diag03.dot( diag03 ) <= diag12.dot( diag12 ) )
+        {
+          mesh.addTriangularFace( face_idx[ 0 ], face_idx[ 1 ], face_idx[ 3 ], color );
+          mesh.addTriangularFace( face_idx[ 0 ], face_idx[ 3 ], face_idx[ 2 ], color );
+        }
+      else
+        {
+          mesh.addTriangularFace( face_idx[ 0 ], face_idx[ 1 ], face_idx[ 2 ], color );
+          mesh.addTriangularFace( face_idx[ 1 ], face_idx[ 3 ], face_idx[ 2 ], color );
+        }
+      //mesh.addQuadFace( face_idx[ 0 ], face_idx[ 1 ], face_idx[ 3 ], face_idx[ 2 ], color );
+     }
+  trace.endBlock();
+
+  //-------------- View surface -------------------------------------------
+  QApplication application(argc,argv);
+  Viewer3D<Space,KSpace> viewer( K );
+  viewer.setWindowTitle("simple Volume Viewer");
+  viewer.show();
+  viewer << mesh;
+  // Display lines that are not in the mesh.
+  for ( auto it = fullComplex.begin( 1 ), itE = fullComplex.end( 1 ); it != itE; ++it )
+    {
+      Cell cell  = it->first;
+      bool fixed  = it->second.data & CC::FIXED;
+      std::vector<Cell> dummy;
+      std::back_insert_iterator< std::vector<Cell> > outIt( dummy );
+      fullComplex.directCoFaces( outIt, cell );
+      if ( ! dummy.empty() )     continue;
+
+      Cells bdry = fullComplex.cellBoundary( cell, true );
+      Cell v0    = *(bdry.begin() );
+      Cell v1    = *(bdry.begin() + 1);
+      if ( ( ! fixed ) && hide ) continue;
+      Color color = highlight
+        ? ( fixed ? Color::White : Color(128,255,128) )
+        : Color::White;
+      viewer.setLineColor( color );
+      viewer.addLine( points[ indices[ v0 ] ], points[ indices[ v1 ] ], 1/2.0 );
+    }
+  viewer << Viewer3D<Space,KSpace>::updateDisplay;
+  return application.exec();
 }
