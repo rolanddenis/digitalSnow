@@ -33,24 +33,24 @@ template <
 std::pair< typename TRealImage::Value, typename TLabelImage::Value >
 interpValue ( TKhalimsky const& K, TRealImage const* realImage, TLabelImage const* labelImage, typename TKhalimsky::Cell const& cell )
 {
-  using Value   = TRealImage::Value;
-  using Label   = TLabelImage::Label;
-  using Domain  = TRealImage::Domain;
-  using Dimension = Domain::Dimension;
-  using Point   = Domain::Point;
+  using Value   = typename TRealImage::Value;
+  using Label   = typename TLabelImage::Value;
+  using Domain  = typename TRealImage::Domain;
+  using Dimension = typename Domain::Dimension;
+  using Point   = typename Domain::Point;
 
   assert( realImage != nullptr );
 
-  if ( K.uDim(cell) == Domain::dimension )
+  if ( K.uDim(cell) == Domain::dimension ) // Get values from images.
     {
       const Domain domain = realImage->domain();
       Point pt = ( K.uKCoords(cell) - Point::diagonal(1) ) / 2;
       for ( std::size_t i = 0; i < Domain::dimension; ++i )
         {
           if ( pt[i] == domain.lowerBound()[i]-1 )
-            pt[i] = domain.upperBound[i];
+            pt[i] = domain.upperBound()[i];
           else if ( pt[i] == domain.upperBound()[i]+1 )
-            pt[i] = domain.lowerBound[i];
+            pt[i] = domain.lowerBound()[i];
         }
 
       if ( labelImage != nullptr )
@@ -58,9 +58,9 @@ interpValue ( TKhalimsky const& K, TRealImage const* realImage, TLabelImage cons
       else
         return { (*realImage)(pt), 0 };
     }
-  else if ( K.uDim(cell) == Domain::dimension-1 )
+  else if ( K.uDim(cell) == Domain::dimension-1 ) // Mean of neighbor taking into account the labels.
     {
-      const Dimension d = K.uOrhDir(cell);
+      const Dimension d = K.uOrthDir(cell);
       auto interp1 = interpValue( K, realImage, labelImage, K.uIncident( cell, d, false ) );
       auto interp2 = interpValue( K, realImage, labelImage, K.uIncident( cell, d, true ) );
       if ( interp1.second == interp2.second )
@@ -76,13 +76,13 @@ interpValue ( TKhalimsky const& K, TRealImage const* realImage, TLabelImage cons
 
       return interp1;
     }
-  else
+  else // Mean of neighbor values.
     {
       std::size_t cnt = 0;
       typename TRealImage::Value value = 0;
-      for ( auto const& cell : K.uUpperIncident( cell ) )
+      for ( auto const& incCell : K.uUpperIncident( cell ) )
         {
-          value += interpValue( K, realImage, labelImage, cell ).first;
+          value += interpValue( K, realImage, labelImage, incCell ).first;
           ++cnt;
         }
 
@@ -107,6 +107,7 @@ int main ( int argc, char* argv[] )
   using Cell    = KSpace::Cell;
   using CCMap   = std::map< Cell, CubicalCellData >;
   using CC      = CubicalComplex< KSpace, CCMap >;
+  using CellMapIterator = CC::CellMapIterator;
 
   using Label   = unsigned short int;
   using RealImage   = ImageContainerBySTLVector<Domain, Real>;
@@ -119,6 +120,7 @@ int main ( int argc, char* argv[] )
 
   // Default parameters
   Real thickness = 0;
+  bool calcPriority = true;
   DGtal::uint32_t priorityScale = 100000;
 
 
@@ -130,7 +132,8 @@ int main ( int argc, char* argv[] )
     ("dimension,d", po::value< std::vector<unsigned int> >(), "dimensions of the image.")
     ("implicit,i",  po::value< std::string >(), "raw (double) real image where the level-set of value 0 represents the cell interfaces.")
     ("thickness,t", po::value< Real >( &thickness )->default_value( thickness ), "the thickening parameter for the implicit surface.")
-    ("priority,p",  po::value< DGtal::uint32_t >(&priorityScale)->default_value(priorityScale), "Factor applied to the implicit data to get the cell priority.")
+    ("priority,p",  po::value<bool>( &calcPriority )->default_value( calcPriority ), "control if the priority is calculated (if a real image is given).")
+    ("scale,s",     po::value< DGtal::uint32_t >(&priorityScale)->default_value(priorityScale), "Factor applied to the implicit data to get the cell priority.")
     ("label,l",     po::value< std::string >(), "raw (unsigned short int) label image.")
   ;
 
@@ -217,11 +220,12 @@ int main ( int argc, char* argv[] )
           if ( (*realImage)(pt) <= thickness )
             fullComplex.insertCell( spel, unsureData );
         }
-      trace.endBlock();
 
       trace.info() << "    K = " << fullComplex << endl;
       fullComplex.close();
       trace.info() << " C1 K = " << fullComplex << endl;
+      
+      trace.endBlock();
     }
 
   // Using labels to add missed surface.
@@ -245,49 +249,50 @@ int main ( int argc, char* argv[] )
                 }
             }
         }
-      trace.endBlock();
       
       trace.info() << " C1 K +    S = " << fullComplex << endl;
       fullComplex.close();
       trace.info() << " C1 K + C1 S = " << fullComplex << endl;
+
+      trace.endBlock();
     }
 
   // Compute priority
-  if ( realImage != nullptr )
+  if ( calcPriority && realImage != nullptr )
     {
-      ASSERT_MSG( dimension > 0 );
+      ASSERT( dimension > 0 );
       
       trace.beginBlock( "Computing priority" );
 
-      // Higher dimension priority from implicit data
-      for ( CellMapIterator it = fullComplex.begin(dimension), itEnd = fullComplex.end(dimension); it != itEnd; ++it )
+      for ( std::size_t i = 0; i < dimension; ++i )
         {
-          const Cell cell = it->first;
-          const Point pt  = ( K.uKCoords(cell) - Point::diagonal(1) ) / 2;
-          const auto value = static_cast<DGtal::uint32_t>( std::round( (*realImage)(pt) * priorityScale ) );
+          for ( auto it = fullComplex.begin(i), itEnd = fullComplex.end(i); it != itEnd; ++it )
+            {
+              const Cell cell = it->first;
+              const auto value = static_cast<DGtal::uint32_t>( std::round( interpValue(K, realImage, labelImage, cell ).first * priorityScale ) );
 
-          it->second &= ~CC::VALUE;
-          it->second |= value & CC::VALUE;
+              it->second.data &= ~CC::VALUE;
+              it->second.data |= value & CC::VALUE;
+            }
         }
 
-      // Priority of surface dimension calculated by mean of higher dimension
-      // and taking into account label changes.
-      for ( CellMapIterator it = fullComplex.begin(dimension-1), itEnd = fullComplex.end(dimension-1); it != itEnd; ++it )
-        {
-          const Cell cell = it->first;
-          const Dimension d = K.uOrhDir(cell);
-          
-          Point prevPt = ( K.uKCoords(cell) - Point::base(d) - Point::diagonal(1) ) / 2;
-          if ( prevPt[d] < 0 )  prevPt[d] = extend[d]-1;
-
-          Point nextPt = ( K.uKCoords(cell) + Point::base(d) - Point::diagonal(1) ) / 2;
-          if ( prevPt[d] == extend[d] )   prevPt[d] = 0;
-
-
-          const auto value = static_cast<
-        }
       trace.endBlock();
     }
+
+  // Getting boundary and inner cells
+  trace.beginBlock( "Get boundary and inner cells." );
+  std::vector<Cell> innerCells;
+  std::vector<Cell> bndryCells;
+  functions::ccops::filterCellsWithinBounds (
+      fullComplex, 
+      K.uKCoords( K3.lowerCell() ) + Point::diagonal(2), K3.uKCoords( K3.upperCell() ) - Point::diagonal(2),
+      std::back_inserter( bdryCells ), std::back_inserter( innerCells ) 
+  );
+  trace.info() << innerCells.size() << " inner cells and " << bndryCells.size() << " boundary cells." << endl;
+  trace.endBlock();
+  
+  // Collapsing inner cells
+
 
   return 0;
 }

@@ -615,8 +615,8 @@ int main(int argc, char** argv)
       // ApproximatedMultiImage
       using real = double;
       
-      //using LabelledMap = DGtal::LabelledMap<real, 128, long unsigned int, 2, 11>;
-      using LabelledMap = DGtal::BigLabelledMap<real, (1ul<<7)-1, 2, 10>;
+      using LabelledMap = DGtal::LabelledMap<real, 64, long unsigned int, 2, 11>;
+      //using LabelledMap = DGtal::BigLabelledMap<real, (1ul<<7)-1, 2, 10>;
       
       using Approximation = DGtal::approximations::NegativeTolValueApproximation<real>;
       //using Approximation = DGtal::approximations::NoValueApproximation<real>;
