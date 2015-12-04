@@ -182,6 +182,7 @@ int main ( int argc, char* argv[] )
   // Default space and domain.
   KSpace K;
 
+  /////////////////////////////////////////////////////////////////////////////
   // Reading real image
   RealImage* realImage = nullptr;
   if ( vm.count("implicit") )
@@ -190,8 +191,10 @@ int main ( int argc, char* argv[] )
       const std::string realImageName = vm["implicit"].as<std::string>();
       realImage = new RealImage( RawReader< RealImage >::importRaw<Real>( realImageName, extent ) );
       trace.endBlock();
+      trace.info() << endl;
     }
 
+  /////////////////////////////////////////////////////////////////////////////
   // Reading label image
   LabelImage* labelImage = nullptr;
   if ( vm.count("label") )
@@ -200,6 +203,7 @@ int main ( int argc, char* argv[] )
       const std::string labelImageName = vm["label"].as<std::string>();
       labelImage = new LabelImage( RawReader< LabelImage >::importRaw<Label>( labelImageName, extent ) );
       trace.endBlock();
+      trace.info() << endl;
     }
 
   // Initializing Khalimsky space
@@ -214,6 +218,7 @@ int main ( int argc, char* argv[] )
   CubicalCellData unsureData( 0 );
   CubicalCellData sureData( CC::FIXED );
 
+  /////////////////////////////////////////////////////////////////////////////
   // Using interface implicit representation
   if ( realImage != nullptr )
     {
@@ -231,8 +236,10 @@ int main ( int argc, char* argv[] )
       trace.info() << "        C1 K = " << fullComplex << endl;
 
       trace.endBlock();
+      trace.info() << endl;
     }
 
+  /////////////////////////////////////////////////////////////////////////////
   // Using labels to add missed surface.
   if ( labelImage != nullptr )
     {
@@ -258,9 +265,11 @@ int main ( int argc, char* argv[] )
       trace.info() << " C1 K + C1 S = " << fullComplex << endl;
 
       trace.endBlock();
+      trace.info() << endl;
     }
 
-  // Compute priority
+  /////////////////////////////////////////////////////////////////////////////
+  // Computes priority
   if ( calcPriority && realImage != nullptr )
     {
       ASSERT( dimension > 0 );
@@ -280,12 +289,15 @@ int main ( int argc, char* argv[] )
         }
 
       trace.endBlock();
+      trace.info() << endl;
     }
 
+  /////////////////////////////////////////////////////////////////////////////
   // Fixing boundary cells
   trace.beginBlock( "Fixing boundary cells." );
   const Point lowerKCoords = K.uKCoords( K.lowerCell() );
   const Point upperKCoords = K.uKCoords( K.upperCell() );
+  cout << lowerKCoords << " ; " << upperKCoords << endl;
 
   std::size_t bdryCnt = 0, innerCnt = 0;
   functions::ccops::filterCellsWithinBounds (
@@ -298,7 +310,9 @@ int main ( int argc, char* argv[] )
   );
   trace.info() << innerCnt << " inner cells and " << bdryCnt << " boundary cells." << endl;
   trace.endBlock();
+  trace.info() << endl;
 
+  /////////////////////////////////////////////////////////////////////////////
   // Collapsing inner cells
   trace.beginBlock( "Collapsing inner cells." );
 
@@ -311,11 +325,13 @@ int main ( int argc, char* argv[] )
 
   trace.info() << "       K     = " << fullComplex << endl;
   trace.endBlock();
+  trace.info() << endl;
 
+  /////////////////////////////////////////////////////////////////////////////
   // Fixing inner cells and freeing boundary cells.
   trace.beginBlock( "Fixing inner cells and freeing boundary cells." );
   
-  std::size_t innerCnt = 0;
+  innerCnt = 0;
   std::vector<Cell> bdryCells;
 
   functions::ccops::filterCellsWithinBounds (
@@ -330,7 +346,9 @@ int main ( int argc, char* argv[] )
   );
   trace.info() << innerCnt << " inner cells and " << bdryCells.size() << " boundary cells." << endl;
   trace.endBlock();
+  trace.info() << endl;
 
+  /////////////////////////////////////////////////////////////////////////////
   // Fixing boundary cells incident to inner cells.
   trace.beginBlock( "Fixing boundary cells incident to inner cells." );
   bdryCnt = 0;
@@ -338,15 +356,15 @@ int main ( int argc, char* argv[] )
     {
       if ( K.uDim(cell) == dimension-2 )
         {
-          const Point ptCoords = K.uKCoors(cell);
+          const Point ptCoords = K.uKCoords(cell);
           for ( std::size_t i = 0; i < dimension; ++i )
             {
               if ( ptCoords[i] == lowerKCoords[i] || ptCoords[i] == upperKCoords[i] )
                 {
                   const auto incCell = fullComplex.findCell( dimension-1, K.uIncident( cell, i, ptCoords[i] == lowerKCoords[i] ) );
-                  if ( incCell != fullComplex.end(dimension-1) && incCell->second & CC::FIXED != 0 )
+                  if ( incCell != fullComplex.end(dimension-1) && ( incCell->second.data & CC::FIXED ) )
                     {
-                      fullComplex.findCell( dimension-2, cell )->second |= CC::FIXED;
+                      fullComplex.findCell( dimension-2, cell )->second.data |= CC::FIXED;
                       ++bdryCnt;
                       break;
                     }
@@ -356,79 +374,76 @@ int main ( int argc, char* argv[] )
     }
   trace.info() << bdryCnt << " boundary cells fixed." << endl;
   trace.endBlock();
+  trace.info() << endl;
 
+  /////////////////////////////////////////////////////////////////////////////
   // Duplicating boundary cells by periodicity
   trace.beginBlock( "Duplicating boundary cells by periodicity." );
   std::vector< std::pair<Cell,CCData> > toBeInserted;
 
   for ( auto const& cell : bdryCells )
     {
-      
-    }
-
-  for ( std::size_t d = 0; d <= dimension; ++d )
-    {
-      for ( auto it = fullComplex.begin(d), itEnd = fullComplex.end(d); it != itEnd; ++it )
+      std::vector<Point> cellClones = { K.uKCoords(cell) };
+      // Generates clones coordinates.
+      for ( std::size_t d = 0; d < dimension; ++d )
         {
-          auto coords = K.uKCoords( it->first );
-          // Checks if the cell is in contact with the image boundary and rotate coordinates
-          bool isOnBorder = false;
-          for ( std::size_t i = 0; i < dimension; ++i )
+          if ( cellClones[0][d] == lowerKCoords[d] || cellClones[0][d] == upperKCoords[d] )
             {
-              if ( coords[i] <= lowerBoundKCoords[i] )
-                {
-                  isOnBorder = true;
-                  coords[i] += 2*extent[i];
-                }
-              else if ( coords[i] >= upperBoundKCoords[i] )
-                {
-                  isOnBorder = true;
-                  coords[i] -= 2*extent[i];
-                }
+              const auto coordShift = ( cellClones[0][d] == lowerKCoords[d] ? 2 : -2 ) * extent[d];
+              for ( std::size_t i = 0, size = cellClones.size(); i < size; ++i )
+                cellClones.push_back( cellClones[i] + Point::base( d, coordShift ) );
             }
-
-          // Remove fixed flag and copy it on the other side.
-          it->second.data &= ~CC::FIXED;
-          toBeInserted.emplace_back( Cell{coords}, it->second );
         }
+
+      // Generates clones cell & data.
+      const auto it = fullComplex.findCell( cell );
+      for ( std::size_t i = 1; i < cellClones.size(); ++i )
+        toBeInserted.emplace_back( Cell(cellClones[i]), it->second );
     }
 
-  // Insertion
+  // Insert clones
+  trace.info() << toBeInserted.size() << " boundary cells clones by periodicity." << endl;
   for ( auto const& element : toBeInserted )
-    fullComplex.insertCell( element.first, element.second );
+    {
+      const auto it = fullComplex.findCell( element.first );
+      if ( it != fullComplex.end( K.uDim( element.first ) ) )
+        it->second.data |= element.second.data & CC::FIXED;
+      else
+        fullComplex.insertCell( element.first, element.second );
+    }
+
   toBeInserted.clear();
-  
-  trace.info() << "       K + P = " << fullComplex << endl;
-  fullComplex.close();
+
   trace.info() << "       K + P = " << fullComplex << endl;
   trace.endBlock();
+  trace.info() << endl;
 
-  /*
-  // Extracting boundary cells
-  trace.beginBlock( "Get boundary and inner cells." );
-  bndryCells.clear();
-  innerCells.clear();
-  functions::ccops::filterCellsWithinBounds (
-      fullComplex,
-      K.uKCoords( K.lowerCell() ) + Point::diagonal(2), K.uKCoords( K.upperCell() ) - Point::diagonal(2),
-      std::back_inserter( bndryCells ), std::back_inserter( innerCells )
-  );
-  trace.info() << innerCells.size() << " inner cells and " << bndryCells.size() << " boundary cells." << endl;
-  trace.endBlock();
-
+  /////////////////////////////////////////////////////////////////////////////
   // Collapsing boundary cells
   trace.beginBlock( "Collapsing boundary cells." );
   
+  bdryCells.clear();
+  innerCnt = 0;
+  
+  functions::ccops::filterCellsWithinBounds (
+      fullComplex,
+      lowerKCoords, upperKCoords,
+      std::back_inserter( bdryCells ), // Boundary cells
+      boost::make_function_output_iterator( [&innerCnt] ( Cell ) { ++innerCnt; } ) // Inner cells
+  );
+  trace.info() << innerCnt << " inner cells and " << bdryCells.size() << " boundary cells." << endl;
+  
   functions::ccops::collapse(
       fullComplex,
-      bndryCells.cbegin(), bndryCells.cend(),
+      bdryCells.cbegin(), bdryCells.cend(),
       typename CC::DefaultCellMapIteratorPriority{},
       true, true, true
   );
 
   trace.info() << "       K     = " << fullComplex << endl;
   trace.endBlock();
-  */
+  trace.info() << endl;
+  
 
   //-------------- Create Mesh -------------------------------------------
   trace.beginBlock( "Create Mesh. " );
@@ -451,26 +466,18 @@ int main ( int argc, char* argv[] )
     {
       Cell cell = it->first;
       bool fixed = it->second.data & CC::FIXED;
-      bool skip = false;
 
       Cells bdry = fullComplex.cellBoundary( cell, true );
       std::vector<unsigned int> face_idx;
       for ( auto itC = bdry.begin(), itCE = bdry.end(); itC != itCE; ++itC )
         {
           if ( fullComplex.dim( *itC ) == 0 )
-            {
-              if ( indices.count( *itC ) != 0 )
-                face_idx.push_back( indices[ *itC ] );
-              else
-                {
-                  //skip = true;
-                  //break;
-                }
-            }
+            face_idx.push_back( indices[ *itC ] );
         }
-      if ( ( ( ! fixed ) && hide ) || skip ) continue;
+
+      if ( ( ! fixed ) && hide ) continue;
       Color color = highlight
-        ? ( fixed ? Color::White : Color(128,255,128) )
+        ? ( fixed ? Color(128,255,128) : Color::White )
         : Color::White;
       Vector diag03 = points[ face_idx[ 0 ] ] - points[ face_idx[ 3 ] ];
       Vector diag12 = points[ face_idx[ 1 ] ] - points[ face_idx[ 2 ] ];
@@ -502,7 +509,13 @@ int main ( int argc, char* argv[] )
       std::vector<Cell> dummy;
       std::back_insert_iterator< std::vector<Cell> > outIt( dummy );
       fullComplex.directCoFaces( outIt, cell );
-      if ( ! dummy.empty() )     continue;
+
+      const auto coords = K.uKCoords(cell);
+      bool isOnBorder = false;
+      for ( std::size_t i = 0; i < dimension & !isOnBorder; ++i )
+        isOnBorder |= ( coords[i] == lowerKCoords[i] || coords[i] == upperKCoords[i] );
+
+      if ( ! dummy.empty() && !( isOnBorder && fixed ) )     continue;
 
       Cells bdry = fullComplex.cellBoundary( cell, true );
       Cell v0    = *(bdry.begin() );
