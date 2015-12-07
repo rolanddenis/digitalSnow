@@ -210,7 +210,7 @@ int main ( int argc, char* argv[] )
   K.init(
          domain.lowerBound(),
          domain.upperBound(),
-         true
+         KSpace::periodic
   );
 
   // Initializing cellular complex.
@@ -292,6 +292,10 @@ int main ( int argc, char* argv[] )
       trace.info() << endl;
     }
 
+  const Point lowerKCoords = K.uKCoords( K.lowerCell() );
+  const Point upperKCoords = K.uKCoords( K.upperCell() );
+
+#if 0
   /////////////////////////////////////////////////////////////////////////////
   // Fixing boundary cells
   trace.beginBlock( "Fixing boundary cells." );
@@ -443,8 +447,25 @@ int main ( int argc, char* argv[] )
   trace.info() << "       K     = " << fullComplex << endl;
   trace.endBlock();
   trace.info() << endl;
+#endif  
   
+  /////////////////////////////////////////////////////////////////////////////
+  // Collapsing cells
+  trace.beginBlock( "Collapsing cells." );
+  functions::ccops::collapse(
+      fullComplex,
+      fullComplex.begin(), fullComplex.end(),
+      typename CC::DefaultCellMapIteratorPriority{},
+      true, true, true
+  );
 
+  trace.info() << "       K     = " << fullComplex << endl;
+  trace.endBlock();
+  trace.info() << endl;
+
+  //const Point lowerKCoords = K.uKCoords( K.lowerCell() );
+  //const Point upperKCoords = K.uKCoords( K.upperCell() );
+  
   //-------------- Create Mesh -------------------------------------------
   trace.beginBlock( "Create Mesh. " );
   std::string view = vm[ "view" ].as<std::string>();
