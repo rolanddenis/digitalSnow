@@ -241,6 +241,7 @@ int main ( int argc, char* argv[] )
 
   /////////////////////////////////////////////////////////////////////////////
   // Using labels to add missed surface.
+  // TODO
   if ( labelImage != nullptr )
     {
       trace.beginBlock( "Separating surface from labels." );
@@ -466,16 +467,70 @@ int main ( int argc, char* argv[] )
   //const Point lowerKCoords = K.uKCoords( K.lowerCell() );
   //const Point upperKCoords = K.uKCoords( K.upperCell() );
   
+  //-------------- Copy to close Khalimsky space -------------------------------------------
+  trace.beginBlock( "Copying to a closed Khalimsky space." );
+
+  KSpace cK;
+  cK.init(
+         domain.lowerBound(),
+         domain.upperBound(),
+         KSpace::closed
+  );
+  CC fullClosedComplex(cK);
+
+  for ( auto const& cell : fullComplex )
+    fullClosedComplex.insertCell( cell );
+
+  for ( DGtal::Dimension i = 0; i < KSpace::dimension; ++i )
+    {
+      for ( KSpace::Integer x = cK.lowerCell().myCoordinates[(i+1)%3]; x != cK.upperCell().myCoordinates[(i+1)%3]+1; ++x )
+        {
+          for ( KSpace::Integer y = cK.lowerCell().myCoordinates[(i+2)%3]; y != cK.upperCell().myCoordinates[(i+2)%3]+1; ++y )
+            {
+              Cell p;
+              p.myCoordinates[(i+1)%3] = x;
+              p.myCoordinates[(i+2)%3] = y;
+
+              p.myCoordinates[i] = cK.lowerCell().myCoordinates[i];
+              if ( fullComplex.belongs( K.uCell( p.myCoordinates ) ) )
+                fullClosedComplex.insertCell( p );
+              
+              p.myCoordinates[i] = cK.upperCell().myCoordinates[i];
+              if ( fullComplex.belongs( K.uCell( p.myCoordinates ) ) )
+                fullClosedComplex.insertCell( p );
+            }
+        }
+    }
+
+#if 0
+  // Bourrin
+  Cell p = cK.lowerCell();
+  do
+    {
+      bool isOnBorder = false;
+      for ( DGtal::Dimension i = 0; i < KSpace::dimension; ++i )
+        isOnBorder |= p.myCoordinates[i] == cK.lowerCell().myCoordinates[i] || p.myCoordinates[i] == cK.upperCell().myCoordinates[i];
+
+      if ( isOnBorder && fullComplex.belongs( K.uCell( cK.uKCoords(p) ) ) )
+        fullClosedComplex.insertCell( p );
+    }
+  while ( K.uNext( p, cK.lowerCell(), cK.upperCell() ) );
+#endif
+  
+  trace.endBlock();
+  trace.info() << endl;
+
   //-------------- Create Mesh -------------------------------------------
   trace.beginBlock( "Create Mesh. " );
   std::string view = vm[ "view" ].as<std::string>();
+  
   bool highlight = ( view == "Singular" );
   bool hide      = ( view == "Hide" );
   Mesh<Point> mesh( true );
   std::map<Cell, unsigned int> indices;
   std::vector<Point> points;
   int idx = 0;
-  for ( auto it = fullComplex.begin( 0 ), itEnd = fullComplex.end( 0 ); it != itEnd; ++it, ++idx )
+  for ( auto it = fullClosedComplex.begin( 0 ), itEnd = fullClosedComplex.end( 0 ); it != itEnd; ++it, ++idx )
     {
       Cell cell = it->first;
       indices[ cell ] = idx;
@@ -483,17 +538,28 @@ int main ( int argc, char* argv[] )
       mesh.addVertex(   K.uKCoords(cell)/2 - Point::diagonal(1) );
     }
 
-  for ( auto it = fullComplex.begin( 2 ), itEnd = fullComplex.end( 2 ); it != itEnd; ++it )
+  for ( auto it = fullClosedComplex.begin( 2 ), itEnd = fullClosedComplex.end( 2 ); it != itEnd; ++it )
     {
       Cell cell = it->first;
       bool fixed = it->second.data & CC::FIXED;
 
-      Cells bdry = fullComplex.cellBoundary( cell, true );
+      Cells bdry = fullClosedComplex.cellBoundary( cell, true );
       std::vector<unsigned int> face_idx;
       for ( auto itC = bdry.begin(), itCE = bdry.end(); itC != itCE; ++itC )
         {
-          if ( fullComplex.dim( *itC ) == 0 )
-            face_idx.push_back( indices[ *itC ] );
+          if ( fullClosedComplex.dim( *itC ) == 0 )
+            {
+              /*
+              if ( indices.count(*itC) == 0 )
+                {
+                  indices[*itC] = idx++;
+                  points.push_back( K.uKCoords(*itC)/2 - Point::diagonal(1) );
+                  mesh.addVertex(   K.uKCoords(*itC)/2 - Point::diagonal(1) );
+                }
+              */
+
+              face_idx.push_back( indices[*itC] );
+            }
         }
 
       if ( ( ! fixed ) && hide ) continue;
@@ -523,13 +589,13 @@ int main ( int argc, char* argv[] )
   viewer.show();
   viewer << mesh;
   // Display lines that are not in the mesh.
-  for ( auto it = fullComplex.begin( 1 ), itE = fullComplex.end( 1 ); it != itE; ++it )
+  for ( auto it = fullClosedComplex.begin( 1 ), itE = fullClosedComplex.end( 1 ); it != itE; ++it )
     {
       Cell cell  = it->first;
       bool fixed  = it->second.data & CC::FIXED;
       std::vector<Cell> dummy;
       std::back_insert_iterator< std::vector<Cell> > outIt( dummy );
-      fullComplex.directCoFaces( outIt, cell );
+      fullClosedComplex.directCoFaces( outIt, cell );
 
       const auto coords = K.uKCoords(cell);
       bool isOnBorder = false;
@@ -538,7 +604,7 @@ int main ( int argc, char* argv[] )
 
       if ( ! dummy.empty() && !( isOnBorder && fixed ) )     continue;
 
-      Cells bdry = fullComplex.cellBoundary( cell, true );
+      Cells bdry = fullClosedComplex.cellBoundary( cell, true );
       Cell v0    = *(bdry.begin() );
       Cell v1    = *(bdry.begin() + 1);
       if ( ( ! fixed ) && hide ) continue;
