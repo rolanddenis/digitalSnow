@@ -4,6 +4,8 @@
 #include <map>
 #include <vector>
 #include <utility>
+#include <fstream>
+#include <cstdlib>
 
 // Boost
 #include <boost/program_options/options_description.hpp>
@@ -21,7 +23,9 @@
 #include <DGtal/topology/CubicalComplexFunctions.h>
 #include <DGtal/images/ImageContainerBySTLVector.h>
 #include <DGtal/io/readers/RawReader.h>
-#include "DGtal/io/viewers/Viewer3D.h"
+#include <DGtal/io/viewers/Viewer3D.h>
+#include <DGtal/topology/ExplicitDigitalSurface.h>
+
 
 #define DIMENSION 3
 
@@ -127,6 +131,7 @@ int main ( int argc, char* argv[] )
   Real thickness = 0;
   bool calcPriority = true;
   DGtal::uint32_t priorityScale = 100000;
+  bool exportEvolver = false;
 
   // Program options
   namespace po = boost::program_options;
@@ -136,10 +141,11 @@ int main ( int argc, char* argv[] )
     ("dimension,d", po::value< std::vector<unsigned int> >(), "dimensions of the image.")
     ("implicit,i",  po::value< std::string >(), "raw (double) real image where the level-set of value 0 represents the cell interfaces.")
     ("thickness,t", po::value< Real >( &thickness )->default_value( thickness ), "the thickening parameter for the implicit surface.")
-    ("priority,p",  po::value<bool>( &calcPriority )->default_value( calcPriority ), "control if the priority is calculated (if a real image is given).")
+    ("priority,p",  po::value< bool >( &calcPriority )->default_value( calcPriority ), "control if the priority is calculated (if a real image is given).")
     ("scale,s",     po::value< DGtal::uint32_t >(&priorityScale)->default_value(priorityScale), "Factor applied to the implicit data to get the cell priority.")
-    ("label,l",     po::value< std::string >(), "raw (unsigned short int) label image. Used to add labels border and better calculate priority.")
-    ("view,v", po::value< std::string >()->default_value( "Normal" ), "specifies if the surface is viewed as is (Normal) or if places close to singularities are highlighted (Singular), or if unsure places should not be displayed (Hide)." )
+    ("label,l",     po::value< std::string >(), "raw (unsigned short int) label image. Used to add labels border and to better calculate priority.")
+    ("view,v", po::value< std::string >()->default_value( "Normal" ), "specifies if the surface is viewed as is (Normal) or if places close to singularities are highlighted (Singular), or if unsure places should not be displayed (Hide), or if no view is wanted (no)." )
+    ("evolver,e",   po::value< std::string >(), "if set, the result is exported to Surface Evolver format with the given file name." )
   ;
 
   // Parsing program options
@@ -306,128 +312,283 @@ int main ( int argc, char* argv[] )
   trace.endBlock();
   trace.info() << endl;
 
-  //-------------- Copy to close Khalimsky space -------------------------------------------
-  trace.beginBlock( "Copying to a closed Khalimsky space." );
-
-  KSpace cK;
-  cK.init(
-         domain.lowerBound(),
-         domain.upperBound(),
-         KSpace::closed
-  );
-  CC fullClosedComplex(cK);
-
-  for ( auto const& cell : fullComplex )
-    fullClosedComplex.insertCell( cell );
-
-  for ( DGtal::Dimension i = 0; i < KSpace::dimension; ++i )
+  // Viewing the result.
+  if ( vm[ "view" ].as<std::string>() != "no" )
     {
-      for ( KSpace::Integer x = cK.lowerCell().myCoordinates[(i+1)%3]; x != cK.upperCell().myCoordinates[(i+1)%3]+1; ++x )
-        {
-          for ( KSpace::Integer y = cK.lowerCell().myCoordinates[(i+2)%3]; y != cK.upperCell().myCoordinates[(i+2)%3]+1; ++y )
-            {
-              Cell p;
-              p.myCoordinates[(i+1)%3] = x;
-              p.myCoordinates[(i+2)%3] = y;
 
-              p.myCoordinates[i] = cK.lowerCell().myCoordinates[i];
-              if ( fullComplex.belongs( K.uCell( p.myCoordinates ) ) )
-                fullClosedComplex.insertCell( p );
-              
-              p.myCoordinates[i] = cK.upperCell().myCoordinates[i];
-              if ( fullComplex.belongs( K.uCell( p.myCoordinates ) ) )
-                fullClosedComplex.insertCell( p );
+      //-------------- Copy to close Khalimsky space -------------------------------------------
+      trace.beginBlock( "Copying to a closed Khalimsky space." );
+
+      KSpace cK;
+      cK.init(
+              domain.lowerBound(),
+              domain.upperBound(),
+              KSpace::closed
+      );
+      CC fullClosedComplex(cK);
+
+      for ( auto const& cell : fullComplex )
+        fullClosedComplex.insertCell( cell );
+
+      for ( DGtal::Dimension i = 0; i < KSpace::dimension; ++i )
+        {
+          for ( KSpace::Integer x = cK.lowerCell().myCoordinates[(i+1)%3]; x != cK.upperCell().myCoordinates[(i+1)%3]+1; ++x )
+            {
+              for ( KSpace::Integer y = cK.lowerCell().myCoordinates[(i+2)%3]; y != cK.upperCell().myCoordinates[(i+2)%3]+1; ++y )
+                {
+                  Cell p;
+                  p.myCoordinates[(i+1)%3] = x;
+                  p.myCoordinates[(i+2)%3] = y;
+
+                  p.myCoordinates[i] = cK.lowerCell().myCoordinates[i];
+                  if ( fullComplex.belongs( K.uCell( p.myCoordinates ) ) )
+                    fullClosedComplex.insertCell( p );
+
+                  p.myCoordinates[i] = cK.upperCell().myCoordinates[i];
+                  if ( fullComplex.belongs( K.uCell( p.myCoordinates ) ) )
+                    fullClosedComplex.insertCell( p );
+                }
             }
         }
-    }
-  trace.info() << "     C K     = " << fullClosedComplex << endl;
-  
-  trace.endBlock();
-  trace.info() << endl;
+      trace.info() << "     C K     = " << fullClosedComplex << endl;
 
-  //-------------- Create Mesh -------------------------------------------
-  trace.beginBlock( "Create Mesh. " );
-  std::string view = vm[ "view" ].as<std::string>();
-  
-  bool highlight = ( view == "Singular" );
-  bool hide      = ( view == "Hide" );
-  Mesh<Point> mesh( true );
-  std::map<Cell, unsigned int> indices;
-  std::vector<Point> points;
-  int idx = 0;
-  for ( auto it = fullClosedComplex.begin( 0 ), itEnd = fullClosedComplex.end( 0 ); it != itEnd; ++it, ++idx )
-    {
-      Cell cell = it->first;
-      indices[ cell ] = idx;
-      points.push_back( cK.uKCoords(cell)/2 - Point::diagonal(1) );
-      mesh.addVertex(   cK.uKCoords(cell)/2 - Point::diagonal(1) );
-    }
+      trace.endBlock();
+      trace.info() << endl;
 
-  for ( auto it = fullClosedComplex.begin( 2 ), itEnd = fullClosedComplex.end( 2 ); it != itEnd; ++it )
-    {
-      Cell cell = it->first;
-      bool fixed = it->second.data & CC::FIXED;
+      //-------------- Create Mesh -------------------------------------------
+      trace.beginBlock( "Create Mesh. " );
+      std::string view = vm[ "view" ].as<std::string>();
 
-      Cells bdry = fullClosedComplex.cellBoundary( cell, true );
-      std::vector<unsigned int> face_idx;
-      for ( auto itC = bdry.begin(), itCE = bdry.end(); itC != itCE; ++itC )
-        if ( fullClosedComplex.dim( *itC ) == 0 )
-          face_idx.push_back( indices[*itC] );
-
-      if ( ( ! fixed ) && hide ) continue;
-      Color color = highlight
-        ? ( fixed ? Color(128,255,128) : Color::White )
-        : Color::White;
-      Vector diag03 = points[ face_idx[ 0 ] ] - points[ face_idx[ 3 ] ];
-      Vector diag12 = points[ face_idx[ 1 ] ] - points[ face_idx[ 2 ] ];
-      if ( diag03.dot( diag03 ) <= diag12.dot( diag12 ) )
+      bool highlight = ( view == "Singular" );
+      bool hide      = ( view == "Hide" );
+      Mesh<Point> mesh( true );
+      std::map<Cell, unsigned int> indices;
+      std::vector<Point> points;
+      int idx = 0;
+      for ( auto it = fullClosedComplex.begin( 0 ), itEnd = fullClosedComplex.end( 0 ); it != itEnd; ++it, ++idx )
         {
-          mesh.addTriangularFace( face_idx[ 0 ], face_idx[ 1 ], face_idx[ 3 ], color );
-          mesh.addTriangularFace( face_idx[ 0 ], face_idx[ 3 ], face_idx[ 2 ], color );
+          Cell cell = it->first;
+          indices[ cell ] = idx;
+          points.push_back( cK.uKCoords(cell)/2 - Point::diagonal(1) );
+          mesh.addVertex(   cK.uKCoords(cell)/2 - Point::diagonal(1) );
         }
-      else
+
+      for ( auto it = fullClosedComplex.begin( 2 ), itEnd = fullClosedComplex.end( 2 ); it != itEnd; ++it )
         {
-          mesh.addTriangularFace( face_idx[ 0 ], face_idx[ 1 ], face_idx[ 2 ], color );
-          mesh.addTriangularFace( face_idx[ 1 ], face_idx[ 3 ], face_idx[ 2 ], color );
+          Cell cell = it->first;
+          bool fixed = it->second.data & CC::FIXED;
+
+          Cells bdry = fullClosedComplex.cellBoundary( cell, true );
+          std::vector<unsigned int> face_idx;
+          for ( auto itC = bdry.begin(), itCE = bdry.end(); itC != itCE; ++itC )
+            if ( fullClosedComplex.dim( *itC ) == 0 )
+              face_idx.push_back( indices[*itC] );
+
+          if ( ( ! fixed ) && hide ) continue;
+          Color color = highlight
+            ? ( fixed ? Color(128,255,128) : Color::White )
+            : Color::White;
+          Vector diag03 = points[ face_idx[ 0 ] ] - points[ face_idx[ 3 ] ];
+          Vector diag12 = points[ face_idx[ 1 ] ] - points[ face_idx[ 2 ] ];
+          if ( diag03.dot( diag03 ) <= diag12.dot( diag12 ) )
+            {
+              mesh.addTriangularFace( face_idx[ 0 ], face_idx[ 1 ], face_idx[ 3 ], color );
+              mesh.addTriangularFace( face_idx[ 0 ], face_idx[ 3 ], face_idx[ 2 ], color );
+            }
+          else
+            {
+              mesh.addTriangularFace( face_idx[ 0 ], face_idx[ 1 ], face_idx[ 2 ], color );
+              mesh.addTriangularFace( face_idx[ 1 ], face_idx[ 3 ], face_idx[ 2 ], color );
+            }
         }
-     }
-  trace.endBlock();
+      trace.endBlock();
+
+      //-------------- View surface -------------------------------------------
+      const Point lowerKCoords = cK.uKCoords( cK.lowerCell() );
+      const Point upperKCoords = cK.uKCoords( cK.upperCell() );
+
+      QApplication application(argc,argv);
+      Viewer3D<Space,KSpace> viewer( K );
+      viewer.setWindowTitle("simple Volume Viewer");
+      viewer.show();
+      viewer << mesh;
+      // Display lines that are not in the mesh.
+      for ( auto it = fullClosedComplex.begin( 1 ), itE = fullClosedComplex.end( 1 ); it != itE; ++it )
+        {
+          Cell cell  = it->first;
+          bool fixed  = it->second.data & CC::FIXED;
+          std::vector<Cell> dummy;
+          std::back_insert_iterator< std::vector<Cell> > outIt( dummy );
+          fullClosedComplex.directCoFaces( outIt, cell );
+
+          const auto coords = cK.uKCoords(cell);
+          bool isOnBorder = false;
+          for ( std::size_t i = 0; i < dimension & !isOnBorder; ++i )
+            isOnBorder |= ( coords[i] == lowerKCoords[i] || coords[i] == upperKCoords[i] );
+
+          if ( ! dummy.empty() && !( isOnBorder && fixed ) )     continue;
+
+          Cells bdry = fullClosedComplex.cellBoundary( cell, true );
+          Cell v0    = *(bdry.begin() );
+          Cell v1    = *(bdry.begin() + 1);
+          if ( ( ! fixed ) && hide ) continue;
+          Color color = highlight
+            ? ( fixed ? Color::White : Color(128,255,128) )
+            : Color::White;
+          viewer.setLineColor( color );
+          viewer.addLine( points[ indices[ v0 ] ], points[ indices[ v1 ] ], 1/2.0 );
+        }
+      viewer << Viewer3D<Space,KSpace>::updateDisplay;
+      application.exec();
+    }
+  // End viewing.
+
 
   //-------------- View surface -------------------------------------------
-  const Point lowerKCoords = cK.uKCoords( cK.lowerCell() );
-  const Point upperKCoords = cK.uKCoords( cK.upperCell() );
-  
-  QApplication application(argc,argv);
-  Viewer3D<Space,KSpace> viewer( K );
-  viewer.setWindowTitle("simple Volume Viewer");
-  viewer.show();
-  viewer << mesh;
-  // Display lines that are not in the mesh.
-  for ( auto it = fullClosedComplex.begin( 1 ), itE = fullClosedComplex.end( 1 ); it != itE; ++it )
+  if ( vm.count( "evolver" ) )
     {
-      Cell cell  = it->first;
-      bool fixed  = it->second.data & CC::FIXED;
-      std::vector<Cell> dummy;
-      std::back_insert_iterator< std::vector<Cell> > outIt( dummy );
-      fullClosedComplex.directCoFaces( outIt, cell );
+      const std::string fileName = vm[ "evolver" ].as<std::string>();
 
-      const auto coords = cK.uKCoords(cell);
-      bool isOnBorder = false;
-      for ( std::size_t i = 0; i < dimension & !isOnBorder; ++i )
-        isOnBorder |= ( coords[i] == lowerKCoords[i] || coords[i] == upperKCoords[i] );
+      trace.beginBlock( "Surface Evolver export to " + fileName );
+      
+      std::ofstream fileStream( fileName+".fe", std::ofstream::out | std::ofstream::binary );
+      fileStream.imbue( std::locale() ); // Dot separator for decimal numbers
+      fileStream  << "// extracCells.cpp\n";
+      fileStream  << "TORUS_FILLED\n\n";
+      fileStream  << "periods\n"
+                  << "1 0 0\n" 
+                  << "0 1 0\n" 
+                  << "0 0 1\n\n";
 
-      if ( ! dummy.empty() && !( isOnBorder && fixed ) )     continue;
+      //-----------------------------------------------------------------------
+      trace.beginBlock( "Indexing and writing vertices" );
+      fileStream  << "vertices\n";
+      std::map< Cell, std::size_t > index0;
+      std::size_t idx = 1;
+      for ( auto it = fullComplex.begin( 0 ), itEnd = fullComplex.end( 0 ); it != itEnd; ++it, ++idx )
+        {
+          index0[ it->first ] = idx;
+          fileStream << idx;
+          
+          const Point coords = K.uKCoords( it->first ); 
+          
+          for ( Dimension i = 0; i < dimension; ++i )
+            fileStream << " " << ( double(coords[i]) / (2*extent[i]) );
 
-      Cells bdry = fullClosedComplex.cellBoundary( cell, true );
-      Cell v0    = *(bdry.begin() );
-      Cell v1    = *(bdry.begin() + 1);
-      if ( ( ! fixed ) && hide ) continue;
-      Color color = highlight
-        ? ( fixed ? Color::White : Color(128,255,128) )
-        : Color::White;
-      viewer.setLineColor( color );
-      viewer.addLine( points[ indices[ v0 ] ], points[ indices[ v1 ] ], 1/2.0 );
+          fileStream << "\n";
+        }
+      fileStream << "\n";
+      trace.endBlock();
+      
+      //-----------------------------------------------------------------------
+      trace.beginBlock( "Indexing and writing edges" );
+      fileStream  << "edges\n";
+      std::map< Cell, std::size_t > index1;
+      idx = 1;
+      for ( auto it = fullComplex.begin( 1 ), itEnd = fullComplex.end( 1 ); it != itEnd; ++it, ++idx )
+        {
+          const Cell edge = it->first;
+          index1[ edge ] = idx;
+          fileStream << idx;
+
+          const Dimension dir = *( K.uDirs( edge ) );
+          const Cell vertex1  = K.uIncident( edge, dir, false );
+          const Cell vertex2  = K.uIncident( edge, dir, true );
+          const Point coords1 = K.uKCoords( vertex1 );
+          const Point coords2 = K.uKCoords( vertex2 );
+
+          fileStream  << " " << index0[ vertex1 ]
+                      << " " << index0[ vertex2 ];
+          
+          for ( std::size_t i = 0; i < dimension; ++i )
+            {
+              if ( std::abs( coords1[i] - coords2[i] ) <= 2 )
+                fileStream << " *";
+              else
+                fileStream << ( coords1[i] < coords2[i] ? " -" : " +" );
+            }
+
+          fileStream << "\n";
+        }
+      fileStream << "\n";
+      index0.clear();
+      trace.endBlock();
+      
+      //-----------------------------------------------------------------------
+      trace.beginBlock( "Indexing and writing faces" );
+      fileStream << "faces\n";
+
+      // Stores index and usage of each sign
+      struct FaceInfo
+        {
+          std::size_t idx;
+          bool sign[2];
+        };
+
+      std::map< Cell, FaceInfo > index2;
+      idx = 0;
+      for ( auto it = fullComplex.begin( 2 ), itEnd = fullComplex.end( 2 ); it != itEnd; ++it, ++idx )
+        {
+          const Cell face = it->first;
+          index2[ face ] = { idx, { false, false } };
+          fileStream << idx;
+
+          const Dimension d = K.uOrthDir( face );
+          fileStream  << "  " << index1[ K.uIncident( face, (d+1)%3, false ) ]
+                      << "  " << index1[ K.uIncident( face, (d+2)%3, true  ) ]
+                      << " -" << index1[ K.uIncident( face, (d+1)%3, true  ) ]
+                      << " -" << index1[ K.uIncident( face, (d+2)%3, false ) ]
+                      << "\n";
+        }
+      fileStream << "\n";
+      index1.clear();
+      trace.endBlock();
+
+      //-----------------------------------------------------------------------
+      trace.beginBlock( "Indexing bodies" );
+      std::vector< std::vector< long int > > bodies; // Storing bodies to count them before writing (need for volume calculation).
+      
+      struct ComplexPredicate
+        {
+          using Surfel = KSpace::SCell;
+          KSpace* K;
+          std::map< Cell, FaceInfo >* myFaceMap;
+          inline bool operator() ( Surfel const& cell ) const
+            {
+              auto const it = myFaceMap->find( K->unsigns(cell) );
+              return it != myFaceMap->end() && ! it->second.sign[ K->sSign(cell) ];
+            }
+        };
+
+      const ComplexPredicate predicate{ &K, &index2 };
+      const SurfelAdjacency<dimension> adjacency( true );
+
+      while ( ! index2.empty() )
+        {
+          std::vector< long int > faces;
+          const auto startFace = index2.begin();
+          const KSpace::SCell startCell = K.signs( startFace->first, startFace->second.sign[0] ); // index2 doesn't contain any face with the two sides used.
+
+          trace.info() << "One more : " << startCell << endl;
+
+          const auto surface = DGtal::ExplicitDigitalSurface< KSpace, ComplexPredicate >( K, predicate, adjacency, startCell, true );
+          for ( auto const& cell : surface )
+            {
+              auto it = index2.find( K.unsigns( cell ) );
+              faces.push_back( it->second.idx * ( cell.myPositive ? 1 : -1 ) );
+              it->second.sign[ cell.myPositive ] = true; // Tag this sign as used.
+              if ( it->second.sign[ ~cell.myPositive ] ) // It the other sign is also used, erase this face.
+                index2.erase( it );
+            }
+
+          bodies.emplace_back( std::move(faces) );
+        }
+      trace.endBlock();
+
+      fileStream.close();
+      trace.endBlock();
     }
-  viewer << Viewer3D<Space,KSpace>::updateDisplay;
-  return application.exec();
+
+
+  return 0;
 }
