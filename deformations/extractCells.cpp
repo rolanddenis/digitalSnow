@@ -579,15 +579,15 @@ int main ( int argc, char* argv[] )
                   fileStream << it->second.idx;
 
                   const Dimension d = K.uOrthDir( face );
-                  // TODO: clarify this !!!
+                  // TODO: why is the orientation for d=1 not what Surface Evolver expects ?
                   if ( d != 1 )
                     {
                       fileStream  << " -" << index1[ K.uIncident( face, (d+1)%3, true ) ]
                         << " -" << index1[ K.uIncident( face, (d+2)%3, false ) ]
                         << "  " << index1[ K.uIncident( face, (d+1)%3, false  ) ]
                         << "  " << index1[ K.uIncident( face, (d+2)%3, true  ) ]
-                        << " color " << it->second.side[0]
-                        << " backcolor " << it->second.side[1]
+                        << " color " << it->second.side[1]
+                        << " backcolor " << it->second.side[0]
                         << "\n";
                     }
                   else
@@ -596,8 +596,8 @@ int main ( int argc, char* argv[] )
                         << " -" << index1[ K.uIncident( face, (d+2)%3, true  ) ]
                         << " -" << index1[ K.uIncident( face, (d+1)%3, false  ) ]
                         << "  " << index1[ K.uIncident( face, (d+2)%3, false ) ]
-                        << " color " << it->second.side[0]
-                        << " backcolor " << it->second.side[1]
+                        << " color " << it->second.side[1]
+                        << " backcolor " << it->second.side[0]
                         << "\n";
                     }
                   
@@ -621,7 +621,6 @@ int main ( int argc, char* argv[] )
           fileStream << (i+1);
           for ( const auto idx : bodies[i] )
             fileStream << " " << idx;
-          //fileStream << " volume " << double(1)/( bodies.size()+1 ) << "\n";
           fileStream << " volume 1/" << bodies.size() << "\n";
         }
 
