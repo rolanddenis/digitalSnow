@@ -473,7 +473,7 @@ int main ( int argc, char* argv[] )
           const Point coords = K.uKCoords( it->first ); 
           
           for ( Dimension i = 0; i < dimension; ++i )
-            fileStream << " " << ( double(coords[i]) / (2*extent[i]) );
+            fileStream << " " << ( double(coords[i]) / (2*extent[i]+1) );
 
           fileStream << "\n";
         }
@@ -515,75 +515,123 @@ int main ( int argc, char* argv[] )
       trace.endBlock();
       
       //-----------------------------------------------------------------------
-      trace.beginBlock( "Indexing and writing faces" );
-      fileStream << "faces\n";
+      trace.beginBlock( "Indexing faces" );
 
       // Stores index and usage of each sign
       struct FaceInfo
         {
           std::size_t idx;
-          bool sign[2];
+          std::size_t side[2];
         };
 
       std::map< Cell, FaceInfo > index2;
-      idx = 0;
+      idx = 1;
       for ( auto it = fullComplex.begin( 2 ), itEnd = fullComplex.end( 2 ); it != itEnd; ++it, ++idx )
         {
-          const Cell face = it->first;
-          index2[ face ] = { idx, { false, false } };
-          fileStream << idx;
-
-          const Dimension d = K.uOrthDir( face );
-          fileStream  << "  " << index1[ K.uIncident( face, (d+1)%3, false ) ]
-                      << "  " << index1[ K.uIncident( face, (d+2)%3, true  ) ]
-                      << " -" << index1[ K.uIncident( face, (d+1)%3, true  ) ]
-                      << " -" << index1[ K.uIncident( face, (d+2)%3, false ) ]
-                      << "\n";
+          index2[ it->first ] = { idx, { 0, 0 } };
         }
-      fileStream << "\n";
-      index1.clear();
+
       trace.endBlock();
 
       //-----------------------------------------------------------------------
-      trace.beginBlock( "Indexing bodies" );
-      std::vector< std::vector< long int > > bodies; // Storing bodies to count them before writing (need for volume calculation).
-      
-      struct ComplexPredicate
+      trace.beginBlock( "Indexing bodies and writing faces" );
+
+      fileStream << "faces\n";
+
+      // Storing bodies to count them before writing (needed for volume calculation).
+      std::vector< std::vector< long int > > bodies;
+
+      // Predicate for the faces.
+      struct FacePredicate
         {
           using Surfel = KSpace::SCell;
-          KSpace* K;
-          std::map< Cell, FaceInfo >* myFaceMap;
+          KSpace const* K;
+          CC const* myComplex;
           inline bool operator() ( Surfel const& cell ) const
             {
-              auto const it = myFaceMap->find( K->unsigns(cell) );
-              return it != myFaceMap->end() && ! it->second.sign[ K->sSign(cell) ];
+              return myComplex->belongs( 2, K->unsigns(cell) );
             }
         };
 
-      const ComplexPredicate predicate{ &K, &index2 };
+      const FacePredicate predicate{ &K, &fullComplex };
       const SurfelAdjacency<dimension> adjacency( true );
 
       while ( ! index2.empty() )
         {
           std::vector< long int > faces;
           const auto startFace = index2.begin();
-          const KSpace::SCell startCell = K.signs( startFace->first, startFace->second.sign[0] ); // index2 doesn't contain any face with the two sides used.
+          const KSpace::SCell startCell = K.signs( startFace->first, startFace->second.side[0] == 0 ? K.NEG : K.POS ); // index2 doesn't contain any face with the two sides used.
 
-          trace.info() << "One more : " << startCell << endl;
+          trace.info() << "Body #" << ( bodies.size() + 1 ) << " starting at: " << startCell << endl;
 
-          const auto surface = DGtal::ExplicitDigitalSurface< KSpace, ComplexPredicate >( K, predicate, adjacency, startCell, true );
+          const auto surface = DGtal::ExplicitDigitalSurface< KSpace, FacePredicate >( K, predicate, adjacency, startCell, true );
           for ( auto const& cell : surface )
             {
               auto it = index2.find( K.unsigns( cell ) );
-              faces.push_back( it->second.idx * ( cell.myPositive ? 1 : -1 ) );
-              it->second.sign[ cell.myPositive ] = true; // Tag this sign as used.
-              if ( it->second.sign[ ~cell.myPositive ] ) // It the other sign is also used, erase this face.
-                index2.erase( it );
+              ASSERT( it != index2.end() );
+
+              faces.push_back( it->second.idx * ( K.sSign(cell) == K.POS ? 1 : -1 ) );
+              it->second.side[ K.sSign(cell) == K.POS ? 1 : 0 ] = bodies.size() + 1; // Tag this side as used.
+
+              if ( it->second.side[ K.sSign(cell) == K.POS ? 0 : 1 ] != 0 ) // It the other side is also used, write and erase this face.
+                {
+                  const Cell face = it->first;
+                  fileStream << it->second.idx;
+
+                  const Dimension d = K.uOrthDir( face );
+                  // TODO: clarify this !!!
+                  if ( d != 1 )
+                    {
+                      fileStream  << " -" << index1[ K.uIncident( face, (d+1)%3, true ) ]
+                        << " -" << index1[ K.uIncident( face, (d+2)%3, false ) ]
+                        << "  " << index1[ K.uIncident( face, (d+1)%3, false  ) ]
+                        << "  " << index1[ K.uIncident( face, (d+2)%3, true  ) ]
+                        << " color " << it->second.side[0]
+                        << " backcolor " << it->second.side[1]
+                        << "\n";
+                    }
+                  else
+                    {
+                      fileStream  << "  " << index1[ K.uIncident( face, (d+1)%3, true ) ]
+                        << " -" << index1[ K.uIncident( face, (d+2)%3, true  ) ]
+                        << " -" << index1[ K.uIncident( face, (d+1)%3, false  ) ]
+                        << "  " << index1[ K.uIncident( face, (d+2)%3, false ) ]
+                        << " color " << it->second.side[0]
+                        << " backcolor " << it->second.side[1]
+                        << "\n";
+                    }
+                  
+                  index2.erase( it );
+                }
             }
 
           bodies.emplace_back( std::move(faces) );
         }
+      
+      fileStream << "\n";
+      index1.clear();
       trace.endBlock();
+      
+      //-----------------------------------------------------------------------
+      trace.beginBlock( "Writing bodies" );
+
+      fileStream << "bodies\n";
+      for ( std::size_t i = 0; i < bodies.size(); ++i )
+        {
+          fileStream << (i+1);
+          for ( const auto idx : bodies[i] )
+            fileStream << " " << idx;
+          //fileStream << " volume " << double(1)/( bodies.size()+1 ) << "\n";
+          fileStream << " volume 1/" << bodies.size() << "\n";
+        }
+
+      trace.endBlock();
+      
+      //-----------------------------------------------------------------------
+      fileStream << 
+        "read\n"
+        "hessian_normal\n"
+        "gogo := { g 5; V; r; g 5; r; g 5; convert_to_quantities; hessian; hessian; }\n";
 
       fileStream.close();
       trace.endBlock();
