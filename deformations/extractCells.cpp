@@ -384,10 +384,15 @@ int main ( int argc, char* argv[] )
             if ( fullClosedComplex.dim( *itC ) == 0 )
               face_idx.push_back( indices[*itC] );
 
+          /*
           if ( ( ! fixed ) && hide ) continue;
           Color color = highlight
             ? ( fixed ? Color(128,255,128) : Color::White )
             : Color::White;
+          */
+          Color color = Color::White;
+          if ( hide ) color.alpha(64);
+
           Vector diag03 = points[ face_idx[ 0 ] ] - points[ face_idx[ 3 ] ];
           Vector diag12 = points[ face_idx[ 1 ] ] - points[ face_idx[ 2 ] ];
           if ( diag03.dot( diag03 ) <= diag12.dot( diag12 ) )
@@ -412,6 +417,7 @@ int main ( int argc, char* argv[] )
       viewer.setWindowTitle("simple Volume Viewer");
       viewer.show();
       viewer << mesh;
+      
       // Display lines that are not in the mesh.
       for ( auto it = fullClosedComplex.begin( 1 ), itE = fullClosedComplex.end( 1 ); it != itE; ++it )
         {
@@ -426,18 +432,39 @@ int main ( int argc, char* argv[] )
           for ( std::size_t i = 0; i < dimension & !isOnBorder; ++i )
             isOnBorder |= ( coords[i] == lowerKCoords[i] || coords[i] == upperKCoords[i] );
 
-          if ( ! dummy.empty() && !( isOnBorder && fixed ) )     continue;
+          //if ( ! dummy.empty() && !( isOnBorder && fixed ) )     continue;
+          if ( ! dummy.empty() ) continue;
 
           Cells bdry = fullClosedComplex.cellBoundary( cell, true );
           Cell v0    = *(bdry.begin() );
           Cell v1    = *(bdry.begin() + 1);
-          if ( ( ! fixed ) && hide ) continue;
+          //if ( ( ! fixed ) && hide ) continue;
+          Color color = highlight || hide ? Color::Red : Color::White;
+          /*
           Color color = highlight
             ? ( fixed ? Color::White : Color(128,255,128) )
             : Color::White;
+          */
           viewer.setLineColor( color );
-          viewer.addLine( points[ indices[ v0 ] ], points[ indices[ v1 ] ], 1/2.0 );
+          viewer.addLine( points[ indices[ v0 ] ], points[ indices[ v1 ] ], 2.0 );
         }
+      
+      // Display points that are not in the mesh.
+      for ( auto it = fullClosedComplex.begin( 0 ), itE = fullClosedComplex.end( 0 ); it != itE; ++it )
+        {
+          Cell cell  = it->first;
+          std::vector<Cell> dummy;
+          std::back_insert_iterator< std::vector<Cell> > outIt( dummy );
+          fullClosedComplex.directCoFaces( outIt, cell );
+
+          if ( ! dummy.empty() ) continue;
+
+          Color color = highlight || hide ? Color::Red : Color::White;
+          
+          viewer.setLineColor( color );
+          viewer.addBall( points[ indices[ cell ] ], 2.0 );
+        }
+
       viewer << Viewer3D<Space,KSpace>::updateDisplay;
       application.exec();
     }
@@ -586,8 +613,8 @@ int main ( int argc, char* argv[] )
                         << " -" << index1[ K.uIncident( face, (d+2)%3, false ) ]
                         << "  " << index1[ K.uIncident( face, (d+1)%3, false  ) ]
                         << "  " << index1[ K.uIncident( face, (d+2)%3, true  ) ]
-                        << " color " << it->second.side[1]
-                        << " backcolor " << it->second.side[0]
+                        << " frontcolor " << ( ( it->second.side[1] - 1 ) % 16 + 1 )
+                        << " backcolor "  << ( ( it->second.side[0] - 1 ) % 16 + 1 )
                         << "\n";
                     }
                   else
@@ -596,8 +623,8 @@ int main ( int argc, char* argv[] )
                         << " -" << index1[ K.uIncident( face, (d+2)%3, true  ) ]
                         << " -" << index1[ K.uIncident( face, (d+1)%3, false  ) ]
                         << "  " << index1[ K.uIncident( face, (d+2)%3, false ) ]
-                        << " color " << it->second.side[1]
-                        << " backcolor " << it->second.side[0]
+                        << " frontcolor " << ( ( it->second.side[1] - 1 ) % 16 + 1 )
+                        << " backcolor "  << ( ( it->second.side[0] - 1 ) % 16 + 1 )
                         << "\n";
                     }
                   
