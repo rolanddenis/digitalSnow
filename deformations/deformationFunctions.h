@@ -297,8 +297,8 @@ void initWithMultipleBalls( TImage& img, std::size_t count, double radius, std::
   initWithMultipleBalls( img, std::vector<std::size_t>(TImage::dimension, count), radius, buffer );
 }
 
-/** Initialize an image with random label with equal volume.
- * For each point of the domain, a label is randomly choosen so that each label occupies the
+/** Initialize an image with random label of equal volume.
+ * For each point of the domain, a label is randomly chosen so that each label occupies the
  * same volume.
  *
  * @param[in,out] img     The image to initialize.
@@ -336,6 +336,58 @@ void initRandomly( TImage& img, std::size_t count )
 
 }
 
+/** Fill a label of an image with random label of equal volume.
+ * For each point of the domain occupied by the specified label, 
+ * a new label is randomly chosen so that each new label occupies 
+ * the same volume.
+ *
+ * @param[in,out] img     The image to initialize.
+ * @param[in]     label   The label to be filled.
+ * @param[in]     count   The total number of labels.
+ */
+template < typename TImage >
+void initRandomlyWithinLabel( TImage& img, std::size_t label, std::size_t count )
+{
+  using std::size_t;
+
+  // Calculating label size
+  size_t total_size = 0;
+  size_t max_label = 0;
+  for ( auto const& value : img )
+    {
+      if ( value > max_label )
+        max_label = value;
+     
+      total_size += ( value == label );
+    }
+
+  // Filling basket for each phase.
+  size_t basket[count];
+  size_t acc = 0;
+  for ( size_t i = 0; i < count; ++i )
+    {
+      basket[i] = (total_size+acc)/count;
+      acc += total_size - basket[i]*count;
+    }
+ 
+  std::random_device rd;
+  std::mt19937 gen(rd());
+  for ( auto const& point : img.domain() )
+    {
+      if ( img(point) == label )
+        {
+          size_t id = std::uniform_int_distribution<>(0, total_size-1)(gen);
+          size_t label = 0;
+          for ( ; label < count && id >= basket[label]; ++label )
+            id -= basket[label];
+
+          img.setValue( point, max_label + label + 1 );
+          --basket[label];
+          --total_size;
+        }
+    }
+
+}
 
 
 

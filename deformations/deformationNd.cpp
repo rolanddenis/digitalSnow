@@ -101,6 +101,7 @@ int main(int argc, char** argv)
   bool flagWithCstVol = false;  // Volume Conservation
   size_t subSamplingRatio = 1;  // Sub-Sampling ratio
   size_t overSamplingRatio = 1; // Over-Sampling ratio
+  size_t subRandomizeCount = 1; // New random labels within current labels.
 
   string outputFiles  = "interface";  // Output files basename
 
@@ -120,7 +121,7 @@ int main(int argc, char** argv)
     ("shape,s",         po::value<string>(&shape)->default_value(shape), 
         "Generated shape: either <ball>, <flower>, <mballs> or <rand>" )
     ("phaseCnt,p",      po::value<size_t>(&phase_cnt)->default_value(phase_cnt),
-        "Number of phases along each dimension, for <mballs> and <rand> shapes." )
+        "Number of phases, for <mballs> and <rand> shapes." )
     ("timeStep,t",      po::value<double>(&tstep)->default_value(tstep), "Time step for the evolution" )
     ("displayStep",     po::value<size_t>(&disp_step)->default_value(disp_step), "Number of time steps between 2 drawings" )
     ("stepsNumber,n",   po::value<size_t>(&max_step)->default_value(max_step), "Maximal number of steps" )
@@ -132,6 +133,7 @@ int main(int argc, char** argv)
     ("withCstVol",      po::bool_switch(&flagWithCstVol), "with volume conservation (only for phase fields)" )
     ("subSample",       po::value<size_t>(&subSamplingRatio)->default_value(subSamplingRatio), "sub-sampling ratio. Applied after image initialization but before over-sampling.")
     ("overSample",      po::value<size_t>(&overSamplingRatio)->default_value(overSamplingRatio), "over-sampling ratio. Applied after image initialization and over-sampling.")
+    ("subRandomize",    po::value<size_t>(&subRandomizeCount)->default_value(subRandomizeCount), "Replaces each current label by the specified amount of new randomized label. Takes effect after image sampling.")
     ("outputFiles,o",   po::value<string>(&outputFiles)->default_value(outputFiles), "Output files basename" )
 #if   DIMENSION == 2
     ("outputFormat,f", po::value<string>(&outputFormat)->default_value(outputFormat), 
@@ -188,7 +190,8 @@ int main(int argc, char** argv)
 
 
   // Image and implicit function
-  typedef ImageContainerBySTLVector<Domain,short unsigned int> LabelImage;
+  using Label = short unsigned int;
+  typedef ImageContainerBySTLVector<Domain, Label> LabelImage;
   LabelImage* labelImage = NULL; 
 
   if (vm.count("inputImage")) 
@@ -222,7 +225,6 @@ int main(int argc, char** argv)
         initWithMultipleBalls( *labelImage, phase_cnt,  (dsize/phase_cnt) * 0.5, 1 );
       else
         initRandomly( *labelImage, phase_cnt );
-        //initRandomly( *labelImage, std::pow(phase_cnt, DIMENSION) );
       
       trace.info() << "starting interface initialized with a " << shape << std::endl;
 
@@ -281,6 +283,32 @@ int main(int argc, char** argv)
       trace.info() << "Over-sampled domain = " << d << std::endl;
       trace.endBlock();
       trace.info() << std::endl;
+    }
+
+  // Add randomized labels within current labels.
+  if ( subRandomizeCount > 1 )
+    {
+      trace.beginBlock( "Replacing current labels with new randomized labels." );
+
+      trace.beginBlock( "Getting current labels" );
+      
+      std::set<Label> labels;
+      for ( auto const& label : *labelImage )
+        labels.insert( label );
+
+      trace.endBlock();
+
+      trace.beginBlock( "Adding new labels" );
+      
+      for ( auto label : labels )
+        {
+          trace.info() << "Label #" << label << std::endl;
+          initRandomlyWithinLabel( *labelImage, label, subRandomizeCount );
+        }
+
+      trace.endBlock();
+
+      trace.endBlock();
     }
 
 #if DIMENSION == 3
@@ -694,9 +722,9 @@ int main(int argc, char** argv)
               std::stringstream s; 
               s << outputFiles << setfill('0') << std::setw(4) << (i/disp_step); 
 #if   DIMENSION == 2
-//	            drawContours( *labelImage, s.str(), outputFormat ); 
+	            drawContours( *labelImage, s.str(), outputFormat ); 
 #elif DIMENSION == 3
-//              writePartition( *labelImage, s.str(), outputFormat );
+              writePartition( *labelImage, s.str(), outputFormat );
 #endif
 
               RawWriter< decltype(implicit) >::exportRaw<real>( s.str()+".imp.raw", implicit );
