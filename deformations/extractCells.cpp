@@ -613,8 +613,8 @@ int main ( int argc, char* argv[] )
                         << " -" << index1[ K.uIncident( face, (d+2)%3, false ) ]
                         << "  " << index1[ K.uIncident( face, (d+1)%3, false  ) ]
                         << "  " << index1[ K.uIncident( face, (d+2)%3, true  ) ]
-                        << " frontcolor " << ( ( it->second.side[1] - 1 ) % 16 + 1 )
-                        << " backcolor "  << ( ( it->second.side[0] - 1 ) % 16 + 1 )
+                        << " frontcolor " << ( ( it->second.side[1] - 1 ) % 15 + 1 )
+                        << " backcolor "  << ( ( it->second.side[0] - 1 ) % 15 + 1 )
                         << "\n";
                     }
                   else
@@ -623,8 +623,8 @@ int main ( int argc, char* argv[] )
                         << " -" << index1[ K.uIncident( face, (d+2)%3, true  ) ]
                         << " -" << index1[ K.uIncident( face, (d+1)%3, false  ) ]
                         << "  " << index1[ K.uIncident( face, (d+2)%3, false ) ]
-                        << " frontcolor " << ( ( it->second.side[1] - 1 ) % 16 + 1 )
-                        << " backcolor "  << ( ( it->second.side[0] - 1 ) % 16 + 1 )
+                        << " frontcolor " << ( ( it->second.side[1] - 1 ) % 15 + 1 )
+                        << " backcolor "  << ( ( it->second.side[0] - 1 ) % 15 + 1 )
                         << "\n";
                     }
                   
