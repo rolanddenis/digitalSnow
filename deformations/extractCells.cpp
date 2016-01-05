@@ -301,7 +301,7 @@ int main ( int argc, char* argv[] )
   /////////////////////////////////////////////////////////////////////////////
   // Collapsing cells
   trace.beginBlock( "Collapsing cells." );
-  functions::ccops::collapse(
+  functions::collapse(
       fullComplex,
       fullComplex.begin(), fullComplex.end(),
       typename CC::DefaultCellMapIteratorPriority{},
