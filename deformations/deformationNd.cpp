@@ -21,14 +21,34 @@ namespace po = boost::program_options;
 #ifndef DIMENSION
   #define DIMENSION 3
 #endif
+
 // See: http://stackoverflow.com/questions/1489932/c-preprocessor-and-token-concatenation
+/*
 #define PASTER(dim) Z ## dim ## i
 #define EVALUATOR(dim) PASTER(dim)
 #define ZNI EVALUATOR( DIMENSION )
+*/
 
 using namespace DGtal; 
-using namespace ZNI; 
+//using namespace ZNI; 
 using namespace std; 
+
+namespace DGtal
+{
+  using Integer = DGtal::int32_t;
+  using Space = SpaceND< DIMENSION, Integer >;
+  using KSpace = KhalimskySpaceND< DIMENSION, Integer >;
+  using Cell = KSpace::Cell;
+  using SCell = KSpace::SCell;
+  using Cells = KSpace::Cells;
+  using SCells = KSpace::SCells;
+  using Domain = HyperRectDomain< Space >;
+  using Point = Space::Point;
+  using L2Metric = ExactPredicateLpSeparableMetric< Space, 2 >;
+  using L1Metric = ExactPredicateLpSeparableMetric< Space, 2 >;
+  static const L2Metric l2Metric;
+  static const L1Metric l1Metric;
+} // namespace DGtal
 
 // Evolvers
 // Level-Set
@@ -137,12 +157,13 @@ int main(int argc, char** argv)
     ("outputFiles,o",   po::value<string>(&outputFiles)->default_value(outputFiles), "Output files basename" )
 #if   DIMENSION == 2
     ("outputFormat,f", po::value<string>(&outputFormat)->default_value(outputFormat), 
-     "Output files format: either <raster> (image, default) or <vector> (domain representation)" );
+     "Output files format: either <raster> (image, default) or <vector> (domain representation)" )
 #elif DIMENSION == 3
     ("outputFormat,f",  po::value<string>(&outputFormat)->default_value(outputFormat), 
         "Output files format: either <png> (3d to 2d with QGLViewer), <pngc> (3d to 2d with Cairo) or <vol> (3d)" )
-    ("withVisu",        po::bool_switch(&flagWithVisu), "Enables interactive 3d visualization after evolution" );
+    ("withVisu",        po::bool_switch(&flagWithVisu), "Enables interactive 3d visualization after evolution" )
 #endif
+;
 
   // Command-line parsing
   po::variables_map vm;
@@ -202,11 +223,12 @@ int main(int argc, char** argv)
 
 #if   DIMENSION == 2
       LabelImage tmp = PGMReader<LabelImage>::importPGM( imageFileName ); 
+      labelImage = new LabelImage( tmp ); 
 #elif DIMENSION == 3
       LabelImage tmp = VolReader<LabelImage>::importVol( imageFileName );
+      labelImage = new LabelImage( tmp ); 
 #endif
 
-      labelImage = new LabelImage( tmp ); 
       DGtal::trace.endBlock(); 
     }
   else
@@ -318,317 +340,7 @@ int main(int argc, char** argv)
 #endif
 
   // Algorithm dispatch
-  if ( algo == "levelSet" )
-    {
-
-      // Distance function
-      ImageContainerBySTLVector<Domain,double> implicitFunction( d ); 
-      initWithDT( *labelImage, implicitFunction );
-
-#if DIMENSION == 2
-      if (vm.count("withFunction")) 
-	      drawFunction( implicitFunction, vm["withFunction"].as<string>() ); 
-      
-      std::stringstream ss; 
-      ss << outputFiles << "0001"; 
-      drawContour(implicitFunction, ss.str(), outputFormat); 
-#endif
-
-      // Data functions
-      ImageContainerBySTLVector<Domain,double> a( d ); 
-      std::fill(a.begin(),a.end(), 1.0 );  
-      ImageContainerBySTLVector<Domain,double> b( d ); 
-      std::fill(b.begin(),b.end(), 1.0 );  
-      ImageContainerBySTLVector<Domain,double> g( d ); 
-      std::fill(g.begin(),g.end(), 1.0 );  
-
-      // Interface evolver
-      WeickertKuhneEvolver<ImageContainerBySTLVector<Domain,double> > e(a, b, g, balloon, 1); 
-
-      DGtal::trace.beginBlock( "Deformation (Weickert's level set method)" );
-
-      // Time integration
-      double sumt = 0; 
-      for (unsigned int i = 1; i <= max_step; ++i) 
-        {
-          DGtal::trace.info() << "iteration # " << i << std::endl; 
-
-          // Update
-          e.update(implicitFunction, tstep); 
-
-          // Display
-          if ((i % disp_step) == 0) 
-            {
-              std::stringstream s; 
-              s << outputFiles << setfill('0') << std::setw(4) << (i/disp_step);
-#if   DIMENSION == 2
-	            drawContour(implicitFunction, s.str(), outputFormat); 
-#elif DIMENSION == 3
-              updateLabelImage( *labelImage, implicitFunction ); 
-              writePartition( *labelImage, s.str(), outputFormat );
-#endif
-            }
-
-          sumt += tstep;
-	        
-          // DGtal::trace.info() << "Area: " << getSize( implicitFunction ) << std::endl; 
-          //DGtal::trace.info() << "Volume: " << getSize(*labelImage, 0) << std::endl;
-          
-          DGtal::trace.info() 
-            << ( dimension == 2 ? "Area: " : "Volume: " )
-            << getVolume<double>( implicitFunction )
-            << std::endl;
-
-          DGtal::trace.info() << "Time spent: " << sumt << std::endl;    
-        }
-
-      //updateLabelImage( *labelImage, implicitFunction, 0 );
-      //DGtal::trace.info() << "Volume: " << getSize(*labelImage, 0) << std::endl;
-      DGtal::trace.endBlock();
-
-#if DIMENSION == 3
-      // Interactive display after the evolution
-      if ( flagWithVisu ) 
-        displayImageWithInfo( *labelImage, implicitFunction, a, b ); 
-#endif
-
-    } 
-  else if ( algo == "phaseField" )
-    {
-      // Option's validity
-      if (epsilon <= 0) 
-        {
-          trace.error() << "epsilon should be greater than 0" << std::endl;
-          return 1; 
-        } 
-
-      // Distance function
-      ImageContainerBySTLVector<Domain,double> implicitFunction( d ); 
-      initWithDT( *labelImage, implicitFunction );
-
-      // Computing the profile from the signed distance
-      Profile p(epsilon); 
-      std::transform(implicitFunction.begin(), implicitFunction.end(), implicitFunction.begin(), p); 
-
-#if DIMENSION == 2
-      if (vm.count("withFunction")) 
-        drawFunction( implicitFunction, vm["withFunction"].as<string>() ); 
-#endif
-
-      // Diffusion evolver
-      typedef ExactDiffusionEvolver<ImageContainerBySTLVector<Domain,double> > Diffusion; 
-      Diffusion diffusion;
-
-      // Exact reaction evolver (no possible volume conservation)
-      /*
-      typedef ExactReactionEvolver<ImageContainerBySTLVector<Domain,double> > Reaction; 
-      Reaction reaction( epsilon );
-      */
-
-      // Explicit reaction evolver (with possible volume conservation)
-      typedef ExplicitReactionEvolver<
-          ImageContainerBySTLVector<Domain,double>, 
-          ImageContainerBySTLVector<Domain,double> 
-        > Reaction; 
-      ImageContainerBySTLVector<Domain,double> a( Domain( implicitFunction.domain() ) ); 
-      std::fill(a.begin(), a.end(), 0.0 );  
-      Reaction reaction( epsilon, a, balloon, flagWithCstVol );
-
-      // Lie splitting
-      LieSplittingEvolver<Diffusion,Reaction> e(diffusion, reaction); 
-
-      DGtal::trace.beginBlock( "Deformation (phase field)" );
-
-      // Initial state export
-      std::stringstream s; 
-      s << outputFiles << setfill('0') << std::setw(4) << 0; 
-#if DIMENSION == 2
-      drawContour(implicitFunction, s.str(), outputFormat, 0.5); 
-#elif DIMENSION == 3
-      writePartition( *labelImage, s.str(), outputFormat );
-#endif
-      
-      // VTK export
-        {
-          VTKWriter<Domain> vtk(s.str(), implicitFunction.domain());
-          vtk << "phi" << implicitFunction;
-        }
-      
-      
-      // Time integration
-      double sumt = 0; 
-      for (unsigned int i = 1; i <= max_step; ++i) 
-        {
-          DGtal::trace.info() << "iteration # " << i << std::endl; 
-
-          // Update
-          e.update(implicitFunction, tstep); 
-
-          // Display
-          if ((i % disp_step)==0) 
-            {
-              std::stringstream s; 
-              s << outputFiles << setfill('0') << std::setw(4) << (i/disp_step);
-
-#if   DIMENSION == 2
-              drawContour(implicitFunction, s.str(), outputFormat, 0.5); 
-#elif DIMENSION == 3
-              updateLabelImage( *labelImage, implicitFunction, 0.5 ); 
-              writePartition( *labelImage, s.str(), outputFormat );
-#endif
-              
-              // VTK export
-              VTKWriter<Domain> vtk(s.str(), implicitFunction.domain());
-              vtk << "phi" << implicitFunction;
-            }
-
-          sumt += tstep;
-
-          DGtal::trace.info() 
-            << (dimension==2 ? "Area: " : "Volume: " )
-            << getVolume<double>( implicitFunction )
-            << std::endl;
-
-          DGtal::trace.info() << "Time spent: " << sumt << std::endl;    
-        }
-
-      // Post-processing
-      // updateLabelImage( *labelImage, implicitFunction, 0.5 );
-      // DGtal::trace.info() << "Volume: " << getSize(*labelImage, 0.5) << std::endl;
-
-      DGtal::trace.endBlock();
-
-#if DIMENSION == 3
-      // Interactive display after the evolution
-      if ( flagWithVisu ) 
-        displayPartition( *labelImage ); 
-#endif
-
-    } 
-  else if ( algo == "multiPhaseField" )
-    {
-      // Options's validity
-      if (epsilon <= 0) 
-        {
-          trace.error() << "epsilon should be greater than 0" << std::endl;
-          return 1; 
-        }
-
-      // Field image
-      typedef ImageContainerBySTLVector<Domain, double> FieldImage;
-
-      // Diffusion evolver
-      typedef ExactDiffusionEvolver< FieldImage > Diffusion; 
-      Diffusion diffusion;
-     
-      // Exact Reaction Evolver (no possible volume conservation)
-      /*
-      typedef ExactReactionEvolver < FieldImage > Reaction; 
-      Reaction reaction( epsilon );
-      */
-
-      // Explicit Reaction Evolver (with possible volume conservation)
-      typedef ExplicitReactionEvolver<
-          ImageContainerBySTLVector<Domain,double>, 
-          ImageContainerBySTLVector<Domain,double> 
-        > Reaction; 
-      ImageContainerBySTLVector<Domain,double> a( d ); 
-      std::fill(a.begin(), a.end(), 0.0 );  
-      Reaction reaction( epsilon, a, balloon, flagWithCstVol );
-
-      // Lie splitting
-      LieSplittingEvolver< Diffusion, Reaction > phaseEvolver(diffusion, reaction); 
-
-      // Multi phase-field
-      MultiPhaseField< LabelImage, FieldImage, LieSplittingEvolver<Diffusion,Reaction> > evolver(*labelImage, phaseEvolver);
-      
-      DGtal::trace.beginBlock( "Deformation (multi phase field)" );
-
-      // Initial state export
-      std::stringstream s; 
-      s << outputFiles << setfill('0') << std::setw(4) << 0; 
-#if   DIMENSION == 2
-      drawContours( *labelImage, s.str(), outputFormat ); 
-#elif DIMENSION == 3
-      writePartition( *labelImage, s.str(), outputFormat );
-#endif
-      
-      // VTK export
-        {
-          VTKWriter<Domain> vtk(s.str(), labelImage->domain());
-          for (size_t j = 0; j < evolver.getNumPhase(); ++j)
-            {
-              stringstream s_phase;
-              s_phase << "phi" << setfill('0') << std::setw(2) << j;
-              vtk << s_phase.str() << evolver.getPhase(j);
-            }
-        }
-      
-      // Time integration
-      double sumt = 0; 
-      for (unsigned int i = 1; i <= max_step; ++i) 
-        {
-          DGtal::trace.info() << "iteration # " << i << std::endl; 
-
-          // Update
-          evolver.update( tstep ); 
-
-          // Display
-          if ( (i % disp_step) == 0 ) 
-            {
-              std::stringstream s; 
-              s << outputFiles << setfill('0') << std::setw(4) << (i/disp_step); 
-#if   DIMENSION == 2
-	            drawContours( *labelImage, s.str(), outputFormat ); 
-#elif DIMENSION == 3
-              writePartition( *labelImage, s.str(), outputFormat );
-#endif
-              
-              // VTK export
-              VTKWriter<Domain> vtk(s.str(), labelImage->domain());
-              for (size_t j = 0; j < evolver.getNumPhase(); ++j)
-                {
-                  stringstream s_phase;
-                  s_phase << "phi" << setfill('0') << std::setw(2) << j;
-                  vtk << s_phase.str() << evolver.getPhase(j);
-                }
-
-            }
-
-          sumt += tstep;
-          
-          // Volume of each phase
-          /*
-          typedef std::map<typename LabelImage::Value, unsigned int> Histo;
-          Histo histo;
-          calcHistogram( *labelImage, histo );
-          DGtal::trace.info() << "Volume: ";
-          for ( Histo::const_iterator it = histo.begin(); it != histo.end(); ++it )
-              DGtal::trace.info() << "V(" << it->first << ") = " << it->second;
-          DGtal::trace.info() << std::endl;
-          */
-
-          // Volume of each phase
-          DGtal::trace.info() << ( dimension == 2 ? "Area: " : "Volume: " );
-          for (size_t j = 0; j < evolver.getNumPhase(); ++j)
-            {
-              DGtal::trace.info() << "V(" << j << ") = " << getVolume<double>(evolver.getPhase(j));
-            }
-          DGtal::trace.info() << std::endl;
-
-          DGtal::trace.info() << "Time spent: " << sumt << std::endl;    
-        }
-
-      DGtal::trace.endBlock();
-
-#if DIMENSION == 3
-      // Interactive display after the evolution
-      if ( flagWithVisu ) 
-        displayPartition( *labelImage ); 
-#endif
-
-    }
-  else if ( algo == "massiveMultiPhaseField" )
+  if ( algo == "massiveMultiPhaseField" )
     {
       // Options's validity
       if (epsilon <= 0) 
@@ -785,74 +497,6 @@ int main(int argc, char** argv)
         displayPartition( *labelImage ); 
 #endif
     }
-  else if ( algo == "localLevelSet" )
-    {
-      // Space
-      KSpace ks;
-      ks.init( d.lowerBound(), d.upperBound(), true ); 
-
-      // Distance image...
-      typedef ImageContainerBySTLVector<Domain,double> DistanceImage; 
-      // ... and extern data.
-      DistanceImage g( d );
-      std::fill(g.begin(), g.end(), 1.0); 
-
-      // Topological predicate
-      typedef SimplePointHelper<LabelImage> TopologicalPredicate; 
-      TopologicalPredicate topologicalPredicate(*labelImage); 
-
-      // Frontier evolver
-      DGtal::trace.beginBlock("Partition construction");
-      PartitionEvolver<KSpace, LabelImage, DistanceImage, DistanceImage, TopologicalPredicate> 
-        e(ks, *labelImage, g, topologicalPredicate); 
-
-      DGtal::trace.info() << e << std::endl; 
-      DGtal::trace.endBlock();
-
-      DGtal::trace.beginBlock( "Deformation (narrow band with topological control)" );
-
-      // Initial state export
-      std::stringstream s; 
-      s << outputFiles << setfill('0') << std::setw(4) << 0; 
-#if   DIMENSION == 2
-      drawContours( *labelImage, s.str(), outputFormat );  
-#elif DIMENSION == 3
-      writePartition( *labelImage, s.str(), outputFormat );
-#endif
-      
-      // Time integration
-      double sumt = 0; 
-      for (unsigned int i = 1; i <= max_step; ++i) 
-        {
-          DGtal::trace.info() << "iteration # " << i << std::endl; 
-
-          // Update
-          e.update(tstep); 
-
-          // Display
-          if ((i % disp_step) == 0) 
-            {
-              std::stringstream s; 
-              s << outputFiles << setfill('0') << std::setw(4) << (i/disp_step); 
-#if   DIMENSION == 2
-	            drawContours( *labelImage, s.str(), outputFormat ); 
-#elif DIMENSION == 3
-              writePartition( *labelImage, s.str(), outputFormat );
-#endif
-            }
-
-          sumt += tstep; 
-          DGtal::trace.info() << "Time spent: " << sumt << std::endl;    
-        }
-
-      DGtal::trace.endBlock();
-
-#if DIMENSION == 3
-      // Interactive display after the evolution
-      if ( flagWithVisu ) displayPartition( *labelImage ); 
-#endif
-
-    } 
   else 
     {
       trace.error() << "unknown algo. Try option -h to see the available algorithms " << std::endl;
