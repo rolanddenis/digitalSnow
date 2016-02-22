@@ -16,6 +16,7 @@ namespace po = boost::program_options;
 /////////////////////
 #include <DGtal/base/Common.h>
 #include <DGtal/helpers/StdDefs.h>
+#include <DGtal/base/BasicFunctors.h>
 
 // Dimension (default 3)
 #ifndef DIMENSION
@@ -376,7 +377,10 @@ int main(int argc, char** argv)
 #elif DIMENSION == 3
       writePartition( *labelImage, s.str(), outputFormat );
 #endif
-      
+
+      RawWriter< LabelImage >::exportRaw<unsigned short int>( s.str()+".lab.raw", *labelImage );
+
+#if DIMENSION == 2 || DIMENSION == 3
       // VTK export
         {
           VTKWriter<Domain> vtk(s.str(), labelImage->domain());
@@ -390,6 +394,25 @@ int main(int argc, char** argv)
           */
           vtk << "label" << *labelImage;
         }
+#else
+      using Space3D   = SpaceND< 3, Integer >;
+      using Domain3D  = HyperRectDomain< Space3D >;
+      using Point3D   = Space3D::Point;
+
+      Point3D lower, upper;
+      for ( Dimension i = 0; i < 3; ++i )
+        {
+          lower[i] = labelImage->domain().lowerBound()[i];
+          upper[i] = labelImage->domain().upperBound()[i];
+        }
+
+      Domain3D domain3D( lower, upper );
+
+      VTKWriter< Domain3D > vtk( s.str()+".slice", domain3D );
+      vtk << "label" << makeFunctorConstImage( domain3D,
+        [&labelImage] ( Point3D const& point ) { auto pt = Point::zero; for ( Dimension i = 0; i < 3; ++i ) pt[i] = point[i]; return (*labelImage)(pt); } );
+      vtk.close();
+#endif
 
       // Informations
       evolver.dispInfos();
@@ -442,6 +465,7 @@ int main(int argc, char** argv)
               RawWriter< decltype(implicit) >::exportRaw<real>( s.str()+".imp.raw", implicit );
               RawWriter< LabelImage >::exportRaw<unsigned short int>( s.str()+".lab.raw", *labelImage );
               
+#if DIMENSION == 2 || DIMENSION == 3
               // VTK export
               VTKWriter<Domain> vtk(s.str(), labelImage->domain());
               /*
@@ -455,6 +479,25 @@ int main(int argc, char** argv)
               vtk << "label" << *labelImage;
               vtk << "implicit" << implicit;
               vtk.close();
+#else
+              using Space3D   = SpaceND< 3, Integer >;
+              using Domain3D  = HyperRectDomain< Space3D >;
+              using Point3D   = Space3D::Point;
+
+              Point3D lower, upper;
+              for ( Dimension i = 0; i < 3; ++i )
+                {
+                  lower[i] = labelImage->domain().lowerBound()[i];
+                  upper[i] = labelImage->domain().upperBound()[i];
+                }
+
+              Domain3D domain3D( lower, upper );
+
+              VTKWriter< Domain3D > vtk( s.str()+".slice", domain3D );
+              vtk << "label" << makeFunctorConstImage( domain3D,
+                      [&labelImage] ( Point3D const& point ) { auto pt = Point::zero; for ( Dimension i = 0; i < 3; ++i ) pt[i] = point[i]; return (*labelImage)(pt); } );
+              vtk.close();
+#endif
 
               // Volume of each phase
               /*
