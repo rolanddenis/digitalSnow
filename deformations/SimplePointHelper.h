@@ -120,7 +120,7 @@ namespace DGtal
     typedef TImage LabelsImage; 
     typedef typename TImage::Value Label; 
     // Why is this concept not in DGtal::concepts namespace ?
-    BOOST_CONCEPT_ASSERT ((CLabel<Label>));
+    BOOST_CONCEPT_ASSERT ((concepts::CLabel<Label>));
 
     typedef typename TImage::Domain::Space Space; 
     typedef typename TImage::Domain Domain; 
