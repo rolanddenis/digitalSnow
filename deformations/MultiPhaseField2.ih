@@ -179,6 +179,7 @@ DGtal::MultiPhaseField2< TLabelImage, TFieldImage, DGtal::ApproximatedMultiImage
 
   Domain domain = myFields.domain();
 
+  /////////////////////////////////////////////////////////////////////////////
   // Diffusion
   trace.beginBlock("Diffusion");
   using FFT  =  RealFFT<Domain, real>;
@@ -263,176 +264,147 @@ DGtal::MultiPhaseField2< TLabelImage, TFieldImage, DGtal::ApproximatedMultiImage
   trace.endBlock();
   // End diffusion
 
-  bool reaction1 = false;
-  if (reaction1) {
-  // Phase overlap
-  trace.beginBlock("Phase overlap");
-  TFieldImage phase_overlap(domain);
-  for ( auto const& point : domain )
-    {
-      real sum = 0;
-      for ( auto const& value : myFields(point) )
-        sum += value.second;
-      phase_overlap.setValue(point, 1 - sum);
-    }
-  trace.endBlock();
-  // End phase overlap
-  
-  // Volume loss estimation
-  // \warning : we suppose that labels in LabelledMap are consecutive.
-  trace.beginBlock("Volume loss estimation");
-  std::vector<real> num( myLabels.size(), 0 );
-  std::vector<real> denum( myLabels.size(), 0 );
-  for ( auto const& point : domain )
-    {
-      for ( auto value : myFields(point) )
-        {
-          const real u = value.second;
-          num[value.first]   += u * (u - 1) * (2*u - 1);
-          denum[value.first] += std::abs(u) * std::abs(1 - u);
-        }
-    }
-  
-  std::vector<real> volume_loss( num.size() );
-  for ( size_t i = 0; i < volume_loss.size(); ++i )
-    volume_loss[i] = num[i] / denum[i];
 
-  trace.endBlock();
-  // End volume loss estimation
-  
-  // Lagrangian multiplier
-  trace.beginBlock("Lagrange multiplier");
-  for ( auto const& point : domain )
-    {
-      real sum = 0;
-      for ( auto value : myFields(point) )
-        {
-          const real u = value.second;
-          //sum += u*(u-1) * ( (2*u-1) + volume_loss[value.first] );
-          sum += u*(u-1) * (2*u-1) -  volume_loss[value.first] * std::abs(u) * std::abs(1-u);
-        }
-      phase_overlap.setValue(point, ( sum + phase_overlap(point) ) / myLabels.size() );
-      //phase_overlap.setValue(point, ( sum + phase_overlap(point) ) / myFields(point).size() );
-    }
-  trace.endBlock();
-  // End Lagrangian multiplier
-
-  // Evolution - Method A
-  trace.beginBlock("Evolution");
+  /////////////////////////////////////////////////////////////////////////////
+  // Reaction
+  itrace.beginBlock("Reaction");
   const real dummy = aT / (myEpsilon * myEpsilon);
   for ( auto const& point : domain )
     {
-      size_t id = myFields.linearized(point); // Hum ...
-
+      const size_t id = myFields.linearized(point);
+      // Need for a mutable iterator over values ...
       for ( size_t i = 0; i < myLabels.size(); ++i )
         {
           const real u = myFields.getValueByIndex(id, i);
-          const real p = (u == 0) ? 0 : u*(u-1) * ( (2*u-1) + volume_loss[i] );
-          //const real p = (u == 0) ? 0 : ( u*(u-1) *(2*u-1) - volume_loss[i]*std::abs(u*(1-u)) );
-          const real v = u - dummy * (p - phase_overlap(point));
+          if ( u != 0 )
+            {
+              myFields.setValue(point, i, u - dummy * u * (u-1) * (2*u-1), id);
+            }
+        }
+    }
+  itrace.endBlock();
+
+  /////////////////////////////////////////////////////////////////////////////
+  // Projection
+  itrace.beginBlock("Lagrangian");
+
+  itrace.beginStep("linear_system");
+  const size_t phase_cnt = myInitVolume.size();
+
+  // Rmq: MatrixXd is column-major but since his size is relatively small, we will do like it was row-major.
+  using namespace Eigen;
+  MatrixXd M( phase_cnt, phase_cnt );
+  VectorXd b( phase_cnt );
+  VectorXd int_u( phase_cnt );
+  VectorXd int_sqrt2Wu( phase_cnt );
+
+  // Pre-calculating $\int u_i$ and $\int \sqrt{2W(u_i)}$.
+  int_u.fill(0);
+  int_sqrt2Wu.fill(0);
+  for ( auto const & point : domain )
+    {
+      for ( auto const& vi : myFields(point) )
+        {
+          const auto  i = vi.first;
+          const auto ui = vi.second;
+
+          int_u(i) += ui;
+          int_sqrt2Wu(i) += std::abs( ui * (1-ui) );
+       }
+    }
+
+
+  M.fill(0);
+  b.fill(0);
+
+  for ( auto const& point : domain )
+    {
+      const size_t id = myFields.linearized(point);
+
+      real sum_sqrt2Wu = 0;
+      real sum_u = 0;
+      real temp  = 0;
+
+      for ( auto const& vi : myFields(point) )
+        {
+          const auto  i = vi.first;
+          const real ui = vi.second;
+
+          sum_u += ui;
+          const real sqrt2Wui = std::abs( ui * (1-ui) );
+
+          sum_sqrt2Wu += sqrt2Wui;
+          temp += ( myInitVolume[i] - int_u(i) ) * sqrt2Wui / int_sqrt2Wu(i);
+        }
+      temp = 1 - sum_u - temp;
+
+      for ( auto const& vi : myFields(point) )
+        {
+          const auto  i = vi.first;
+          const real ui = vi.second;
+
+          const real sqrt2Wui = std::abs( ui * (1-ui) );
+
+          for ( auto const& vj : myFields(point) )
+            {
+              const auto  j = vj.first;
+              const real uj = vj.second;
+
+              const real sqrt2Wuj = std::abs( uj * (1-uj) );
+
+              M(i, j) -= sqrt2Wui * sqrt2Wuj / ( int_sqrt2Wu(i) * sum_sqrt2Wu );
+            }
+
+          b(i) += temp * sqrt2Wui / sum_sqrt2Wu;
+        }
+    }
+
+  for ( std::size_t i = 0; i < phase_cnt; ++i )
+    {
+      M( i, i ) += 1.;
+      M( phase_cnt-1, i ) = 1.;
+    }
+  b( phase_cnt-1 ) = 0.;
+
+  itrace.endStep();
+
+  itrace.beginStep("solve");
+  VectorXd int_lambda = M.colPivHouseholderQr().solve(b);
+  itrace.endStep();
+
+  itrace.beginStep("mu, lambda & update");
+
+  // Calculation of mu_i
+  VectorXd mu( phase_cnt );
+  for ( std::size_t i = 0; i < phase_cnt; ++i )
+    mu( i ) = ( myInitVolume[i] - int_u(i) - int_lambda(i) ) / int_sqrt2Wu(i);
+
+  for ( auto const& point : domain )
+    {
+      real sum_sqrtWu = 0;
+      real lambda = 0;
+
+      for ( auto value : myFields(point) )
+        {
+          const auto  i = value.first;
+          const real ui = value.second;
+
+          const real sqrtWui = std::abs( ui * (1 - ui) );
+
+          sum_sqrtWu += sqrtWui;
+          lambda += ui + mu(i) * sqrtWui;
+        }
+      lambda = ( 1 - lambda ) / sum_sqrtWu;
+
+      const size_t id = myFields.linearized(point);
+      for ( size_t i = 0; i < myLabels.size(); ++i )
+        {
+          const real u = myFields.getValueByIndex(id, i);
+          const real v = u + ( lambda + mu[i] ) * std::abs(u * (1-u));
           myFields.setValue(point, i, v, id);
         }
     }
-  trace.endBlock();
-  // End evolution - Method A
-  } // end block
-
-  // Reaction
-  if (!reaction1)
-    {
-      itrace.beginBlock("Reaction");
-      const real dummy = aT / (myEpsilon * myEpsilon);
-      for ( auto const& point : domain )
-        {
-          const size_t id = myFields.linearized(point);
-          // Need for a mutable iterator over values ...
-          for ( size_t i = 0; i < myLabels.size(); ++i )
-            {
-              const real u = myFields.getValueByIndex(id, i);
-              if ( u != 0 )
-                {
-                  myFields.setValue(point, i, u - dummy * u * (u-1) * (2*u-1), id);
-                }
-            }
-        }
-      itrace.endBlock();
-
-      itrace.beginBlock("Lagrangian");
-      auto phi = [](real u) { return u; };
-
-      itrace.beginStep("linear_system");
-      const size_t phase_cnt = myInitVolume.size();
-      // Rmq: MatrixXd is column-major but since his size is relatively small, we will do like it was row-major.
-      using namespace Eigen;
-      MatrixXd M( phase_cnt, phase_cnt );
-      VectorXd b( phase_cnt );
-      M.fill(0);
-
-      for ( size_t i = 0; i < phase_cnt; ++i )
-        b(i) = myInitVolume[i];
-
-      for ( auto const& point : domain )
-        {
-          const size_t id = myFields.linearized(point);
-          
-          real sum_u = 0;
-          real sum_phiu = 0;
-          for ( auto const v : myFields(point) )
-            {
-              sum_u += v.second;
-              sum_phiu += phi(v.second);
-            }
-          
-          for ( auto const& vi : myFields(point) )
-            {
-              const real ui = vi.second;
-              const real phi_ui = phi(ui);
-              const real weighted_phiu = phi_ui / sum_phiu;
-
-              M(vi.first,vi.first)  += std::abs( ui * (1-ui) );
-              b(vi.first)    += -ui + weighted_phiu * ( sum_u - 1 );
-              for ( auto const& vj : myFields(point) )
-                {
-                  const real uj = vj.second;
-                  M(vi.first,vj.first) -= weighted_phiu * std::abs( uj * (1-uj) );
-                }
-            }
-        }
-      itrace.endStep();
-
-      itrace.beginStep("svd");
-      JacobiSVD<MatrixXd> svd(M, ComputeFullU | ComputeFullV);
-      auto s = svd.singularValues();
-      for ( size_t i = 0; i < phase_cnt-1; ++i )
-        s[i] = 1 / s[i];
-      M = svd.matrixV() * s.asDiagonal() * svd.matrixU().transpose();
-      VectorXd mu = M * b;
-      itrace.endStep();
-
-      itrace.beginStep("lambda & update");
-      for ( auto const& point : domain )
-        {
-
-          real sum_phiu = 0;
-          real lambda = 0;
-          for ( auto value : myFields(point) )
-            {
-              const real u = value.second;
-              sum_phiu += phi(u);
-              lambda += u + mu[value.first] * std::abs(u * (1-u));
-            }
-          lambda = - (lambda - 1) / sum_phiu;
-
-          const size_t id = myFields.linearized(point);
-          for ( size_t i = 0; i < myLabels.size(); ++i )
-            {
-              const real u = myFields.getValueByIndex(id, i);
-              const real v = u + mu[i]*std::abs(u * (1-u)) + lambda*phi(u);
-              myFields.setValue(point, i, v, id);
-            }
-        }
-      itrace.endStep();
-    }
+  itrace.endStep();
   itrace.endBlock();
   
   return aT; 

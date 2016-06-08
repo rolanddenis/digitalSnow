@@ -722,7 +722,7 @@ int main(int argc, char** argv)
               std::stringstream s; 
               s << outputFiles << setfill('0') << std::setw(4) << (i/disp_step); 
 #if   DIMENSION == 2
-	            drawContours( *labelImage, s.str(), outputFormat ); 
+              drawContours( *labelImage, s.str(), outputFormat ); 
 #elif DIMENSION == 3
               writePartition( *labelImage, s.str(), outputFormat );
 #endif
@@ -732,14 +732,12 @@ int main(int argc, char** argv)
               
               // VTK export
               VTKWriter<Domain> vtk(s.str(), labelImage->domain());
-              /*
               for (size_t j = 0; j < evolver.getNumPhase(); ++j)
                 {
                   stringstream s_phase;
                   s_phase << "phi" << setfill('0') << std::setw(2) << j;
                   vtk << s_phase.str() << evolver.getPhase(j);
                 }
-              */
               vtk << "label" << *labelImage;
               vtk << "implicit" << implicit;
               vtk.close();
