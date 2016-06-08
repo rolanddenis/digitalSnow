@@ -113,6 +113,7 @@ int main ( int argc, char* argv[] )
   using KSpace  = KhalimskySpaceND< dimension, Integer >;
   using Cell    = KSpace::Cell;
   using Cells   = KSpace::Cells;
+  using PreCell = KSpace::PreCell;
   using CCMap   = std::map< Cell, CubicalCellData >;
   using CC      = CubicalComplex< KSpace, CCMap >;
   using CellMapIterator = CC::CellMapIterator;
@@ -216,7 +217,7 @@ int main ( int argc, char* argv[] )
   K.init(
          domain.lowerBound(),
          domain.upperBound(),
-         KSpace::periodic
+         KSpace::PERIODIC
   );
 
   // Initializing cellular complex.
@@ -323,30 +324,33 @@ int main ( int argc, char* argv[] )
       cK.init(
               domain.lowerBound(),
               domain.upperBound(),
-              KSpace::closed
+              KSpace::CLOSED
       );
       CC fullClosedComplex(cK);
 
       for ( auto const& cell : fullComplex )
         fullClosedComplex.insertCell( cell );
 
+      const auto lowerCell = cK.lowerCell().preCell();
+      const auto upperCell = cK.upperCell().preCell();
+
       for ( DGtal::Dimension i = 0; i < KSpace::dimension; ++i )
         {
-          for ( KSpace::Integer x = cK.lowerCell().myCoordinates[(i+1)%3]; x != cK.upperCell().myCoordinates[(i+1)%3]+1; ++x )
+          for ( KSpace::Integer x = lowerCell.coordinates[(i+1)%3]; x != upperCell.coordinates[(i+1)%3]+1; ++x )
             {
-              for ( KSpace::Integer y = cK.lowerCell().myCoordinates[(i+2)%3]; y != cK.upperCell().myCoordinates[(i+2)%3]+1; ++y )
+              for ( KSpace::Integer y = lowerCell.coordinates[(i+2)%3]; y != upperCell.coordinates[(i+2)%3]+1; ++y )
                 {
-                  Cell p;
-                  p.myCoordinates[(i+1)%3] = x;
-                  p.myCoordinates[(i+2)%3] = y;
+                  PreCell p;
+                  p.coordinates[(i+1)%3] = x;
+                  p.coordinates[(i+2)%3] = y;
 
-                  p.myCoordinates[i] = cK.lowerCell().myCoordinates[i];
-                  if ( fullComplex.belongs( K.uCell( p.myCoordinates ) ) )
-                    fullClosedComplex.insertCell( p );
+                  p.coordinates[i] = lowerCell.coordinates[i];
+                  if ( fullComplex.belongs( K.uCell( p ) ) )
+                    fullClosedComplex.insertCell( K.uCell( p ) );
 
-                  p.myCoordinates[i] = cK.upperCell().myCoordinates[i];
-                  if ( fullComplex.belongs( K.uCell( p.myCoordinates ) ) )
-                    fullClosedComplex.insertCell( p );
+                  p.coordinates[i] = upperCell.coordinates[i];
+                  if ( fullComplex.belongs( K.uCell( p ) ) )
+                    fullClosedComplex.insertCell( K.uCell( p ) );
                 }
             }
         }
