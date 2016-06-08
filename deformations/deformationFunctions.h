@@ -23,41 +23,41 @@ using namespace DGtal::functors;
 template< typename TImage >
 int getSize(TImage& img, const double& threshold = 0)
 {
- 
+
   int c = 0; //counter
 
-  typename TImage::Domain d = img.domain(); 
-  typename TImage::Domain::ConstIterator cIt = d.begin(); 
-  typename TImage::Domain::ConstIterator cItEnd = d.end(); 
+  typename TImage::Domain d = img.domain();
+  typename TImage::Domain::ConstIterator cIt = d.begin();
+  typename TImage::Domain::ConstIterator cItEnd = d.end();
   for ( ; cIt != cItEnd; ++cIt)
   { //for each domain point
 
-    typedef typename TImage::Point Point; 
+    typedef typename TImage::Point Point;
     Point p( *cIt ); //point p
 
-    if (img(p) <= threshold) ++c; 
+    if (img(p) <= threshold) ++c;
   }
 
-  return c; 
+  return c;
 }
 
-/** Calculate histogram of an image (ie the size of each label) 
+/** Calculate histogram of an image (ie the size of each label)
  *
  * @tparam  TImage  type of the image to analyse
  * @tparam  TMap    type of the map (std) in which to store the result
  *
  * @param   img     the image
- * @param   map     the map 
+ * @param   map     the map
 */
 template <
-  typename TImage, 
+  typename TImage,
   typename TMap
 >
 void calcHistogram( TImage const& img, TMap & map )
 {
   typedef typename TImage::Domain TDomain;
   typedef typename TMap::key_type T;
-  
+
   TDomain d = img.domain();
   typename TDomain::ConstIterator cIt    = d.begin();
   typename TDomain::ConstIterator cItEnd = d.end();
@@ -91,16 +91,16 @@ T getVolume( TField const& field )
 template< typename TLabelImage, typename TDistanceImage >
 void updateLabelImage(TLabelImage& limg, const TDistanceImage& dimg, const double& threshold = 0)
 {
- 
-  typename TLabelImage::Domain d = limg.domain(); 
-  typename TLabelImage::Domain::ConstIterator cIt = d.begin(); 
-  typename TLabelImage::Domain::ConstIterator cItEnd = d.end(); 
+
+  typename TLabelImage::Domain d = limg.domain();
+  typename TLabelImage::Domain::ConstIterator cIt = d.begin();
+  typename TLabelImage::Domain::ConstIterator cItEnd = d.end();
   for ( ; cIt != cItEnd; ++cIt)
   { //for each domain point
-    if (dimg(*cIt) <= threshold) 
-      limg.setValue(*cIt, 255);   
-    else 
-      limg.setValue(*cIt, 0);  
+    if (dimg(*cIt) <= threshold)
+      limg.setValue(*cIt, 255);
+    else
+      limg.setValue(*cIt, 0);
   }
 
 }
@@ -108,16 +108,16 @@ void updateLabelImage(TLabelImage& limg, const TDistanceImage& dimg, const doubl
 template< typename TImage >
 void inv(TImage& img, const double& threshold = 0)
 {
- 
-  typename TImage::Domain d = img.domain(); 
-  typename TImage::Domain::ConstIterator cIt = d.begin(); 
-  typename TImage::Domain::ConstIterator cItEnd = d.end(); 
+
+  typename TImage::Domain d = img.domain();
+  typename TImage::Domain::ConstIterator cIt = d.begin();
+  typename TImage::Domain::ConstIterator cItEnd = d.end();
   for ( ; cIt != cItEnd; ++cIt)
   { //for each domain point
-    if (img(*cIt) <= threshold) 
-      img.setValue( *cIt, 1 );  
-    else 
-      img.setValue( *cIt, 0 );   
+    if (img(*cIt) <= threshold)
+      img.setValue( *cIt, 1 );
+    else
+      img.setValue( *cIt, 0 );
   }
 
 }
@@ -126,20 +126,20 @@ void inv(TImage& img, const double& threshold = 0)
 template< typename TImage >
 void initWithBall(TImage& img, const typename TImage::Point& c, const double& r)
 {
- 
-  typename TImage::Domain d = img.domain(); 
-  typename TImage::Domain::ConstIterator cIt = d.begin(); 
-  typename TImage::Domain::ConstIterator cItEnd = d.end(); 
+
+  typename TImage::Domain d = img.domain();
+  typename TImage::Domain::ConstIterator cIt = d.begin();
+  typename TImage::Domain::ConstIterator cItEnd = d.end();
   for ( ; cIt != cItEnd; ++cIt)
   { //for each domain point
 
-    typedef typename TImage::Point Point; 
+    typedef typename TImage::Point Point;
     Point p( *cIt ); //point p
 
-    double dist = (p-c).norm(Point::L_2); 
+    double dist = (p-c).norm(Point::L_2);
     dist = dist-r;
 
-    img.setValue(p, (typename TImage::Value) dist);  
+    img.setValue(p, (typename TImage::Value) dist);
   }
 
 }
@@ -147,20 +147,20 @@ void initWithBall(TImage& img, const typename TImage::Point& c, const double& r)
 template< typename TImage >
 void initWithBallPredicate(TImage& img, const typename TImage::Point& c, const double& r)
 {
- 
-  typename TImage::Domain d = img.domain(); 
-  typename TImage::Domain::ConstIterator cIt = d.begin(); 
-  typename TImage::Domain::ConstIterator cItEnd = d.end(); 
+
+  typename TImage::Domain d = img.domain();
+  typename TImage::Domain::ConstIterator cIt = d.begin();
+  typename TImage::Domain::ConstIterator cItEnd = d.end();
   for ( ; cIt != cItEnd; ++cIt)
   { //for each domain point
 
-    typedef typename TImage::Point Point; 
+    typedef typename TImage::Point Point;
     Point p( *cIt ); //point p
 
-    double dist = (p-c).norm(Point::L_2); 
+    double dist = (p-c).norm(Point::L_2);
     dist = dist-r;
 
-    img.setValue(p, (typename TImage::Value)( dist <= 0 ) );  
+    img.setValue(p, (typename TImage::Value)( dist <= 0 ) );
   }
 
 }
@@ -169,67 +169,67 @@ void initWithBallPredicate(TImage& img, const typename TImage::Point& c, const d
 template< typename TImage >
 void initWithFlower(TImage& img, const typename TImage::Point& c, double r, double v, double k)
 {
- 
-  typename TImage::Domain d = img.domain(); 
-  
-  typename TImage::Domain::ConstIterator cIt = d.begin(); 
-  typename TImage::Domain::ConstIterator cItEnd = d.end(); 
+
+  typename TImage::Domain d = img.domain();
+
+  typename TImage::Domain::ConstIterator cIt = d.begin();
+  typename TImage::Domain::ConstIterator cItEnd = d.end();
   for ( ; cIt != cItEnd; ++cIt)
   { //for each domain point
 
 
-    typedef typename TImage::Point Point; 
+    typedef typename TImage::Point Point;
     Point p( *cIt ); //point p
 
     //distance au centre calcule
-    double rho = r; 
-    double deviation = 0; 
-    typedef typename TImage::Dimension Dimension; 
+    double rho = r;
+    double deviation = 0;
+    typedef typename TImage::Dimension Dimension;
     for (Dimension i = 1; i < TImage::dimension; ++i)
       {
 	double t = std::abs(std::atan2((p[i]-c[i]),(p[0]-c[0])));
 	deviation += std::cos(k*t);
       }
-    rho += v*deviation; 
+    rho += v*deviation;
 
     //distance au centre
-    double dist = (p-c).norm(Point::L_2); 
+    double dist = (p-c).norm(Point::L_2);
     dist = dist - rho;
 
-    img.setValue(p, (typename TImage::Value) dist);  
+    img.setValue(p, (typename TImage::Value) dist);
   }
 }
 
 template< typename TImage >
 void initWithFlowerPredicate(TImage& img, const typename TImage::Point& c, double r, double v, double k)
 {
- 
-  typename TImage::Domain d = img.domain(); 
-  
-  typename TImage::Domain::ConstIterator cIt = d.begin(); 
-  typename TImage::Domain::ConstIterator cItEnd = d.end(); 
+
+  typename TImage::Domain d = img.domain();
+
+  typename TImage::Domain::ConstIterator cIt = d.begin();
+  typename TImage::Domain::ConstIterator cItEnd = d.end();
   for ( ; cIt != cItEnd; ++cIt)
   { //for each domain point
 
-    typedef typename TImage::Point Point; 
+    typedef typename TImage::Point Point;
     Point p( *cIt ); //point p
 
     //distance au centre calcule
-    double rho = r; 
-    double deviation = 0; 
-    typedef typename TImage::Dimension Dimension; 
+    double rho = r;
+    double deviation = 0;
+    typedef typename TImage::Dimension Dimension;
     for (Dimension i = 1; i < TImage::dimension; ++i)
       {
 	double t = std::abs(std::atan2((p[i]-c[i]),(p[0]-c[0])));
 	deviation += std::cos(k*t);
       }
-    rho += v*deviation; 
+    rho += v*deviation;
 
     //distance au centre
-    double dist = (p-c).norm(Point::L_2); 
+    double dist = (p-c).norm(Point::L_2);
     dist = dist - rho;
 
-    img.setValue(p, (typename TImage::Value)(dist <= 0) );  
+    img.setValue(p, (typename TImage::Value)(dist <= 0) );
   }
 }
 
@@ -319,7 +319,7 @@ void initRandomly( TImage& img, std::size_t count )
       basket[i] = (total_size+acc)/count;
       acc += total_size - basket[i]*count;
     }
- 
+
   std::random_device rd;
   std::mt19937 gen(rd());
   for ( auto const& point : img.domain() )
@@ -337,8 +337,8 @@ void initRandomly( TImage& img, std::size_t count )
 }
 
 /** Fill a label of an image with random label of equal volume.
- * For each point of the domain occupied by the specified label, 
- * a new label is randomly chosen so that each new label occupies 
+ * For each point of the domain occupied by the specified label,
+ * a new label is randomly chosen so that each new label occupies
  * the same volume.
  *
  * @param[in,out] img     The image to initialize.
@@ -357,7 +357,7 @@ void initRandomlyWithinLabel( TImage& img, std::size_t label, std::size_t count 
     {
       if ( value > max_label )
         max_label = value;
-     
+
       total_size += ( value == label );
     }
 
@@ -369,7 +369,7 @@ void initRandomlyWithinLabel( TImage& img, std::size_t label, std::size_t count 
       basket[i] = (total_size+acc)/count;
       acc += total_size - basket[i]*count;
     }
- 
+
   std::random_device rd;
   std::mt19937 gen(rd());
   for ( auto const& point : img.domain() )
@@ -397,76 +397,76 @@ void initRandomlyWithinLabel( TImage& img, std::size_t label, std::size_t count 
 template< typename TImage >
 void initWithDT(const TImage& inputImage, ImageContainerBySTLVector<typename TImage::Domain,double>& outputImage)
 {
-  typedef typename TImage::Domain::Space Space; 
+  typedef typename TImage::Domain::Space Space;
 
   //domain
-  typename TImage::Domain d = inputImage.domain(); 
+  typename TImage::Domain d = inputImage.domain();
 
   //metric
   typedef ExactPredicateLpSeparableMetric<Space, 2> L2Metric;
-  L2Metric l2; 
+  L2Metric l2;
 
-  //Foreground 
+  //Foreground
   //helpers
-  typedef Thresholder<typename TImage::Value, true, true> Binarizer; 
+  typedef Thresholder<typename TImage::Value, true, true> Binarizer;
   Binarizer binarizer(0);
-  typedef PointFunctorPredicate<TImage,Binarizer> PredicateOnPoints; 
-  PredicateOnPoints predicate(inputImage, binarizer); 
+  typedef PointFunctorPredicate<TImage,Binarizer> PredicateOnPoints;
+  PredicateOnPoints predicate(inputImage, binarizer);
   //DT
   typedef DistanceTransformation<Space, PredicateOnPoints, L2Metric > DT;
   DT dt( d, predicate, l2);
 
   //Background
   //helpers
-  typedef Thresholder<typename TImage::Value, false, false> Binarizer2; 
+  typedef Thresholder<typename TImage::Value, false, false> Binarizer2;
   Binarizer2 binarizer2(0);
-  typedef PointFunctorPredicate<TImage,Binarizer2> PredicateOnPoints2; 
-  PredicateOnPoints2 predicate2(inputImage, binarizer2); 
+  typedef PointFunctorPredicate<TImage,Binarizer2> PredicateOnPoints2;
+  PredicateOnPoints2 predicate2(inputImage, binarizer2);
   //DT
   typedef DistanceTransformation<Space, PredicateOnPoints2, L2Metric > DT2;
   DT2 dt2( d, predicate2, l2);
 
-  //Signed distance 
-  typename ImageContainerBySTLVector<typename TImage::Domain,double>::Range::Iterator 
-    out = outputImage.range().begin(); 
-  for ( typename DT::ConstRange::ConstIterator 
+  //Signed distance
+  typename ImageContainerBySTLVector<typename TImage::Domain,double>::Range::Iterator
+    out = outputImage.range().begin();
+  for ( typename DT::ConstRange::ConstIterator
 	  it = dt.constRange().begin(), itend = dt.constRange().end();
 	it != itend; ++it)
     {
-      double dist = (*it); 
-      if (dist != 0) 
-	dist = std::sqrt( dist ) - 0.5;  
-      *out++ = dist; 
-      // outputImage.setValue(p, dist);  
+      double dist = (*it);
+      if (dist != 0)
+	dist = std::sqrt( dist ) - 0.5;
+      *out++ = dist;
+      // outputImage.setValue(p, dist);
     }
 
-  out = outputImage.range().begin(); 
-  for ( typename DT2::ConstRange::ConstIterator 
+  out = outputImage.range().begin();
+  for ( typename DT2::ConstRange::ConstIterator
 	  it = dt2.constRange().begin(), itend = dt2.constRange().end();
 	it != itend; ++it)
     {
-      double dist = (*it); 
-      if (dist != 0) 
+      double dist = (*it);
+      if (dist != 0)
 	{ //only write if dist != 0
-	  dist = -std::sqrt( dist ) + 0.5;  
-	  *out++ = dist; 
-	  // outputImage.setValue(p, dist);  
+	  dist = -std::sqrt( dist ) + 0.5;
+	  *out++ = dist;
+	  // outputImage.setValue(p, dist);
 	}
-      else 
-	out++; 
+      else
+	out++;
     }
 }
 
 class Profile {
-private:  
-  double myEpsilon; 
-public: 
+private:
+  double myEpsilon;
+public:
   Profile (const double& anEpsilon) : myEpsilon( anEpsilon ) {}
   double operator()( const double& v )
   {
-   return 0.5 - 0.5*std::tanh(-v/(2*myEpsilon)); 
+   return 0.5 - 0.5*std::tanh(-v/(2*myEpsilon));
   }
-}; 
+};
 
 #endif // !defined deformationFunctions_h
 
