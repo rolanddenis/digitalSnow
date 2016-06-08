@@ -49,8 +49,7 @@ bool displayPartition(TViewer& viewer, const TImage& img)
   aKSpace.init(aLowerBound, aUpperBound, true);
 
   // Update embedders for the viewer
-  viewer.setKSpaceEmbedder(  new CanonicCellEmbedder<KSpace>(aKSpace) );
-  viewer.setSKSpaceEmbedder( new CanonicSCellEmbedder<KSpace>(aKSpace) );
+  viewer.setKSpace(  aKSpace );
 
   //container
   std::set<Cell> aSet; 
