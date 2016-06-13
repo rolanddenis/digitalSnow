@@ -18,6 +18,7 @@
 #include <DGtal/helpers/StdDefs.h>
 #include <DGtal/kernel/SpaceND.h>
 #include <DGtal/kernel/domains/HyperRectDomain.h>
+#include <DGtal/kernel/PointVector.h>
 #include <DGtal/topology/KhalimskySpaceND.h>
 #include <DGtal/topology/CubicalComplex.h>
 #include <DGtal/topology/CubicalComplexFunctions.h>
@@ -102,13 +103,14 @@ int main ( int argc, char* argv[] )
   // Aliases
   using Real    = double;
   using Integer = int;
-  const Integer dimension = DIMENSION;
+  constexpr const Integer dimension = DIMENSION;
   using Space   = SpaceND< dimension, Integer >;
   using Point   = Space::Point;
   using Domain  = HyperRectDomain< Space >;
   using Dimension = Space::Dimension;
   using Vector  = Space::Vector;
-  using RealPoint = Space::RealPoint;
+  using RealPoint = PointVector< dimension, Real >;
+  using RealVector = RealPoint;
 
   using KSpace  = KhalimskySpaceND< dimension, Integer >;
   using Cell    = KSpace::Cell;
@@ -140,6 +142,7 @@ int main ( int argc, char* argv[] )
   general_opt.add_options()
     ("help,h",      "display this message")
     ("dimension,d", po::value< std::vector<unsigned int> >(), "dimensions of the image.")
+    ("size,S",      po::value< std::vector<Real> >(), "domain size.")
     ("implicit,i",  po::value< std::string >(), "raw (double) real image where the level-set of value 0 represents the cell interfaces.")
     ("thickness,t", po::value< Real >( &thickness )->default_value( thickness ), "the thickening parameter for the implicit surface.")
     ("priority,p",  po::value< bool >( &calcPriority )->default_value( calcPriority ), "control if the priority is calculated (if a real image is given).")
@@ -170,6 +173,25 @@ int main ( int argc, char* argv[] )
       isParseOK = false;
     }
 
+  // Verifying domain sizes.
+  RealPoint domainSize = RealPoint::diagonal( 1 );
+  if ( vm.count("size") )
+    {
+      auto const & cmd_sizes = vm["size"].as< std::vector<Real> >();
+
+      for ( std::size_t i = 0; i < cmd_sizes.size(); ++i )
+        {
+          if ( cmd_sizes[i] > 0 )
+            domainSize[i] = cmd_sizes[i];
+          else
+            {
+              cerr << "Error: " << i << "th domain size is negative: " << cmd_sizes[i] << endl;
+              isParseOK = false;
+              break;
+            }
+        }
+    }
+
   // Displaying help
   if ( ! isParseOK || vm.count("help") || ( ! vm.count("implicit") && ! vm.count("label") ) )
     {
@@ -185,6 +207,11 @@ int main ( int argc, char* argv[] )
     extent[i] = dimensions[i];
   Domain domain ( Point::diagonal(0), extent - Point::diagonal(1) );
   trace.info() << "Domain = " << domain << endl;
+
+  // Space steps
+  RealPoint dX;
+  for ( Dimension i = 0; i < dimension; ++i )
+    dX[i] = domainSize[i] / extent[i];
 
   // Default space and domain.
   KSpace K;
@@ -365,16 +392,20 @@ int main ( int argc, char* argv[] )
 
       bool highlight = ( view == "Singular" );
       bool hide      = ( view == "Hide" );
-      Mesh<Point> mesh( true );
+      Mesh<RealPoint> mesh( true );
       std::map<Cell, unsigned int> indices;
-      std::vector<Point> points;
+      std::vector<RealPoint> points;
       int idx = 0;
       for ( auto it = fullClosedComplex.begin( 0 ), itEnd = fullClosedComplex.end( 0 ); it != itEnd; ++it, ++idx )
         {
           Cell cell = it->first;
           indices[ cell ] = idx;
-          points.push_back( cK.uKCoords(cell)/2 - Point::diagonal(1) );
-          mesh.addVertex(   cK.uKCoords(cell)/2 - Point::diagonal(1) );
+          RealPoint pt = cK.uKCoords(cell)/2 - RealPoint::diagonal(1);
+          for ( Dimension i = 0; i < dimension; ++i )
+            pt[ i ] *= dX[ i ];
+
+          points.push_back( pt );
+          mesh.addVertex( pt );
         }
 
       for ( auto it = fullClosedComplex.begin( 2 ), itEnd = fullClosedComplex.end( 2 ); it != itEnd; ++it )
@@ -397,8 +428,8 @@ int main ( int argc, char* argv[] )
           Color color = Color::White;
           if ( hide ) color.alpha(64);
 
-          Vector diag03 = points[ face_idx[ 0 ] ] - points[ face_idx[ 3 ] ];
-          Vector diag12 = points[ face_idx[ 1 ] ] - points[ face_idx[ 2 ] ];
+          RealVector diag03 = points[ face_idx[ 0 ] ] - points[ face_idx[ 3 ] ];
+          RealVector diag12 = points[ face_idx[ 1 ] ] - points[ face_idx[ 2 ] ];
           if ( diag03.dot( diag03 ) <= diag12.dot( diag12 ) )
             {
               mesh.addTriangularFace( face_idx[ 0 ], face_idx[ 1 ], face_idx[ 3 ], color );
@@ -484,12 +515,13 @@ int main ( int argc, char* argv[] )
       
       std::ofstream fileStream( fileName+".fe", std::ofstream::out | std::ofstream::binary );
       fileStream.imbue( std::locale() ); // Dot separator for decimal numbers
+      fileStream.precision( 10 );
       fileStream  << "// extracCells.cpp\n";
       fileStream  << "TORUS_FILLED\n\n";
       fileStream  << "periods\n"
-                  << "1 0 0\n" 
-                  << "0 1 0\n" 
-                  << "0 0 1\n\n";
+                  << domainSize[0] << " 0 0\n"
+                  << "0 " << domainSize[1] << " 0\n"
+                  << "0 0 " << domainSize[2] << "\n\n";
 
       //-----------------------------------------------------------------------
       trace.beginBlock( "Indexing and writing vertices" );
@@ -504,7 +536,8 @@ int main ( int argc, char* argv[] )
           const Point coords = K.uKCoords( it->first ); 
           
           for ( Dimension i = 0; i < dimension; ++i )
-            fileStream << " " << ( double(coords[i]) / (2*extent[i]+1) );
+            fileStream << " " << ( Real(coords[i]) / (2*extent[i]+1) ) * domainSize[i];
+            //fileStream << " " << ( double(coords[i]) / (2*extent[i]+1) );
 
           fileStream << "\n";
         }
@@ -646,13 +679,18 @@ int main ( int argc, char* argv[] )
       //-----------------------------------------------------------------------
       trace.beginBlock( "Writing bodies" );
 
+      // Calculating volume
+      Real volume = 1;
+      for ( auto L : domainSize )
+        volume *= L;
+
       fileStream << "bodies\n";
       for ( std::size_t i = 0; i < bodies.size(); ++i )
         {
           fileStream << (i+1);
           for ( const auto idx : bodies[i] )
             fileStream << " " << idx;
-          fileStream << " volume 1/" << bodies.size() << "\n";
+          fileStream << " volume " << volume << "/" << bodies.size() << "\n";
         }
 
       trace.endBlock();
