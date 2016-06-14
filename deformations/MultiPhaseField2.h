@@ -45,6 +45,7 @@
 
 #include "DGtal/base/Common.h"
 #include "DGtal/images/CImage.h"
+#include "DGtal/kernel/PointVector.h"
 
 #include "DGtal/base/CowPtr.h"
 #include "DGtal/base/CountedPtr.h"
@@ -108,6 +109,7 @@ namespace DGtal
     /// Images of phase field values
     typedef TFieldImage FieldImage;
     typedef typename TFieldImage::Value Value;
+    using RealPoint = typename TDomain::Space::RealPoint;
 
     using MultiImage = ApproximatedMultiImage<TDomain, TContainer, TApproximation, TBoundingBox>;
 
@@ -137,7 +139,10 @@ namespace DGtal
     std::vector<Value> myInitVolume;
 
     //! Epsilon 
-    Value myEpsilon; 
+    Value myEpsilon;
+
+  public:
+    RealPoint myRealExtent = RealPoint::diagonal(1);
 
     // ----------------------- Standard services ------------------------------
   public:
@@ -207,6 +212,8 @@ namespace DGtal
       {
         return myFields;
       }
+
+    void updateDomainSize();
 
     // ------------------------- Hidden services ------------------------------
   protected:

@@ -643,7 +643,7 @@ int main(int argc, char** argv)
       // ApproximatedMultiImage
       using real = double;
 
-      using LabelledMap = DGtal::LabelledMap<real, 64, long unsigned int, 2, 11>;
+      using LabelledMap = DGtal::LabelledMap<real, 64, long unsigned int, 4, 11>;
       //using LabelledMap = DGtal::BigLabelledMap<real, (1ul<<7)-1, 2, 10>;
 
       using Approximation = DGtal::approximations::NegativeTolValueApproximation<real>;
@@ -652,6 +652,9 @@ int main(int argc, char** argv)
       using ApproximatedMultiImage = DGtal::ApproximatedMultiImage<Domain, LabelledMap, Approximation, BoundingBox>;
 
       // Multi phase-field
+      epsilon /= labelImage->extent()[0];
+      tstep = epsilon*epsilon;
+
       MultiPhaseField2< LabelImage, FieldImage, ApproximatedMultiImage > evolver(*labelImage, epsilon, !no_dist);
 
       DGtal::trace.beginBlock( "Deformation (massive multi phase field)" );
@@ -752,9 +755,35 @@ int main(int argc, char** argv)
               DGtal::trace.info() << std::endl;
               */
 
+              evolver.updateDomainSize();
+              std::cout << "myRealExtent = " << evolver.myRealExtent << std::endl;
+              for ( Dimension j = 0; j < dimension; ++j )
+                if ( std::isnan( evolver.myRealExtent[j] ) )
+                  {
+                    std::cerr << "Error: invalid domain size !!!" << std::endl;
+                    return 1;
+                  }
+
               trace.endBlock();
 
-              if ( label_cnt == 0 ) break;
+              if ( label_cnt == 0 ) 
+                {
+                  if ( dimension == 3)
+                    {
+                      std::cout << "Evolver command line:" << std::endl;
+                      std::cout << "extractCells" << std::setprecision(10)
+                                << " -d " << labelImage->extent()[0]
+                                << " -d " << labelImage->extent()[1]
+                                << " -d " << labelImage->extent()[2]
+                                << " -S " << evolver.myRealExtent[0]
+                                << " -S " << evolver.myRealExtent[2]
+                                << " -S " << evolver.myRealExtent[3]
+                                << " -l " << ( s.str() + ".lab.raw" )
+                                << " -v no -e kelvin_result"
+                                << std::endl;
+                    }
+                  break;
+                }
 
             }
 

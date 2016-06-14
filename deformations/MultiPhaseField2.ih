@@ -44,7 +44,8 @@
 #endif
 
 #include <thread>
-#include "RealFFT.h"
+#include <DGtal/math/RealFFT.h>
+//#include "RealFFT.h"
 
 
 //////////////////////////////////////////////////////////////////////////////
@@ -173,16 +174,17 @@ double
 DGtal::MultiPhaseField2< TLabelImage, TFieldImage, DGtal::ApproximatedMultiImage<TDomain, TContainer, TApproximation, TBoundingBox> >
 ::update(const double& aT)
 {
-  using std::size_t; 
+  using std::size_t;
   using Point = typename TFieldImage::Point;
   using real = typename TFieldImage::Value;
 
+  const real alpha = 1;
   Domain domain = myFields.domain();
 
   /////////////////////////////////////////////////////////////////////////////
   // Diffusion
   trace.beginBlock("Diffusion");
-  using FFT  =  RealFFT<Domain, real>;
+  using FFT  =  DGtal::RealFFT<Domain, real>;
   for ( size_t i = 0; i < myLabels.size(); ++i )
     {
       itrace.beginBlock("Diffusion");
@@ -191,12 +193,18 @@ DGtal::MultiPhaseField2< TLabelImage, TFieldImage, DGtal::ApproximatedMultiImage
       //auto bb_field = myFields.getBBImage(i, Point::diagonal(10)); // Bounding box & periodicity ?!!!
       auto bb_field = myFields[i];
 
-      FFT fft(bb_field.domain());
-      auto spatial_data = fft.getSpatialStorage();
+      //FFT fft(bb_field.domain());
+      FFT fft( bb_field.domain(), RealPoint::zero, myRealExtent );
+
+      //auto spatial_data = fft.getSpatialStorage();
 
       // Copy
       auto spatial_image = fft.getSpatialImage();
-      std::copy( bb_field.cbegin(), bb_field.cend(), spatial_image.begin() );  
+      std::copy( bb_field.cbegin(), bb_field.cend(), spatial_image.begin() );
+      
+      //auto const eps = myEpsilon;
+      //std::transform( bb_field.cbegin(), bb_field.cend(), spatial_image.begin(), 
+      //                [alpha, eps] ( real v ) { return ( v * (v-1) * (2*v-1) - alpha*v ) / std::pow(eps, 2); } );
 
 
       // Forward transformation
@@ -232,27 +240,19 @@ DGtal::MultiPhaseField2< TLabelImage, TFieldImage, DGtal::ApproximatedMultiImage
           #pragma omp task firstprivate(curr_freq_image)
           for ( auto it = curr_freq_image.begin(), it_end = curr_freq_image.end() ; it != it_end ; ++it )
             {
-              const auto point = it.getPoint();
-              double norm2 = 0;
-              for ( size_t j = 0; j < TFieldImage::dimension; ++j)
-                {
-                  double coord = static_cast<double>(point[j]) / extent[j];
-                  if ( coord >= 0.5 ) coord -= 1.;
-                  norm2 += coord*coord;
-                }
+              const auto pt = fft.calcScaledFreqCoords( it.getPoint() );
+              const auto norm2 = pt.dot( pt );
+              
               const double c = std::exp( -4*M_PI*M_PI*aT*norm2 );
-
-              // New value
-
-              auto const v = *it;
-              *it = { c*std::real(v), c*std::imag(v) };
+              //const double c = 1. / ( 4*M_PI*M_PI*norm2 + alpha/(myEpsilon*myEpsilon) );
+              *it *= c;
             }
 
         }
 
       // Back in spatial space
       itrace.beginStep("ifftw");
-      fft.backwardFFT(FFTW_MEASURE);
+      fft.backwardFFT(FFTW_MEASURE, false);
 
       // Store the result
       itrace.beginStep("Write");
@@ -334,7 +334,8 @@ DGtal::MultiPhaseField2< TLabelImage, TFieldImage, DGtal::ApproximatedMultiImage
           const real sqrt2Wui = std::abs( ui * (1-ui) );
 
           sum_sqrt2Wu += sqrt2Wui;
-          temp += ( myInitVolume[i] - int_u(i) ) * sqrt2Wui / int_sqrt2Wu(i);
+          if ( sqrt2Wui != 0 )
+            temp += ( myInitVolume[i] - int_u(i) ) * sqrt2Wui / int_sqrt2Wu(i);
         }
       temp = 1 - sum_u - temp;
 
@@ -345,17 +346,20 @@ DGtal::MultiPhaseField2< TLabelImage, TFieldImage, DGtal::ApproximatedMultiImage
 
           const real sqrt2Wui = std::abs( ui * (1-ui) );
 
-          for ( auto const& vj : myFields(point) )
+          if ( sqrt2Wui != 0 )
             {
-              const auto  j = vj.first;
-              const real uj = vj.second;
+              for ( auto const& vj : myFields(point) )
+                {
+                  const auto  j = vj.first;
+                  const real uj = vj.second;
 
-              const real sqrt2Wuj = std::abs( uj * (1-uj) );
+                  const real sqrt2Wuj = std::abs( uj * (1-uj) );
 
-              M(i, j) -= sqrt2Wui * sqrt2Wuj / ( int_sqrt2Wu(i) * sum_sqrt2Wu );
+                  M(i, j) -= sqrt2Wui * sqrt2Wuj / ( int_sqrt2Wu(i) * sum_sqrt2Wu );
+                }
+
+              b(i) += temp * sqrt2Wui / sum_sqrt2Wu;
             }
-
-          b(i) += temp * sqrt2Wui / sum_sqrt2Wu;
         }
     }
 
@@ -377,7 +381,7 @@ DGtal::MultiPhaseField2< TLabelImage, TFieldImage, DGtal::ApproximatedMultiImage
   // Calculation of mu_i
   VectorXd mu( phase_cnt );
   for ( std::size_t i = 0; i < phase_cnt; ++i )
-    mu( i ) = ( myInitVolume[i] - int_u(i) - int_lambda(i) ) / int_sqrt2Wu(i);
+    mu( i ) = int_sqrt2Wu(i) != 0 ? ( myInitVolume[i] - int_u(i) - int_lambda(i) ) / int_sqrt2Wu(i) : 0;
 
   for ( auto const& point : domain )
     {
@@ -394,7 +398,7 @@ DGtal::MultiPhaseField2< TLabelImage, TFieldImage, DGtal::ApproximatedMultiImage
           sum_sqrtWu += sqrtWui;
           lambda += ui + mu(i) * sqrtWui;
         }
-      lambda = ( 1 - lambda ) / sum_sqrtWu;
+      lambda = sum_sqrtWu != 0 ? ( 1 - lambda ) / sum_sqrtWu : 0;
 
       const size_t id = myFields.linearized(point);
       for ( size_t i = 0; i < myLabels.size(); ++i )
@@ -408,6 +412,71 @@ DGtal::MultiPhaseField2< TLabelImage, TFieldImage, DGtal::ApproximatedMultiImage
   itrace.endBlock();
   
   return aT; 
+}
+
+template <
+  typename TLabelImage,
+  typename TFieldImage,
+  typename TDomain, typename TContainer, typename TApproximation, typename TBoundingBox
+>
+inline
+void
+DGtal::MultiPhaseField2< TLabelImage, TFieldImage, DGtal::ApproximatedMultiImage<TDomain, TContainer, TApproximation, TBoundingBox> >
+::updateDomainSize()
+{
+  using std::size_t;
+  using Point = typename TFieldImage::Point;
+  using real = typename TFieldImage::Value;
+
+  std::vector<real> gradient( Point::dimension, 0 );
+
+  Domain domain = myFields.domain();
+
+  trace.beginBlock("Domain optimization");
+  using FFT  =  DGtal::RealFFT<Domain, real>;
+  for ( size_t i = 0; i < myLabels.size(); ++i )
+    {
+      itrace.beginBlock("Diffusion");
+
+      itrace.beginStep("Read");
+      auto bb_field = myFields[i];
+      FFT fft( bb_field.domain(), RealPoint::zero, myRealExtent );
+
+      auto spatial_image = fft.getSpatialImage();
+      std::copy( bb_field.cbegin(), bb_field.cend(), spatial_image.begin() );
+
+      itrace.beginStep("fftw");
+      fft.forwardFFT( FFTW_MEASURE );
+
+      itrace.beginStep("gradient");
+      const auto curr_freq_image = fft.getFreqImage();
+      for ( auto it = curr_freq_image.cbegin(), it_end = curr_freq_image.cend(); it != it_end; ++it )
+        {
+          const auto pt = fft.calcScaledFreqCoords( it.getPoint() );
+          for ( typename Point::Dimension i = 0; i < Point::dimension; ++i )
+            gradient[i] += std::norm( *it * pt[i] );
+        }
+
+      itrace.endBlock();
+    }
+
+  real prod_L = 1.;
+  for ( auto & g : gradient )
+    {
+      g = std::sqrt( g );
+      prod_L *= g;
+    }
+  prod_L = std::pow( prod_L, 1./3. );
+
+  real prod_Extent = 1.;
+  for ( typename Point::Dimension i = 0; i < Point::dimension - 1; ++i )
+    {
+      myRealExtent[ i ] = std::min( std::max( std::sqrt( gradient[i]/prod_L ), 0.1 ), 10. );
+      prod_Extent *= myRealExtent[ i ];
+    }
+  myRealExtent[ Point::dimension-1 ] = 1. / prod_Extent;
+
+  trace.endBlock();
 }
 
 template <
