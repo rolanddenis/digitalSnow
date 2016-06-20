@@ -515,7 +515,7 @@ int main ( int argc, char* argv[] )
       
       std::ofstream fileStream( fileName+".fe", std::ofstream::out | std::ofstream::binary );
       fileStream.imbue( std::locale() ); // Dot separator for decimal numbers
-      fileStream.precision( 10 );
+      fileStream.precision( 20 );
       fileStream  << "// extracCells.cpp\n";
       fileStream  << "TORUS_FILLED\n\n";
       fileStream  << "periods\n"

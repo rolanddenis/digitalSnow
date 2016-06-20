@@ -66,10 +66,10 @@ inline
 DGtal::MultiPhaseField2< TLabelImage, TFieldImage, DGtal::ApproximatedMultiImage<TDomain, TContainer, TApproximation, TBoundingBox> >
 ::MultiPhaseField2(LabelImage& aI, typename TFieldImage::Value epsilon, bool calcDistance )
   : myLabelImage( aI ),
-    myFields{ myLabelImage.domain(), TApproximation{1e-4} },
+    myFields{ myLabelImage.domain(), TApproximation{1e-8} },
     myEpsilon{ epsilon }
-{ 
- 
+{
+
   // Domain
   Domain domain = myFields.domain();
 
@@ -93,14 +93,14 @@ DGtal::MultiPhaseField2< TLabelImage, TFieldImage, DGtal::ApproximatedMultiImage
           itrace.beginBlock( dummy.str() );
 
           /// new phase field
-          FieldImage image(domain); 
+          FieldImage image(domain);
 
           /// DT computation
           getSignedDistance( myLabels[i], image );
 
           // Profile computation
           Profile profile( myEpsilon );  //TODO get epsilon from myEvolver or even better its profile function
-          std::transform(image.begin(), image.end(), myFields[i].begin(), profile);       
+          std::transform(image.begin(), image.end(), myFields[i].begin(), profile);
 
           itrace.endBlock();
         }
@@ -161,7 +161,7 @@ template <
 inline
 DGtal::MultiPhaseField2< TLabelImage, TFieldImage, DGtal::ApproximatedMultiImage<TDomain, TContainer, TApproximation, TBoundingBox> >
 ::~MultiPhaseField2()
-{ 
+{
 }
 
 template <
@@ -201,9 +201,9 @@ DGtal::MultiPhaseField2< TLabelImage, TFieldImage, DGtal::ApproximatedMultiImage
       // Copy
       auto spatial_image = fft.getSpatialImage();
       std::copy( bb_field.cbegin(), bb_field.cend(), spatial_image.begin() );
-      
+
       //auto const eps = myEpsilon;
-      //std::transform( bb_field.cbegin(), bb_field.cend(), spatial_image.begin(), 
+      //std::transform( bb_field.cbegin(), bb_field.cend(), spatial_image.begin(),
       //                [alpha, eps] ( real v ) { return ( v * (v-1) * (2*v-1) - alpha*v ) / std::pow(eps, 2); } );
 
 
@@ -212,10 +212,10 @@ DGtal::MultiPhaseField2< TLabelImage, TFieldImage, DGtal::ApproximatedMultiImage
       fft.forwardFFT(FFTW_MEASURE);
 
       itrace.beginStep("Conv");
-     
+
       auto const extent = fft.getSpatialExtent();
       auto freq_image = fft.getFreqImage();
-      
+
       auto const freq_domain = fft.getFreqDomain();
 
 #ifdef _OPENMP
@@ -224,7 +224,7 @@ DGtal::MultiPhaseField2< TLabelImage, TFieldImage, DGtal::ApproximatedMultiImage
       const size_t N_thread = 1;
 #endif
 
-      #pragma omp parallel 
+      #pragma omp parallel
       #pragma omp single nowait
       for ( size_t pos = 0; pos < N_thread; ++pos )
         {
@@ -242,7 +242,7 @@ DGtal::MultiPhaseField2< TLabelImage, TFieldImage, DGtal::ApproximatedMultiImage
             {
               const auto pt = fft.calcScaledFreqCoords( it.getPoint() );
               const auto norm2 = pt.dot( pt );
-              
+
               const double c = std::exp( -4*M_PI*M_PI*aT*norm2 );
               //const double c = 1. / ( 4*M_PI*M_PI*norm2 + alpha/(myEpsilon*myEpsilon) );
               *it *= c;
@@ -257,7 +257,18 @@ DGtal::MultiPhaseField2< TLabelImage, TFieldImage, DGtal::ApproximatedMultiImage
       // Store the result
       itrace.beginStep("Write");
       const size_t n = fft.getSpatialDomain().size();
-      std::transform( spatial_image.cbegin(), spatial_image.cend(), bb_field.begin(), [n] (real v) { return v/n; } );
+      //std::transform( spatial_image.cbegin(), spatial_image.cend(), bb_field.begin(), [n] (real v) { return v/n; } );
+
+      // Reaction while saving result
+      const real dummy = aT / (myEpsilon * myEpsilon);
+      std::transform( spatial_image.cbegin(), spatial_image.cend(),
+                      bb_field.begin(),
+                      [n, dummy] (real v)
+                        {
+                          const real u = v/n;
+                          return u - dummy * u * (u-1.) * (2*u-1.);
+                        }
+      );
 
       itrace.endBlock();
     }
@@ -265,6 +276,7 @@ DGtal::MultiPhaseField2< TLabelImage, TFieldImage, DGtal::ApproximatedMultiImage
   // End diffusion
 
 
+  /*
   /////////////////////////////////////////////////////////////////////////////
   // Reaction
   itrace.beginBlock("Reaction");
@@ -283,6 +295,7 @@ DGtal::MultiPhaseField2< TLabelImage, TFieldImage, DGtal::ApproximatedMultiImage
         }
     }
   itrace.endBlock();
+  */
 
   /////////////////////////////////////////////////////////////////////////////
   // Projection
@@ -410,8 +423,8 @@ DGtal::MultiPhaseField2< TLabelImage, TFieldImage, DGtal::ApproximatedMultiImage
     }
   itrace.endStep();
   itrace.endBlock();
-  
-  return aT; 
+
+  return aT;
 }
 
 template <
@@ -440,7 +453,7 @@ DGtal::MultiPhaseField2< TLabelImage, TFieldImage, DGtal::ApproximatedMultiImage
 
       itrace.beginStep("Read");
       auto bb_field = myFields[i];
-      FFT fft( bb_field.domain(), RealPoint::zero, myRealExtent );
+      FFT fft( bb_field.domain(), RealPoint::zero, RealPoint::diagonal(1.) );
 
       auto spatial_image = fft.getSpatialImage();
       std::copy( bb_field.cbegin(), bb_field.cend(), spatial_image.begin() );
@@ -450,23 +463,23 @@ DGtal::MultiPhaseField2< TLabelImage, TFieldImage, DGtal::ApproximatedMultiImage
 
       itrace.beginStep("gradient");
       const auto curr_freq_image = fft.getFreqImage();
-      for ( auto it = curr_freq_image.cbegin(), it_end = curr_freq_image.cend(); it != it_end; ++it )
+      for ( auto const& pt : fft.getSpatialDomain() )
         {
-          const auto pt = fft.calcScaledFreqCoords( it.getPoint() );
-          for ( typename Point::Dimension i = 0; i < Point::dimension; ++i )
-            gradient[i] += std::norm( *it * pt[i] );
-        }
+          const auto scaled_pt = fft.calcScaledFreqCoords( pt );
+          bool dummy;
+          const auto freq_pt   = fft.calcNativeFreqCoords( scaled_pt, dummy );
+          const auto value = curr_freq_image(freq_pt);
+          for ( typename Point::Dimension j = 0; j < Point::dimension; ++j )
+            gradient[j] += std::norm( value * static_cast<real>(scaled_pt[j]) );
+       }
 
       itrace.endBlock();
     }
 
   real prod_L = 1.;
   for ( auto & g : gradient )
-    {
-      g = std::sqrt( g );
-      prod_L *= g;
-    }
-  prod_L = std::pow( prod_L, 1./3. );
+    prod_L *= g;
+  prod_L = std::pow( prod_L, 1. / Point::dimension );
 
   real prod_Extent = 1.;
   for ( typename Point::Dimension i = 0; i < Point::dimension - 1; ++i )
@@ -527,16 +540,16 @@ DGtal::MultiPhaseField2< TLabelImage, TFieldImage, DGtal::ApproximatedMultiImage
 ::dispInfos() const
 {
   itrace.beginBlock("Statistics");
-  
+
   itrace.beginStep("LabelledMap");
   const auto fields_info = myFields.getInfos();
-  
+
   itrace.beginStep("Perimeters");
   const auto perimeters = getPerimeters();
   itrace.endBlock();
-  
+
   std::cout << fields_info << std::endl;
- 
+
   std::cout << std::setprecision(5);
 
   for ( std::size_t i = 0; i < perimeters.size(); ++i )
@@ -550,7 +563,7 @@ DGtal::MultiPhaseField2< TLabelImage, TFieldImage, DGtal::ApproximatedMultiImage
   const Value morgan_cost = perimeter_sum / std::pow( perimeters.size(), 1./3. );
   std::cout << "Morgan's cost = " << morgan_cost << std::endl;
 }
-  
+
 template <
   typename TLabelImage,
   typename TFieldImage,
@@ -562,7 +575,7 @@ DGtal::MultiPhaseField2< TLabelImage, TFieldImage, DGtal::ApproximatedMultiImage
 ::selfDisplay ( std::ostream & out ) const
 {
   out << "[MultiPhaseField2] ";
-  out << myFields.size() << " regions "; 
+  out << myFields.size() << " regions ";
 }
 
 template <
@@ -590,27 +603,27 @@ DGtal::MultiPhaseField2< TLabelImage, TFieldImage, DGtal::ApproximatedMultiImage
 {
 
   Domain d = Domain( myLabelImage.domain().lowerBound(), myLabelImage.domain().upperBound() );
-  typename Domain::ConstIterator cIt = d.begin(); 
-  typename Domain::ConstIterator cItBegin = d.begin(); 
-  typename Domain::ConstIterator cItEnd = d.end(); 
+  typename Domain::ConstIterator cIt = d.begin();
+  typename Domain::ConstIterator cItBegin = d.begin();
+  typename Domain::ConstIterator cItEnd = d.end();
 
   //temporary buffers
-  typedef ImageContainerBySTLVector<Domain, DGtal::int32_t> Image; 
+  typedef ImageContainerBySTLVector<Domain, DGtal::int32_t> Image;
   Image copy1( d );
   for (cIt = cItBegin; cIt != cItEnd; ++cIt)
-    { 
+    {
       if ( myLabelImage( *cIt ) == aLabel )
-	copy1.setValue( *cIt, 0 ); 
+	copy1.setValue( *cIt, 0 );
       else
-	copy1.setValue( *cIt, 1 ); 
+	copy1.setValue( *cIt, 1 );
     }
-  Image copy2( d );  
+  Image copy2( d );
   for (cIt = cItBegin; cIt != cItEnd; ++cIt)
-    { 
+    {
       if ( myLabelImage( *cIt ) != aLabel )
-	copy2.setValue( *cIt, 0 ); 
+	copy2.setValue( *cIt, 0 );
       else
-	copy2.setValue( *cIt, 1 ); 
+	copy2.setValue( *cIt, 1 );
     }
 
   // Distance transformation
@@ -619,40 +632,40 @@ DGtal::MultiPhaseField2< TLabelImage, TFieldImage, DGtal::ApproximatedMultiImage
   //    DT dt;
   //    typename DT::OutputImage dtImage = dt.compute ( copy1 );
   //    typename DT::OutputImage rDtImage = dt.compute ( copy2 );
-  // 
+  //
   // I suppose that 2 means L2Metric (with the correct Z#i-namespace in scope),
   //    and that 0 value is used as threshold for the predicate.
   typedef typename DGtal::functors::SimpleThresholdForegroundPredicate<Image> PointPredicate;
   typedef typename DGtal::DistanceTransformation<Space, PointPredicate, L2Metric> DT;
-    
+
   PointPredicate copy1Predicate( copy1, 0 );
   PointPredicate copy2Predicate( copy2, 0 );
 
   DT  dtImage( copy1.domain(), copy1Predicate, l2Metric );
   DT rDtImage( copy2.domain(), copy2Predicate, l2Metric );
-  
-  //deduce the signed distance function 
+
+  //deduce the signed distance function
   for (cIt = cItBegin; cIt != cItEnd; ++cIt)
     { //for each domain point
 
       Point p( *cIt ); //point p
       double dist = 0; //signed distance
       if ( dtImage( p ) == 0 )
-	{
-	  if ( rDtImage( p ) == 0 )
-	    ASSERT( false && "Err init with DT in DGtal::MultiPhaseField2<TLabelImage, TFieldImage, TEvolver>::getSignedDistance" ); 
-	  else
-      {
-	      //dist = std::sqrt( (double) rDtImage( p ) ) - 0.5;  
-	      dist = rDtImage( p ) - 0.5;  
-      }
-	}
+        {
+          if ( rDtImage( p ) == 0 )
+            ASSERT( false && "Err init with DT in DGtal::MultiPhaseField2<TLabelImage, TFieldImage, TEvolver>::getSignedDistance" );
+          else
+            {
+              //dist = std::sqrt( (double) rDtImage( p ) ) - 0.5;
+              dist = rDtImage( p ) - 0.5;
+            }
+        }
       else
-	{
-	  //dist = - ( std::sqrt( (double) dtImage( p ) ) - 0.5 );  
-	  dist = - ( dtImage( p ) - 0.5 );  
-	}
-      aImage.setValue(p, dist); /// \todo Periodicity !!!  
+        {
+          //dist = - ( std::sqrt( (double) dtImage( p ) ) - 0.5 );
+          dist = - ( dtImage( p ) - 0.5 );
+        }
+      aImage.setValue(p, dist); /// \todo Periodicity !!!
     }
 }
 
@@ -682,7 +695,7 @@ template <
   typename TDomain, typename TContainer, typename TApproximation, typename TBoundingBox
 >
 inline
-typename DGtal::MultiPhaseField2< TLabelImage, TFieldImage, DGtal::ApproximatedMultiImage<TDomain, TContainer, TApproximation, TBoundingBox> >::FieldImage 
+typename DGtal::MultiPhaseField2< TLabelImage, TFieldImage, DGtal::ApproximatedMultiImage<TDomain, TContainer, TApproximation, TBoundingBox> >::FieldImage
 DGtal::MultiPhaseField2< TLabelImage, TFieldImage, DGtal::ApproximatedMultiImage<TDomain, TContainer, TApproximation, TBoundingBox> >
 ::getPhase( size_t i ) const
 {
@@ -703,7 +716,7 @@ DGtal::MultiPhaseField2< TLabelImage, TFieldImage, DGtal::ApproximatedMultiImage
 {
   std::vector<Value> perimeters( getNumPhase(), 0 );
   std::vector<Value> tmp( getNumPhase() );
-  
+
   auto const& domain = myFields.domain();
   for ( auto const& point : domain )
     {
@@ -749,8 +762,8 @@ template <
 >
 inline
 std::ostream&
-DGtal::operator<< ( std::ostream & out, 
-		    DGtal::MultiPhaseField2< TLabelImage, TFieldImage, DGtal::ApproximatedMultiImage<TDomain, TContainer, TApproximation, TBoundingBox> > const& object )
+DGtal::operator<< ( std::ostream & out,
+      DGtal::MultiPhaseField2< TLabelImage, TFieldImage, DGtal::ApproximatedMultiImage<TDomain, TContainer, TApproximation, TBoundingBox> > const& object )
 {
   object.selfDisplay( out );
   return out;

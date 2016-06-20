@@ -766,24 +766,8 @@ int main(int argc, char** argv)
 
               trace.endBlock();
 
-              if ( label_cnt == 0 ) 
-                {
-                  if ( dimension == 3)
-                    {
-                      std::cout << "Evolver command line:" << std::endl;
-                      std::cout << "extractCells" << std::setprecision(10)
-                                << " -d " << labelImage->extent()[0]
-                                << " -d " << labelImage->extent()[1]
-                                << " -d " << labelImage->extent()[2]
-                                << " -S " << evolver.myRealExtent[0]
-                                << " -S " << evolver.myRealExtent[2]
-                                << " -S " << evolver.myRealExtent[3]
-                                << " -l " << ( s.str() + ".lab.raw" )
-                                << " -v no -e kelvin_result"
-                                << std::endl;
-                    }
-                  break;
-                }
+              if ( label_cnt == 0 )
+                break;
 
             }
 
@@ -805,6 +789,21 @@ int main(int argc, char** argv)
         }
 
       DGtal::trace.endBlock();
+
+      if ( dimension == 3)
+        {
+          std::cout << "Evolver command line:" << std::endl;
+          std::cout << "extractCells" << std::setprecision(20)
+            << " -d " << labelImage->extent()[0]
+            << " -d " << labelImage->extent()[1]
+            << " -d " << labelImage->extent()[2]
+            << " -S " << evolver.myRealExtent[0]
+            << " -S " << evolver.myRealExtent[1]
+            << " -S " << evolver.myRealExtent[2]
+            << " -l " << ( s.str() + ".lab.raw" )
+            << " -v no -e kelvin_result"
+            << std::endl;
+        }
 
 #if DIMENSION == 3
       // Interactive display after the evolution
