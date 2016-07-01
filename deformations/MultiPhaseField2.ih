@@ -200,11 +200,11 @@ DGtal::MultiPhaseField2< TLabelImage, TFieldImage, DGtal::ApproximatedMultiImage
 
       // Copy
       auto spatial_image = fft.getSpatialImage();
-      std::copy( bb_field.cbegin(), bb_field.cend(), spatial_image.begin() );
+      //std::copy( bb_field.cbegin(), bb_field.cend(), spatial_image.begin() );
 
-      //auto const eps = myEpsilon;
-      //std::transform( bb_field.cbegin(), bb_field.cend(), spatial_image.begin(),
-      //                [alpha, eps] ( real v ) { return ( v * (v-1) * (2*v-1) - alpha*v ) / std::pow(eps, 2); } );
+      auto const eps = myEpsilon;
+      std::transform( bb_field.cbegin(), bb_field.cend(), spatial_image.begin(),
+                      [alpha, eps] ( real v ) { return - ( v * (v-1) * (2*v-1) - alpha*v ) / std::pow(eps, 2); } );
 
 
       // Forward transformation
@@ -243,8 +243,8 @@ DGtal::MultiPhaseField2< TLabelImage, TFieldImage, DGtal::ApproximatedMultiImage
               const auto pt = fft.calcScaledFreqCoords( it.getPoint() );
               const auto norm2 = pt.dot( pt );
 
-              const double c = std::exp( -4*M_PI*M_PI*aT*norm2 );
-              //const double c = 1. / ( 4*M_PI*M_PI*norm2 + alpha/(myEpsilon*myEpsilon) );
+              //const double c = std::exp( -4*M_PI*M_PI*aT*norm2 );
+              const double c = 1. / ( 4*M_PI*M_PI*norm2 + alpha/(myEpsilon*myEpsilon) );
               *it *= c;
             }
 
@@ -257,9 +257,10 @@ DGtal::MultiPhaseField2< TLabelImage, TFieldImage, DGtal::ApproximatedMultiImage
       // Store the result
       itrace.beginStep("Write");
       const size_t n = fft.getSpatialDomain().size();
-      //std::transform( spatial_image.cbegin(), spatial_image.cend(), bb_field.begin(), [n] (real v) { return v/n; } );
+      std::transform( spatial_image.cbegin(), spatial_image.cend(), bb_field.begin(), [n] (real v) { return v/n; } );
 
       // Reaction while saving result
+      /*
       const real dummy = aT / (myEpsilon * myEpsilon);
       std::transform( spatial_image.cbegin(), spatial_image.cend(),
                       bb_field.begin(),
@@ -269,6 +270,7 @@ DGtal::MultiPhaseField2< TLabelImage, TFieldImage, DGtal::ApproximatedMultiImage
                           return u - dummy * u * (u-1.) * (2*u-1.);
                         }
       );
+      */
 
       itrace.endBlock();
     }
