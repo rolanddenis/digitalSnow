@@ -66,7 +66,7 @@ inline
 DGtal::MultiPhaseField2< TLabelImage, TFieldImage, DGtal::ApproximatedMultiImage<TDomain, TContainer, TApproximation, TBoundingBox> >
 ::MultiPhaseField2(LabelImage& aI, typename TFieldImage::Value epsilon, bool calcDistance )
   : myLabelImage( aI ),
-    myFields{ myLabelImage.domain(), TApproximation{1e-8} },
+    myFields{ myLabelImage.domain(), TApproximation{1e-4} },
     myEpsilon{ epsilon }
 {
 
@@ -145,8 +145,8 @@ DGtal::MultiPhaseField2< TLabelImage, TFieldImage, DGtal::ApproximatedMultiImage
 
   // Initialize FFTW <- has nothing to do here ... just for dev
   if ( fftw_init_threads() == 0 ) std::cout << "!!! Parallel FFTW initialization failed !!!" << std::endl;
-  fftw_plan_with_nthreads( std::thread::hardware_concurrency() );
-  //fftw_plan_with_nthreads(2);
+  //fftw_plan_with_nthreads( std::thread::hardware_concurrency() );
+  fftw_plan_with_nthreads(2);
 
   trace.beginBlock("Statistics");
   trace.info() << myFields.getInfos() << std::endl;

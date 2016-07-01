@@ -84,7 +84,7 @@ int main(int argc, char** argv)
 
 #if DIMENSION == 3
   // QApplication initialization with command-line parameters
-  QApplication application(argc, argv);
+  //QApplication application(argc, argv);
 #endif
 
   // Default options
@@ -643,7 +643,7 @@ int main(int argc, char** argv)
       // ApproximatedMultiImage
       using real = double;
 
-      using LabelledMap = DGtal::LabelledMap<real, 64, long unsigned int, 4, 11>;
+      using LabelledMap = DGtal::LabelledMap<real, 128, long unsigned int, 4, 4 >;
       //using LabelledMap = DGtal::BigLabelledMap<real, (1ul<<7)-1, 2, 10>;
 
       using Approximation = DGtal::approximations::NegativeTolValueApproximation<real>;
@@ -735,14 +735,16 @@ int main(int argc, char** argv)
 
               // VTK export
               VTKWriter<Domain> vtk(s.str(), labelImage->domain());
+              /*
               for (size_t j = 0; j < evolver.getNumPhase(); ++j)
                 {
                   stringstream s_phase;
                   s_phase << "phi" << setfill('0') << std::setw(2) << j;
                   vtk << s_phase.str() << evolver.getPhase(j);
                 }
+              */
               vtk << "label" << *labelImage;
-              vtk << "implicit" << implicit;
+              //vtk << "implicit" << implicit;
               vtk.close();
 
               // Volume of each phase
@@ -758,15 +760,18 @@ int main(int argc, char** argv)
               evolver.updateDomainSize();
               std::cout << "myRealExtent = " << evolver.myRealExtent << std::endl;
               for ( Dimension j = 0; j < dimension; ++j )
-                if ( std::isnan( evolver.myRealExtent[j] ) )
-                  {
-                    std::cerr << "Error: invalid domain size !!!" << std::endl;
-                    return 1;
-                  }
+                {
+                  const auto re = evolver.myRealExtent[j];
+                  if ( std::isnan( re ) || re <= 0.2 || re >= 5.0 )
+                    {
+                      std::cerr << "Error: invalid domain size !!!" << std::endl;
+                      return 1;
+                    }
+                }
 
               trace.endBlock();
 
-              if ( label_cnt == 0 )
+              if ( label_cnt <= 0.0001 * labelImage->domain().size() ) 
                 break;
 
             }
@@ -789,10 +794,10 @@ int main(int argc, char** argv)
         }
 
       DGtal::trace.endBlock();
-
+      
       if ( dimension == 3)
         {
-          std::cout << "Evolver command line:" << std::endl;
+          std::cout << "Command line to extract cells:" << std::endl;
           std::cout << "extractCells" << std::setprecision(20)
             << " -d " << labelImage->extent()[0]
             << " -d " << labelImage->extent()[1]
@@ -800,8 +805,8 @@ int main(int argc, char** argv)
             << " -S " << evolver.myRealExtent[0]
             << " -S " << evolver.myRealExtent[1]
             << " -S " << evolver.myRealExtent[2]
-            << " -l " << ( s.str() + ".lab.raw" )
-            << " -v no -e kelvin_result"
+            //<< " -l " << ( s.str() + ".lab.raw" )
+            //<< " -v no"
             << std::endl;
         }
 
