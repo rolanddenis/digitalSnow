@@ -454,18 +454,21 @@ DGtal::MultiPhaseField2< TLabelImage, TFieldImage, DGtal::ApproximatedMultiImage
   itrace.beginStep("LabelledMap");
   const auto fields_info = myFields.getInfos();
 
+  /*
   itrace.beginStep("Perimeters");
   const auto perimeters = getPerimeters();
   itrace.endBlock();
+  */
 
   std::cout << fields_info;
 
+  /*
   std::cout << std::setprecision(5);
 
   for ( std::size_t i = 0; i < perimeters.size(); ++i )
     std::cout << "P" << i << "=" << perimeters[i] << " ";
   std::cout << std::endl;
-
+  */
 }
 
 template <
