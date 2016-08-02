@@ -67,10 +67,10 @@ namespace DGtal
   // template class MultiPhaseField2
   /**
    * Description of template class 'MultiPhaseField2' <p>
-   * \brief Aim: This class is a way of deforming an image of labels. 
-   * Each region (ie. set of points having a same label) is viewed as 
-   * the set of points having a value greater than 0.5 for a given phase field. 
-   * Each region is evolved through its phase field. 
+   * \brief Aim: This class is a way of deforming an image of labels.
+   * Each region (ie. set of points having a same label) is viewed as
+   * the set of points having a value greater than 0.5 for a given phase field.
+   * Each region is evolved through its phase field.
    *
    * @tparam TLabelImage a model of CImage (storing labels)
    * @tparam TFieldImage a model of CImage (storing phase field values)
@@ -89,8 +89,8 @@ namespace DGtal
 
     // ----------------------- Types check -----------------------
 
-    BOOST_CONCEPT_ASSERT(( concepts::CImage<TLabelImage> )); 
-    BOOST_CONCEPT_ASSERT(( concepts::CImage<TFieldImage> )); 
+    BOOST_CONCEPT_ASSERT(( concepts::CImage<TLabelImage> ));
+    BOOST_CONCEPT_ASSERT(( concepts::CImage<TFieldImage> ));
     BOOST_STATIC_ASSERT
     (( concepts::ConceptUtils::SameType< typename TLabelImage::Point,
        typename TFieldImage::Point>::value ));
@@ -121,24 +121,24 @@ namespace DGtal
     /**
      * Reference on the image of labels
      */
-    LabelImage& myLabelImage; 
+    LabelImage& myLabelImage;
 
 
     // ------------------------- Data --------------------------------
-   
+
     /** Container of the fields
      */
     MultiImage myFields;
-    
+
     /**
      * List of labels
      */
-    std::vector<Label> myLabels; 
+    std::vector<Label> myLabels;
 
     //! Initial volumes
     std::vector<Value> myInitVolume;
 
-    //! Epsilon 
+    //! Epsilon
     Value myEpsilon;
 
   public:
@@ -163,10 +163,10 @@ namespace DGtal
      * Deform the image of labels during @a aT
      *
      * @param aT time step
-     * @return time spent during the deformation 
-     * (equal to aT). 
+     * @return time spent during the deformation
+     * (equal to aT).
      */
-    double update(const double& aT);
+    double update( double aT );
 
     /**
      * Updates image of labels and returns modification count.
@@ -195,7 +195,7 @@ namespace DGtal
     /**
      * Return the number of phases.
      */
-    size_t getNumPhase() const; 
+    size_t getNumPhase() const;
 
     /**
      * Return one of the phase fields
@@ -247,7 +247,7 @@ namespace DGtal
      * @param aLabel region id
      * @param aImage image to initialize
      */
-    void getSignedDistance(const Label& aLabel, FieldImage& aImage) const; 
+    void getSignedDistance(const Label& aLabel, FieldImage& aImage) const;
 
   }; // end of class MultiPhaseField2
 
@@ -264,7 +264,7 @@ namespace DGtal
     typename TDomain, typename TContainer, typename TApproximation, typename TBoundingBox
   >
   std::ostream&
-  operator<< ( std::ostream & out, 
+  operator<< ( std::ostream & out,
 		    DGtal::MultiPhaseField2< TLabelImage, TFieldImage, DGtal::ApproximatedMultiImage<TDomain, TContainer, TApproximation, TBoundingBox> > const& object );
 
 

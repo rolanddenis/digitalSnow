@@ -66,21 +66,23 @@ inline
 DGtal::MultiPhaseField2< TLabelImage, TFieldImage, DGtal::ApproximatedMultiImage<TDomain, TContainer, TApproximation, TBoundingBox> >
 ::MultiPhaseField2(LabelImage& aI, typename TFieldImage::Value epsilon, bool calcDistance )
   : myLabelImage( aI ),
-    myFields{ myLabelImage.domain(), TApproximation{1e-4} },
+    myFields{ myLabelImage.domain(), TApproximation{1e-8} },
     myEpsilon{ epsilon }
 {
 
   // Domain
   Domain domain = myFields.domain();
 
-  // Retrieve labels
-  std::set<Label> labels;
+  // Retrieve labels and calculates volume.
+  std::map<Label, Value> labels;
   for ( auto const& label : myLabelImage )
-    labels.insert( label );
+    ++labels[ label ];
 
   // Store labels
-  myLabels.insert(myLabels.end(), labels.cbegin(), labels.cend() );
+  //myLabels.insert(myLabels.end(), labels.cbegin(), labels.cend() );
   // TODO: check number of label
+  for ( auto const & label : labels )
+    myLabels.push_back( label.first );
 
   // Initialize phase fields
   if ( calcDistance )
@@ -89,7 +91,7 @@ DGtal::MultiPhaseField2< TLabelImage, TFieldImage, DGtal::ApproximatedMultiImage
       for ( std::size_t i = 1; i < myLabels.size(); ++i )
         {
           std::ostringstream dummy{};
-          dummy << "Label " << myLabels[i];
+          dummy << "Distance to label " << static_cast<unsigned int>(myLabels[i]);
           itrace.beginBlock( dummy.str() );
 
           /// new phase field
@@ -107,11 +109,13 @@ DGtal::MultiPhaseField2< TLabelImage, TFieldImage, DGtal::ApproximatedMultiImage
 
       // Build the air field (#0)
       // NB : maybe better if we rescale all fields ?
-      itrace.beginBlock("Label 0");
+      itrace.beginBlock("Distance to label 0");
       for ( auto const& point : domain )
         {
           typename TFieldImage::Value sum = 0;
-          for ( auto v : myFields(point) )  sum += v.second;
+          for ( auto v : myFields(point) )
+            sum += v.second;
+
           myFields.setValue( point, 0, 1 - sum );
         }
       itrace.endBlock();
@@ -139,17 +143,18 @@ DGtal::MultiPhaseField2< TLabelImage, TFieldImage, DGtal::ApproximatedMultiImage
         myInitVolume[v.first] += v.second;
     }
   */
-  std::fill( myInitVolume.begin(), myInitVolume.end(), static_cast<Value>(domain.size()) / myLabels.size() );
+  for ( std::size_t i = 0; i < myInitVolume.size(); ++i )
+    myInitVolume[i] = labels[i];
 
   itrace.endBlock();
+  trace.info() << std::endl;
 
   // Initialize FFTW <- has nothing to do here ... just for dev
   if ( fftw_init_threads() == 0 ) std::cout << "!!! Parallel FFTW initialization failed !!!" << std::endl;
-  //fftw_plan_with_nthreads( std::thread::hardware_concurrency() );
-  fftw_plan_with_nthreads(2);
+  fftw_plan_with_nthreads( std::thread::hardware_concurrency() );
 
   trace.beginBlock("Statistics");
-  trace.info() << myFields.getInfos() << std::endl;
+  trace.info() << myFields.getInfos();
   trace.endBlock();
 }
 
@@ -172,14 +177,16 @@ template <
 inline
 double
 DGtal::MultiPhaseField2< TLabelImage, TFieldImage, DGtal::ApproximatedMultiImage<TDomain, TContainer, TApproximation, TBoundingBox> >
-::update(const double& aT)
+::update( double aT )
 {
   using std::size_t;
   using Point = typename TFieldImage::Point;
   using real = typename TFieldImage::Value;
 
-  const real alpha = 1;
   Domain domain = myFields.domain();
+
+  // Fix time step to enforce stability.
+  aT = std::min( myEpsilon*myEpsilon, aT );
 
   /////////////////////////////////////////////////////////////////////////////
   // Diffusion
@@ -190,22 +197,13 @@ DGtal::MultiPhaseField2< TLabelImage, TFieldImage, DGtal::ApproximatedMultiImage
       itrace.beginBlock("Diffusion");
 
       itrace.beginStep("Read");
-      //auto bb_field = myFields.getBBImage(i, Point::diagonal(10)); // Bounding box & periodicity ?!!!
       auto bb_field = myFields[i];
-
-      //FFT fft(bb_field.domain());
-      FFT fft( bb_field.domain(), RealPoint::zero, myRealExtent );
-
-      //auto spatial_data = fft.getSpatialStorage();
+      //FFT fft( bb_field.domain(), RealPoint::zero, myRealExtent );
+      FFT fft( bb_field.domain() );
 
       // Copy
       auto spatial_image = fft.getSpatialImage();
-      //std::copy( bb_field.cbegin(), bb_field.cend(), spatial_image.begin() );
-
-      auto const eps = myEpsilon;
-      std::transform( bb_field.cbegin(), bb_field.cend(), spatial_image.begin(),
-                      [alpha, eps] ( real v ) { return - ( v * (v-1) * (2*v-1) - alpha*v ) / std::pow(eps, 2); } );
-
+      std::copy( bb_field.cbegin(), bb_field.cend(), spatial_image.begin() );
 
       // Forward transformation
       itrace.beginStep("fftw");
@@ -243,8 +241,7 @@ DGtal::MultiPhaseField2< TLabelImage, TFieldImage, DGtal::ApproximatedMultiImage
               const auto pt = fft.calcScaledFreqCoords( it.getPoint() );
               const auto norm2 = pt.dot( pt );
 
-              //const double c = std::exp( -4*M_PI*M_PI*aT*norm2 );
-              const double c = 1. / ( 4*M_PI*M_PI*norm2 + alpha/(myEpsilon*myEpsilon) );
+              const double c = std::exp( -4*M_PI*M_PI*aT*norm2 );
               *it *= c;
             }
 
@@ -260,7 +257,6 @@ DGtal::MultiPhaseField2< TLabelImage, TFieldImage, DGtal::ApproximatedMultiImage
       std::transform( spatial_image.cbegin(), spatial_image.cend(), bb_field.begin(), [n] (real v) { return v/n; } );
 
       // Reaction while saving result
-      /*
       const real dummy = aT / (myEpsilon * myEpsilon);
       std::transform( spatial_image.cbegin(), spatial_image.cend(),
                       bb_field.begin(),
@@ -270,34 +266,11 @@ DGtal::MultiPhaseField2< TLabelImage, TFieldImage, DGtal::ApproximatedMultiImage
                           return u - dummy * u * (u-1.) * (2*u-1.);
                         }
       );
-      */
 
       itrace.endBlock();
     }
   trace.endBlock();
   // End diffusion
-
-
-  /*
-  /////////////////////////////////////////////////////////////////////////////
-  // Reaction
-  itrace.beginBlock("Reaction");
-  const real dummy = aT / (myEpsilon * myEpsilon);
-  for ( auto const& point : domain )
-    {
-      const size_t id = myFields.linearized(point);
-      // Need for a mutable iterator over values ...
-      for ( size_t i = 0; i < myLabels.size(); ++i )
-        {
-          const real u = myFields.getValueByIndex(id, i);
-          if ( u != 0 )
-            {
-              myFields.setValue(point, i, u - dummy * u * (u-1) * (2*u-1), id);
-            }
-        }
-    }
-  itrace.endBlock();
-  */
 
   /////////////////////////////////////////////////////////////////////////////
   // Projection
@@ -435,71 +408,6 @@ template <
   typename TDomain, typename TContainer, typename TApproximation, typename TBoundingBox
 >
 inline
-void
-DGtal::MultiPhaseField2< TLabelImage, TFieldImage, DGtal::ApproximatedMultiImage<TDomain, TContainer, TApproximation, TBoundingBox> >
-::updateDomainSize()
-{
-  using std::size_t;
-  using Point = typename TFieldImage::Point;
-  using real = typename TFieldImage::Value;
-
-  std::vector<real> gradient( Point::dimension, 0 );
-
-  Domain domain = myFields.domain();
-
-  trace.beginBlock("Domain optimization");
-  using FFT  =  DGtal::RealFFT<Domain, real>;
-  for ( size_t i = 0; i < myLabels.size(); ++i )
-    {
-      itrace.beginBlock("Diffusion");
-
-      itrace.beginStep("Read");
-      auto bb_field = myFields[i];
-      FFT fft( bb_field.domain(), RealPoint::zero, RealPoint::diagonal(1.) );
-
-      auto spatial_image = fft.getSpatialImage();
-      std::copy( bb_field.cbegin(), bb_field.cend(), spatial_image.begin() );
-
-      itrace.beginStep("fftw");
-      fft.forwardFFT( FFTW_MEASURE );
-
-      itrace.beginStep("gradient");
-      const auto curr_freq_image = fft.getFreqImage();
-      for ( auto const& pt : fft.getSpatialDomain() )
-        {
-          const auto scaled_pt = fft.calcScaledFreqCoords( pt );
-          bool dummy;
-          const auto freq_pt   = fft.calcNativeFreqCoords( scaled_pt, dummy );
-          const auto value = curr_freq_image(freq_pt);
-          for ( typename Point::Dimension j = 0; j < Point::dimension; ++j )
-            gradient[j] += std::norm( value * static_cast<real>(scaled_pt[j]) );
-       }
-
-      itrace.endBlock();
-    }
-
-  real prod_L = 1.;
-  for ( auto & g : gradient )
-    prod_L *= g;
-  prod_L = std::pow( prod_L, 1. / Point::dimension );
-
-  real prod_Extent = 1.;
-  for ( typename Point::Dimension i = 0; i < Point::dimension - 1; ++i )
-    {
-      myRealExtent[ i ] = std::min( std::max( std::sqrt( gradient[i]/prod_L ), 0.1 ), 10. );
-      prod_Extent *= myRealExtent[ i ];
-    }
-  myRealExtent[ Point::dimension-1 ] = 1. / prod_Extent;
-
-  trace.endBlock();
-}
-
-template <
-  typename TLabelImage,
-  typename TFieldImage,
-  typename TDomain, typename TContainer, typename TApproximation, typename TBoundingBox
->
-inline
 std::size_t
 DGtal::MultiPhaseField2< TLabelImage, TFieldImage, DGtal::ApproximatedMultiImage<TDomain, TContainer, TApproximation, TBoundingBox> >
 ::updateLabels()
@@ -550,7 +458,7 @@ DGtal::MultiPhaseField2< TLabelImage, TFieldImage, DGtal::ApproximatedMultiImage
   const auto perimeters = getPerimeters();
   itrace.endBlock();
 
-  std::cout << fields_info << std::endl;
+  std::cout << fields_info;
 
   std::cout << std::setprecision(5);
 
@@ -558,12 +466,6 @@ DGtal::MultiPhaseField2< TLabelImage, TFieldImage, DGtal::ApproximatedMultiImage
     std::cout << "P" << i << "=" << perimeters[i] << " ";
   std::cout << std::endl;
 
-  // Morgan'cost
-  Value perimeter_sum = 0;
-  for ( auto value : perimeters ) perimeter_sum += value;
-  perimeter_sum /= 2 * std::pow( myFields.domain().size(), static_cast<double>(Domain::dimension-1)/Domain::dimension ) ;
-  const Value morgan_cost = perimeter_sum / std::pow( perimeters.size(), 1./3. );
-  std::cout << "Morgan's cost = " << morgan_cost << std::endl;
 }
 
 template <
