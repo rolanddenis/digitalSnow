@@ -254,7 +254,7 @@ DGtal::MultiPhaseField2< TLabelImage, TFieldImage, DGtal::ApproximatedMultiImage
       // Store the result
       itrace.beginStep("Write");
       const size_t n = fft.getSpatialDomain().size();
-      std::transform( spatial_image.cbegin(), spatial_image.cend(), bb_field.begin(), [n] (real v) { return v/n; } );
+      //std::transform( spatial_image.cbegin(), spatial_image.cend(), bb_field.begin(), [n] (real v) { return v/n; } );
 
       // Reaction while saving result
       const real dummy = aT / (myEpsilon * myEpsilon);

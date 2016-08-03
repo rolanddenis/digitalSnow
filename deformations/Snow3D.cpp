@@ -258,6 +258,7 @@ int main(int argc, char** argv)
   trace.beginBlock( "Deformation (massive multi phase field)" );
 
   // Initial state export
+  evolver.updateLabels();
   std::stringstream s;
   s << outputFileName << setfill('0') << std::setw(4) << 0;
   writePartition( labelImage, s.str(), outputFormat );
