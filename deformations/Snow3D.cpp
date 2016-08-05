@@ -277,7 +277,8 @@ int main(int argc, char** argv)
   using real = double;
   using LabelledMap = DGtal::LabelledMap<real, 64, long unsigned int, 1, 2 >;
   using Approximation = DGtal::approximations::NegativeTolValueApproximation<real>;
-  using BoundingBox = AxisAlignedBoundingBox< Domain, unsigned int>;
+  //using BoundingBox = AxisAlignedBoundingBox< Domain, unsigned int>;
+  using BoundingBox = NoBoundingBox< Domain >;
   using ApproximatedMultiImage = DGtal::ApproximatedMultiImage<Domain, LabelledMap, Approximation, BoundingBox>;
 
   MultiPhaseField2< LabelImage, FieldImage, ApproximatedMultiImage > evolver(labelImage, epsilon, !doNotCalcDist);
