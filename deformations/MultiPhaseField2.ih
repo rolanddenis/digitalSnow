@@ -257,7 +257,33 @@ DGtal::MultiPhaseField2< TLabelImage, TFieldImage, DGtal::ApproximatedMultiImage
       // Store the result
       itrace.beginStep("Write");
       const size_t n = fft.getSpatialDomain().size();
+
+#if 0
       std::transform( spatial_image.cbegin(), spatial_image.cend(), bb_field.begin(), [n] (real v) { return v/n; } );
+
+#else
+      auto const spatial_domain = fft.getSpatialDomain();
+
+      #pragma omp parallel
+      #pragma omp single nowait
+      for ( size_t pos = 0; pos < N_thread; ++pos )
+        {
+          auto const dim = TFieldImage::dimension;
+          auto pt_begin = spatial_domain.lowerBound();
+          auto pt_end = spatial_domain.upperBound();
+          pt_end[dim-1]   = pt_begin[dim-1] + ((pos+1)*extent[dim-1])/N_thread - 1;
+          pt_begin[dim-1] = pt_begin[dim-1] + (pos*extent[dim-1])/N_thread;
+
+          Domain curr_domain { pt_begin, pt_end };
+          auto curr_spatial_image = decltype(spatial_image)(spatial_image, curr_domain ); // Not very clean ...
+
+          #pragma omp task firstprivate(curr_spatial_image)
+          for ( auto it = curr_spatial_image.begin(), it_end = curr_spatial_image.end() ; it != it_end ; ++it )
+            {
+              bb_field.setValue( it.getPoint(), *it/n );
+            }
+        }
+#endif
 
       // Reaction while saving result
       /*
