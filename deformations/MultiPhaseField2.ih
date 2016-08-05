@@ -136,15 +136,15 @@ DGtal::MultiPhaseField2< TLabelImage, TFieldImage, DGtal::ApproximatedMultiImage
   // Calculating initial volume
   itrace.beginBlock("Initial volumes");
   myInitVolume.resize(myLabels.size(), 0);
-  /*
   for ( auto const& point : domain )
     {
       for ( auto v : myFields(point) )
         myInitVolume[v.first] += v.second;
     }
-  */
+  /*
   for ( std::size_t i = 0; i < myInitVolume.size(); ++i )
     myInitVolume[i] = labels[i];
+  */
 
   itrace.endBlock();
   trace.info() << std::endl;
@@ -520,17 +520,17 @@ DGtal::MultiPhaseField2< TLabelImage, TFieldImage, DGtal::ApproximatedMultiImage
   for (cIt = cItBegin; cIt != cItEnd; ++cIt)
     {
       if ( myLabelImage( *cIt ) == aLabel )
-	copy1.setValue( *cIt, 0 );
+        copy1.setValue( *cIt, 0 );
       else
-	copy1.setValue( *cIt, 1 );
+        copy1.setValue( *cIt, 1 );
     }
   Image copy2( d );
   for (cIt = cItBegin; cIt != cItEnd; ++cIt)
     {
       if ( myLabelImage( *cIt ) != aLabel )
-	copy2.setValue( *cIt, 0 );
+        copy2.setValue( *cIt, 0 );
       else
-	copy2.setValue( *cIt, 1 );
+        copy2.setValue( *cIt, 1 );
     }
 
   // Distance transformation
@@ -564,13 +564,13 @@ DGtal::MultiPhaseField2< TLabelImage, TFieldImage, DGtal::ApproximatedMultiImage
           else
             {
               //dist = std::sqrt( (double) rDtImage( p ) ) - 0.5;
-              dist = rDtImage( p ) - 0.5;
+              dist = - ( rDtImage( p ) - 0.5 );
             }
         }
       else
         {
           //dist = - ( std::sqrt( (double) dtImage( p ) ) - 0.5 );
-          dist = - ( dtImage( p ) - 0.5 );
+          dist = dtImage( p ) - 0.5;
         }
       aImage.setValue(p, dist); /// \todo Periodicity !!!
     }
