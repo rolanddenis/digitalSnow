@@ -648,7 +648,8 @@ int main(int argc, char** argv)
 
       using Approximation = DGtal::approximations::NegativeTolValueApproximation<real>;
       //using Approximation = DGtal::approximations::NoValueApproximation<real>;
-      using BoundingBox = AxisAlignedBoundingBox< Domain, unsigned int>;
+      //using BoundingBox = AxisAlignedBoundingBox< Domain, unsigned int>;
+      using BoundingBox = NoBoundingBox< Domain >;
       using ApproximatedMultiImage = DGtal::ApproximatedMultiImage<Domain, LabelledMap, Approximation, BoundingBox>;
 
       // Multi phase-field
