@@ -169,7 +169,7 @@ int main(int argc, char** argv)
 
   for ( auto const & fileFormat : outputFormat )
     {
-      if ( (fileFormat != "vol") && (fileFormat != "vtk") && (fileFormat != "raw") )
+      if ( (fileFormat != "vol") && (fileFormat != "vtk") && (fileFormat != "raw") && (fileFormat != "") )
         {
           trace.error() << "Output format is expected to be either <vol>, <raw> or <vtk>." << std::endl;
           return 1;
