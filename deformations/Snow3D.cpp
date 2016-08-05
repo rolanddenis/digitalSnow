@@ -56,6 +56,34 @@ namespace
 ///////////////////////////////////////////////////////////////////////////////
 template <
   typename TImage,
+  typename TFormatList,
+  typename TEvolver
+>
+void writePartition( TImage const & anImage, TEvolver const & anEvolver, std::string const & aFileName, TFormatList const & aFormatList )
+{
+  for ( auto const & fileFormat : aFormatList )
+    {
+      if      ( fileFormat == "vol" )
+        VolWriter< TImage >::exportVol( aFileName + ".vol", anImage );
+      else if ( fileFormat == "raw" )
+        RawWriter< TImage >::exportRaw8( aFileName + ".raw", anImage );
+      else if ( fileFormat == "vtk" )
+        {
+          VTKWriter< typename TImage::Domain > vtk( aFileName, anImage.domain() );
+          vtk << "label" << anImage;
+          for (size_t j = 0; j < anEvolver.getNumPhase(); ++j)
+            {
+              stringstream s_phase;
+              s_phase << "phi" << setfill('0') << std::setw(2) << j;
+              vtk << s_phase.str() << anEvolver.getPhase(j);
+            }
+
+        }
+    }
+}
+
+template <
+  typename TImage,
   typename TFormatList
 >
 void writePartition( TImage const & anImage, std::string const & aFileName, TFormatList const & aFormatList )
@@ -261,7 +289,7 @@ int main(int argc, char** argv)
   evolver.updateLabels();
   std::stringstream s;
   s << outputFileName << setfill('0') << std::setw(4) << 0;
-  writePartition( labelImage, s.str(), outputFormat );
+  writePartition( labelImage, evolver, s.str(), outputFormat );
 
   // Informations
   evolver.dispInfos();
@@ -294,7 +322,7 @@ int main(int argc, char** argv)
 
           std::stringstream s;
           s << outputFileName << setfill('0') << std::setw(4) << (i/displayStep);
-          writePartition( labelImage, s.str(), outputFormat );
+          writePartition( labelImage, evolver, s.str(), outputFormat );
 
           trace.endBlock();
 
