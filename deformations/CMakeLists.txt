@@ -17,15 +17,10 @@ LINK_DIRECTORIES(${DGTAL_LIBRARY_DIRS})
 
 #Inclusion de Boost
 include(FindBoost)
-find_package(Boost 1.49.0 COMPONENTS program_options timer filesystem system)
+find_package(Boost 1.49.0 COMPONENTS program_options filesystem system timer REQUIRED )
 message(STATUS "Found Boost: ${Boost_LIBRARIES} in ${Boost_LIBRARY_DIRS} and ${Boost_INCLUDE_DIRS} ")
 #message(STATUS "More precisely: ${Boost_PROGRAM_OPTIONS_LIBRARY} ")
-link_directories(${Boost_LIBRARY_DIRS})
 include_directories(${Boost_INCLUDE_DIRS})
-link_directories(${Boost_LIBRARY_DIRS})
-
-# Workaround for strange bug while trying to include boost_program_options
-SET(BOOST_LIBRARIES ${BOOST_LIBRARIES} boost_program_options boost_timer boost_filesystem boost_system)
 
 #fftw
 SET(FFTW fftw3 fftw3_threads m pthread)
@@ -34,4 +29,4 @@ LINK_DIRECTORIES(/usr/lib/)
 
 ##########################################
 ADD_EXECUTABLE(Snow3D Snow3D)
-TARGET_LINK_LIBRARIES(Snow3D ${DGTAL_LIBRARIES} ${BOOST_LIBRARIES} ${FFTW})
+TARGET_LINK_LIBRARIES(Snow3D ${DGTAL_LIBRARIES} ${Boost_LIBRARIES} ${FFTW} )
