@@ -370,8 +370,10 @@ class ApproximatedMultiImage< TDomain, DGtal::LabelledMap<TData, L, TWord, N, M>
       {
       public:
         Reference( Self& aMultiImage, Point aPoint, Label aLabel, Size anIndex )
-          : myMultiImage{ aMultiImage }, myPoint{ aPoint }, myLabel{ aLabel }, myIndex{ anIndex }
+          : myMultiImage( aMultiImage ), myPoint{ aPoint }, myLabel{ aLabel }, myIndex{ anIndex }
         {}
+        // myMultiImage( aMultiImage ) instead of myMultiImage{ aMultiImage } because of a bug
+        // in gcc < 4.9.0 : https://gcc.gnu.org/bugzilla/show_bug.cgi?id=50025
 
         Reference( Self& aMultiImage, Point aPoint, Label aLabel )
           : Reference{ aMultiImage, aPoint, aLabel, aMultiImage.linearized(aPoint) }
