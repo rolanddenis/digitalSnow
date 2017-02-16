@@ -32,6 +32,19 @@
 
 using namespace DGtal;
 
+/** Image interpolation on Kahlimsky cell, with possible use of the corresponding labels.
+ *
+ * @tparam  TKhalimsky  Type of the Khalimsky space (auto-deduced).
+ * @tparam  TRealImage  Value Image type (auto-deduced).
+ * @tparam  TLabelImage Label Image type (auto-deduced).
+ *
+ * @param   K           The Khalimsky space.
+ * @param   realImage   Image containing the implicit representation of the interface (distance).
+ * @param   labelImage  Image containing the label of each cell.
+ * @param   cell        The Khalimsky cell where to interpolate the implicit function.
+ *
+ * @return a pair of the interpolated value and the estimated label at the given cell.
+ */
 template <
   typename TKhalimsky,
   typename TRealImage,
