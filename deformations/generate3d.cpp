@@ -251,7 +251,7 @@ int main(int argc, char** argv)
   std::stringstream s; 
   s << outputFiles << ".vol";
   typedef GrayscaleMapCast<LabelImage::Value> ColorMap;
-  VolWriter<LabelImage,ColorMap>::exportVol( s.str(), labelImage, ColorMap(0, 255) );
+  VolWriter<LabelImage,ColorMap>::exportVol( s.str(), labelImage, true, ColorMap(0, 255) );
 
   return 1;
 }

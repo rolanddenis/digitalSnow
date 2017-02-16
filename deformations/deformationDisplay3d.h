@@ -291,7 +291,7 @@ bool writePartition(const TImage& img, string filename, string format)
     std::stringstream s; 
     s << filename << ".vol";
     typedef Cast<unsigned char> Fonctor; 
-    VolWriter<TImage, Fonctor>::exportVol( s.str(), img, Fonctor() );
+    VolWriter<TImage, Fonctor>::exportVol( s.str(), img );
 
     return true; 
 
