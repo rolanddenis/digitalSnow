@@ -161,7 +161,6 @@ int main ( int argc, char* argv[] )
     ("priority,p",  po::value< bool >( &calcPriority )->default_value( calcPriority ), "control if the priority is calculated (if a real image is given).")
     ("scale,s",     po::value< DGtal::uint32_t >(&priorityScale)->default_value(priorityScale), "Factor applied to the implicit data to get the cell priority.")
     ("label,l",     po::value< std::string >(), "raw (unsigned short int) label image. Used to add labels border and to better calculate priority.")
-    ("subSample",   po::value< std::size_t >(), "sub-sampling ratio applied just after loading the real and label images.")
     ("view,v", po::value< std::string >()->default_value( "Normal" ), "specifies if the surface is viewed as is (Normal) or if places close to singularities are highlighted (Singular), or if unsure places should not be displayed (Hide), or if no view is wanted (no)." )
     ("evolver,e",   po::value< std::string >(), "if set, the result is exported to Surface Evolver format with the given file name." )
   ;
@@ -250,49 +249,6 @@ int main ( int argc, char* argv[] )
       trace.beginBlock( "Reading label image." );
       const std::string labelImageName = vm["label"].as<std::string>();
       labelImage = new LabelImage( RawReader< LabelImage >::importRaw<Label>( labelImageName, extent ) );
-      trace.endBlock();
-      trace.info() << endl;
-    }
-
-  /////////////////////////////////////////////////////////////////////////////
-  // Sub-sampling
-  if ( vm.count("subSample") )
-    {
-      const auto ratio = static_cast<int>( vm["subSample"].as<std::size_t>() );
-
-      trace.beginBlock( "Sub-sampling with ratio " + std::to_string(ratio) );
-
-      const Domain subDomain( Point::diagonal(0), extent / ratio - Point::diagonal(1) );
-      RealImage*  realSubImage  = vm.count("implicit")  ? new RealImage( subDomain )  : nullptr;
-      LabelImage* labelSubImage = vm.count("label")     ? new LabelImage( subDomain ) : nullptr;
-
-      KSpace fullK;
-      fullK.init( domain.lowerBound(), domain.upperBound(), KSpace::PERIODIC );
-
-      // Using interpValue function to sub-sample at nearest cell.
-      for ( auto const& pt : subDomain )
-        {
-          if ( realSubImage != 0 )
-            {
-              const auto interp = interpValue( fullK,
-                                               realImage, labelImage,
-                                               fullK.uCell( 2*ratio*pt + pt.diagonal(ratio) ) );
-              realSubImage->setValue( pt, interp.first );
-              if ( labelSubImage != nullptr )
-                labelSubImage->setValue( pt, interp.second );
-            }
-          else
-            labelSubImage->setValue( pt, (*labelImage)( ratio*pt + pt.diagonal( (ratio-1)/2 ) ) );
-        }
-
-      // Updating images and domains.
-      delete realImage;
-      delete labelImage;
-      realImage   = realSubImage;
-      labelImage  = labelSubImage;
-      domain      = subDomain;
-      extent      /= ratio;
-
       trace.endBlock();
       trace.info() << endl;
     }
