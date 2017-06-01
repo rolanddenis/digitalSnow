@@ -1,0 +1,74 @@
+template <
+  typename TLabelImage,
+  typename TFieldImage,
+  typename TDomain, typename TContainer, typename TApproximation, typename TBoundingBox
+>
+inline
+double
+DGtal::MultiPhaseField2< TLabelImage, TFieldImage, DGtal::ApproximatedMultiImage<TDomain, TContainer, TApproximation, TBoundingBox> >
+::update(const double& aT)
+{
+  using std::size_t;
+  using Point = typename TFieldImage::Point;
+  using real = typename TFieldImage::Value;
+
+  const real alpha = 1;
+  Domain domain = myFields.domain();
+
+  /////////////////////////////////////////////////////////////////////////////
+  // Diffusion
+  trace.beginBlock("Diffusion");
+  for ( size_t i = 0; i < myLabels.size(); ++i )
+    {
+      itrace.beginBlock("Diffusion");
+
+      auto const eps = myEpsilon;
+
+      myFields[i] = ComponentWiseImageOperator(
+          [alpha, eps] ( ComponentWiseImageContext const & context )
+          {
+            const auto v = context.value;
+            return - ( v * (v-1) * (2*v-1) - alpha*v ) / std::pow(eps, 2);
+          },
+          WithValue(0.) == 0., WithValue(1.) == 0. 
+      )( myFields[i] );
+
+      myFields[i] = FourierSpaceImageOperator( 
+          [alpha, eps] ( FourierSpaceImageContext const & context )
+          {
+              const auto & pt   = context.scaledCoords;
+              const auto norm2  = pt.dot( pt );
+              return context.value / ( 4*M_PI*M_PI*norm2 + alpha/(eps*eps) );
+          }, FFTParameters().enableNormalization()
+      )( myFields[i] );
+
+
+
+
+
+#if 0
+      std::transform( spatial_image.cbegin(), spatial_image.cend(), bb_field.begin(), [n] (real v) { return v/n; } );
+
+#else
+      auto const spatial_domain = fft.getSpatialDomain();
+
+      #pragma omp parallel
+      #pragma omp single nowait
+      for ( size_t pos = 0; pos < N_thread; ++pos )
+        {
+          auto const dim = TFieldImage::dimension;
+          auto pt_begin = spatial_domain.lowerBound();
+          auto pt_end = spatial_domain.upperBound();
+          pt_end[dim-1]   = pt_begin[dim-1] + ((pos+1)*extent[dim-1])/N_thread - 1;
+          pt_begin[dim-1] = pt_begin[dim-1] + (pos*extent[dim-1])/N_thread;
+
+          Domain curr_domain { pt_begin, pt_end };
+          auto curr_spatial_image = decltype(spatial_image)(spatial_image, curr_domain ); // Not very clean ...
+
+          #pragma omp task firstprivate(curr_spatial_image)
+          for ( auto it = curr_spatial_image.begin(), it_end = curr_spatial_image.end() ; it != it_end ; ++it )
+            {
+              bb_field.setValue( it.getPoint(), *it/n );
+            }
+        }
+#endif
