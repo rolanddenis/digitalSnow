@@ -4,6 +4,9 @@
 #include <tuple>
 #include <cmath>
 
+#include <boost/mpl/fold.hpp>
+#include <boost/function_types/parameter_types.hpp>
+
 template < typename T, std::size_t I >
 struct TypeAlias
 {
@@ -68,6 +71,7 @@ makeLazyContext( AFunctor && a, BFunctor && b, CFunctor && c, DFunctor && d )
 }
 */
 
+/*
 template < typename T > struct FunctorTraitsImpl;
 
 template < typename Class, typename Ret, typename... Args >
@@ -86,12 +90,38 @@ struct FunctionTraitsImpl< Ret(Args...), true >
 {
   using Arguments = std::tuple< typename std::decay<Args>::type... >;
 };
+*/
 
+namespace {
+
+template < typename Sequence, typename T > struct add_to_tuple;
+template < typename T, typename... TCurrent >
+struct add_to_tuple< std::tuple<TCurrent...>, T >
+{
+    using type = std::tuple<TCurrent..., typename std::decay<T>::type>;
+};
+
+template < typename T, bool IsAFunction >
+struct FunctionTraitsImpl
+{
+    using Arguments = typename boost::mpl::fold<
+        typename boost::mpl::pop_front< boost::function_types::parameter_types<T> >::type,
+        std::tuple<>,
+        add_to_tuple<boost::mpl::_1, boost::mpl::_2>
+    >::type;
+};
+
+template < typename T >
+struct FunctionTraitsImpl<T, false>
+  : FunctionTraitsImpl< decltype(&T::operator()), true >
+{};
 
 template < typename T >
 struct FunctionTraits
   : FunctionTraitsImpl< T, std::is_function<T>::value >
 {};
+}
+
 
 template < typename Functor >
 struct Operator
@@ -128,7 +158,7 @@ int main( int argc, char* argv[] )
 {
   const double seed = std::stod( argv[1] );
   
-  auto const fn = makeOperator( [] ( ContextTraits::B const& , ContextTraits::A const& a ) mutable { return a(); } );
+  auto const fn = makeOperator( [] ( ContextTraits::B const& b, ContextTraits::A const& a, ContextTraits::D const& d ) mutable { return a()+b()+d().size(); } );
 
   std::cout << fn.getValue( seed ) << std::endl;
 
