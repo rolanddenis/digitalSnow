@@ -1,13 +1,17 @@
 #include "ImageOperator.h"
 
-template < typename TPoint, typename TValue >
+template < typename TDerived, typename TImage >
 struct ComponentWiseImageContext
 {
-  using Value = TValue;
-  using Point = TPoint;
+  using Derived = TDerived;
+  using Image   = TImage;
+  using Value   = typename Image::Value;
+  using Point   = typename Image::Point;
+  
+  Derived const& getDerived() const& { return *static_cast<Derived const*>(this); }
 
-  Point point;
-  Value value;
+  const Point point() const { return getDerived().point(); }
+  const Value value() const { return getDerived().value(); }
 };
 
 template < typename TOperatorStorage, typename TImage >
@@ -43,7 +47,7 @@ public:
   double getValue( typename Image::Point const& aPoint ) const
     {
       //return myOperator.applyOnImageContext( Context{ aPoint, myImage(aPoint) } );
-      return myOperator.applyOnImageContext( Context{ aPoint + Point::diagonal(static_cast<int>(std::sin(aPoint[0]))), myImage(aPoint) } );
+      return myOperator.applyOnImageContext( Context{ aPoint + Point::diagonal(static_cast<int>(std::tan(aPoint[0]))), myImage(aPoint) } );
       //return myOperator.myFunctor( myImage(aPoint) );
 
     }
@@ -76,17 +80,15 @@ public:
   using Functor = typename std::decay<FunctorStorage>::type;
   using Self    = ComponentWiseImageOperator<FunctorStorage>;
 
-  //template < typename TOperatorStorage, typename TImage >
-  //friend class ComponentWiseImageOperatorResult;
-
 private:
   FunctorStorage myFunctor;
 
 public:
-  ComponentWiseImageOperator( Functor const& aFunctor )
-    : myFunctor( aFunctor )
+  template < typename TFunctor2 >
+  ComponentWiseImageOperator( TFunctor2 && aFunctor, int )
+    : myFunctor( std::forward<TFunctor2>(aFunctor) )
     {}
- 
+
   template < typename TImage >
   typename ImageOperatorTraits<Self>::template LValueResult<TImage>
   applyOnImage ( TImage && anImage ) const&
@@ -110,16 +112,10 @@ public:
     }
 };
 
-template < typename TFunctor >
-ComponentWiseImageOperator< TFunctor const& >
-makeComponentWiseImageOperator ( TFunctor const& aFunctor )
-{
-  return { aFunctor };
-}
 
 template < typename TFunctor >
-ComponentWiseImageOperator< TFunctor const >
+ComponentWiseImageOperator< TFunctor >
 makeComponentWiseImageOperator ( TFunctor && aFunctor )
 {
-  return { std::forward<TFunctor>(aFunctor) };
+  return { std::forward<TFunctor>(aFunctor), 0 };
 }
