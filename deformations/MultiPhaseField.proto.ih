@@ -24,21 +24,24 @@ DGtal::MultiPhaseField2< TLabelImage, TFieldImage, DGtal::ApproximatedMultiImage
 
       auto const eps = myEpsilon;
 
+      using CWIContext = ComponentWiseImageContext<TFieldImage>;
       myFields[i] = ComponentWiseImageOperator(
-          [alpha, eps] ( ComponentWiseImageContext const & context )
+          [alpha, eps] ( CWIContext::Value const & value )
           {
-            const auto v = context.value;
+            const auto v = value();
             return - ( v * (v-1) * (2*v-1) - alpha*v ) / std::pow(eps, 2);
           },
-          WithValue(0.) == 0., WithValue(1.) == 0. 
+          WithConstraint( CWIContext::Value{0.} ) == 0.,
+          WithConstraint( CWIContext::Value{1.} ) == 0.,
       )( myFields[i] );
 
+      using FSIContext = FourierSpaceImageContext<TFieldImage>;
       myFields[i] = FourierSpaceImageOperator( 
-          [alpha, eps] ( FourierSpaceImageContext const & context )
+          [alpha, eps] ( FSIContext::Value const & value, FSIContext::ScaledCoords const& scaledCoords )
           {
-              const auto & pt   = context.scaledCoords;
+              const auto & pt   = scaledCoords();
               const auto norm2  = pt.dot( pt );
-              return context.value / ( 4*M_PI*M_PI*norm2 + alpha/(eps*eps) );
+              return value() / ( 4*M_PI*M_PI*norm2 + alpha/(eps*eps) );
           }, FFTParameters().enableNormalization()
       )( myFields[i] );
 
