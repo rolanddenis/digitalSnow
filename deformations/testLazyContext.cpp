@@ -153,14 +153,17 @@ makeOperator( Functor && aFunctor )
   return { std::forward<Functor>(aFunctor) };
 }
 
+double getValue1( double seed )
+{
+  auto const fn = makeOperator( [] ( ContextTraits::B const& b, ContextTraits::A const& a ) mutable { return a()+b(); } );
+  return fn.getValue( seed );
+}
 
 int main( int argc, char* argv[] )
 {
   const double seed = std::stod( argv[1] );
   
-  auto const fn = makeOperator( [] ( ContextTraits::B const& b, ContextTraits::A const& a, ContextTraits::D const& d ) mutable { return a()+b()+d().size(); } );
-
-  std::cout << fn.getValue( seed ) << std::endl;
+  std::cout << getValue1( seed ) << std::endl;
 
   return 0;
 }
