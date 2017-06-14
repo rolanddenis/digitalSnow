@@ -25,25 +25,27 @@ DGtal::MultiPhaseField2< TLabelImage, TFieldImage, DGtal::ApproximatedMultiImage
       auto const eps = myEpsilon;
 
       using CWIContext = ComponentWiseImageContext<TFieldImage>;
-      myFields[i] = ComponentWiseImageOperator(
-          [alpha, eps] ( CWIContext::Value const & value )
-          {
-            const auto v = value();
-            return - ( v * (v-1) * (2*v-1) - alpha*v ) / std::pow(eps, 2);
-          },
-          WithConstraint( CWIContext::Value{0.} ) == 0.,
-          WithConstraint( CWIContext::Value{1.} ) == 0.,
-      )( myFields[i] );
-
       using FSIContext = FourierSpaceImageContext<TFieldImage>;
-      myFields[i] = FourierSpaceImageOperator( 
-          [alpha, eps] ( FSIContext::Value const & value, FSIContext::ScaledCoords const& scaledCoords )
-          {
-              const auto & pt   = scaledCoords();
-              const auto norm2  = pt.dot( pt );
-              return value() / ( 4*M_PI*M_PI*norm2 + alpha/(eps*eps) );
-          }, FFTParameters().enableNormalization()
-      )( myFields[i] );
+
+      myFields[i]
+        >> ComponentWiseImageOperator(
+              [alpha, eps] ( CWIContext::Value const & value )
+              {
+                const auto v = value();
+                return - ( v * (v-1) * (2*v-1) - alpha*v ) / std::pow(eps, 2);
+              },
+              WithConstraint( CWIContext::Value{0.} ) == 0.,
+              WithConstraint( CWIContext::Value{1.} ) == 0.,
+            )
+        >> FourierSpaceImageOperator(
+              [alpha, eps] ( FSIContext::Value const & value, FSIContext::ScaledCoords const& scaledCoords )
+              {
+                  const auto & pt   = scaledCoords();
+                  const auto norm2  = pt.dot( pt );
+                  return value() / ( 4*M_PI*M_PI*norm2 + alpha/(eps*eps) );
+              }, FFTParameters().enableNormalization()
+            )
+        >> myFields[i];
 
 
 

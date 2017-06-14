@@ -105,7 +105,7 @@ template < typename T, bool IsAFunction >
 struct FunctionTraitsImpl
 {
     using Arguments = typename boost::mpl::fold<
-        typename boost::mpl::pop_front< boost::function_types::parameter_types<T> >::type,
+        typename boost::function_types::parameter_types<T>,
         std::tuple<>,
         add_to_tuple<boost::mpl::_1, boost::mpl::_2>
     >::type;
@@ -113,13 +113,24 @@ struct FunctionTraitsImpl
 
 template < typename T >
 struct FunctionTraitsImpl<T, false>
-  : FunctionTraitsImpl< decltype(&T::operator()), true >
+{
+    using Arguments = typename boost::mpl::fold<
+        typename boost::mpl::pop_front< boost::function_types::parameter_types< decltype(&T::operator()) > >::type,
+        std::tuple<>,
+        add_to_tuple<boost::mpl::_1, boost::mpl::_2>
+    >::type;
+};
+
+template < typename T >
+struct FunctionTraitsCleaned
+  : FunctionTraitsImpl< T, std::is_function<T>::value >
 {};
 
 template < typename T >
 struct FunctionTraits
-  : FunctionTraitsImpl< T, std::is_function<T>::value >
+  : FunctionTraitsCleaned< typename std::remove_pointer< typename std::remove_reference<T>::type >::type >
 {};
+
 }
 
 
@@ -159,11 +170,31 @@ double getValue1( double seed )
   return fn.getValue( seed );
 }
 
+double dummy( ContextTraits::B const& b, ContextTraits::A const& a )
+{
+    return a() + b();
+}
+
+double getValue2( double seed )
+{
+  auto const fn = makeOperator( dummy );
+  return fn.getValue( seed );
+}
+
+double getValue3( double seed )
+{
+  auto const fn = dummy;
+  auto const op = makeOperator( fn );
+  return op.getValue( seed );
+}
+
 int main( int argc, char* argv[] )
 {
   const double seed = std::stod( argv[1] );
   
   std::cout << getValue1( seed ) << std::endl;
+  std::cout << getValue2( seed ) << std::endl;
+  std::cout << getValue3( seed ) << std::endl;
 
   return 0;
 }
