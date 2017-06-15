@@ -9,7 +9,7 @@ namespace DGtal
 template < typename TInputImage,
            typename TOutputImage,
            typename TFunctor >
-void ImageTransform( TInputImage const& anInputImage, TOutputImage & anOutputImage, TFunctor const& aFunctor )
+void ImageTransform( TInputImage const& anInputImage, TOutputImage & anOutputImage, TFunctor aFunctor )
 {
     ASSERT( anInputImage.domain().lowerBound() == anOutputImage.domain().lowerBound()
             && anInputImage.domain().upperBound() == anOutputImage.domain().upperBound() );
@@ -26,7 +26,7 @@ template < typename TInputDomain, typename TInputValue,
 void ImageTransform(
     DGtal::ImageContainerBySTLVector< TInputDomain,  TInputValue > const& anInputImage,
     DGtal::ImageContainerBySTLVector< TOutputDomain, TOutputValue > & anOutputImage,
-    TFunctor const& aFunctor )
+    TFunctor aFunctor )
 {
     ASSERT( anInputImage.domain().lowerBound() == anOutputImage.domain().lowerBound()
             && anInputImage.domain().upperBound() == anOutputImage.domain().upperBound() );
@@ -34,7 +34,7 @@ void ImageTransform(
     auto input_it            = anInputImage.begin();
     auto pt_it               = anInputImage.domain().begin();
 
-    // TODO: should we detect lambda parameters ?
+    // TODO: should we detect lambda parameters or do we trust in compiler optimizations ?
     for ( auto & v : anOutputImage )
         v = aFunctor( *pt_it++, *input_it++ );
 }
