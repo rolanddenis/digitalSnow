@@ -1,0 +1,732 @@
+/**
+ *  This program is free software: you can redistribute it and/or modify
+ *  it under the terms of the GNU Lesser General Public License as
+ *  published by the Free Software Foundation, either version 3 of the
+ *  License, or  (at your option) any later version.
+ *
+ *  This program is distributed in the hope that it will be useful,
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *  GNU General Public License for more details.
+ *
+ *  You should have received a copy of the GNU General Public License
+ *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ *
+ **/
+
+/**
+ * @file MultiPhaseFieldDrip.ih
+ * @author Tristan Roussillon (\c tristan.roussillon@liris.cnrs.fr )
+ * Laboratoire d'InfoRmatique en Image et Systèmes d'information - LIRIS (CNRS, UMR 5205), CNRS, France
+ * @author Roland Denis (\c roland.denis@univ-smb.fr )
+ * LAboratory of MAthematics - LAMA (CNRS, UMR 5127), University of Savoie, France
+ *
+ * @date 2015/04/28
+ *
+ * @brief Implementation of inline methods defined in MultiPhaseFieldDrip.h
+ *
+ * This file is part of the DGtal library.
+ */
+
+#include <vector>
+#include <sstream>
+#include <iostream>
+#include <algorithm>
+#include <cmath>
+
+#include <Eigen/SVD>
+
+#include <DGtal/images/SimpleThresholdForegroundPredicate.h>
+#include "InlineTrace.h"
+
+#ifdef _OPENMP
+  #include <omp.h>
+#endif
+
+#include <thread>
+#include <DGtal/math/RealFFT.h>
+
+
+//////////////////////////////////////////////////////////////////////////////
+
+///////////////////////////////////////////////////////////////////////////////
+// IMPLEMENTATION of inline methods.
+///////////////////////////////////////////////////////////////////////////////
+
+///////////////////////////////////////////////////////////////////////////////
+// ----------------------- Standard services ------------------------------
+
+template <
+  typename TFieldImage,
+  typename TDomain, typename TContainer, typename TApproximation, typename TBoundingBox
+>
+inline
+DGtal::MultiPhaseFieldDrip< TFieldImage, DGtal::ApproximatedMultiImage<TDomain, TContainer, TApproximation, TBoundingBox> >
+::MultiPhaseFieldDrip( Domain const& aDomain, std::size_t maxPhaseCnt, Value epsilon )
+  : myMaxPhaseCnt{ maxPhaseCnt },
+    myFields{ aDomain, TApproximation{1e-4} },
+    myEpsilon{ epsilon }
+{
+  // Simply set 1 where a label is present.
+  itrace.beginBlock("Init phases");
+  const Point center = ( aDomain.lowerBound() + aDomain.upperBound() ) / 2;
+  const Value radius = std::pow( static_cast<Value>(aDomain.size()) / getMaxNumPhase(), 1. / TFieldImage::dimension ) / 2;
+
+  for ( auto const& point : aDomain )
+    myFields.setValue( point, 
+        (point - center).norm( Point::L_infty ) <= radius ? 1 : 0,
+        1. );
+
+  myTargetVolume.push_back( ( maxPhaseCnt - 1 ) * static_cast<Value>(aDomain.size()) / maxPhaseCnt );
+  myTargetVolume.push_back( static_cast<Value>(aDomain.size()) / maxPhaseCnt );
+
+  itrace.endBlock();
+
+  // Initialize FFTW <- has nothing to do here ... just for dev
+  if ( fftw_init_threads() == 0 ) std::cout << "!!! Parallel FFTW initialization failed !!!" << std::endl;
+  //fftw_plan_with_nthreads( std::thread::hardware_concurrency() );
+  fftw_plan_with_nthreads(2);
+
+  trace.beginBlock("Statistics");
+  trace.info() << myFields.getInfos() << std::endl;
+  trace.endBlock();
+}
+
+template <
+  typename TFieldImage,
+  typename TDomain, typename TContainer, typename TApproximation, typename TBoundingBox
+>
+inline
+DGtal::MultiPhaseFieldDrip< TFieldImage, DGtal::ApproximatedMultiImage<TDomain, TContainer, TApproximation, TBoundingBox> >
+::~MultiPhaseFieldDrip()
+{
+}
+
+template <
+  typename TFieldImage,
+  typename TDomain, typename TContainer, typename TApproximation, typename TBoundingBox
+>
+inline
+double
+DGtal::MultiPhaseFieldDrip< TFieldImage, DGtal::ApproximatedMultiImage<TDomain, TContainer, TApproximation, TBoundingBox> >
+::update(const double& aT)
+{
+  using std::size_t;
+  using Point = typename TFieldImage::Point;
+  using real = typename TFieldImage::Value;
+
+  const real alpha = 1;
+  Domain domain = myFields.domain();
+
+  /////////////////////////////////////////////////////////////////////////////
+  // Diffusion
+  trace.beginBlock("Diffusion");
+  using FFT  =  DGtal::RealFFT<Domain, real>;
+  for ( size_t i = 0; i < myTargetVolume.size(); ++i )
+    {
+      itrace.beginBlock("Diffusion");
+
+      itrace.beginStep("Read");
+      auto bb_field = myFields[i];
+
+      FFT fft( bb_field.domain(), RealPoint::zero, myRealExtent );
+
+      // Copy
+      auto spatial_image = fft.getSpatialImage();
+
+      auto const eps = myEpsilon;
+      std::transform( bb_field.cbegin(), bb_field.cend(), spatial_image.begin(),
+                      [alpha, eps] ( real v ) { return - ( v * (v-1) * (2*v-1) - alpha*v ) / std::pow(eps, 2); } );
+
+
+      // Forward transformation
+      itrace.beginStep("fftw");
+      fft.forwardFFT(FFTW_MEASURE);
+
+      itrace.beginStep("Conv");
+
+      auto const extent = fft.getSpatialExtent();
+      auto freq_image = fft.getFreqImage();
+
+      auto const freq_domain = fft.getFreqDomain();
+
+#ifdef _OPENMP
+      const size_t N_thread = omp_get_max_threads();
+#else
+      const size_t N_thread = 1;
+#endif
+
+      #pragma omp parallel
+      #pragma omp single nowait
+      for ( size_t pos = 0; pos < N_thread; ++pos )
+        {
+          auto const dim = TFieldImage::dimension;
+          auto pt_begin = freq_domain.lowerBound();
+          auto pt_end = freq_domain.upperBound();
+          pt_end[dim-1]   = pt_begin[dim-1] + ((pos+1)*extent[dim-1])/N_thread - 1;
+          pt_begin[dim-1] = pt_begin[dim-1] + (pos*extent[dim-1])/N_thread;
+
+          Domain curr_domain { pt_begin, pt_end };
+          auto curr_freq_image = decltype(freq_image)(freq_image, curr_domain ); // Not very clean ...
+
+          #pragma omp task firstprivate(curr_freq_image)
+          for ( auto it = curr_freq_image.begin(), it_end = curr_freq_image.end() ; it != it_end ; ++it )
+            {
+              const auto pt = fft.calcScaledFreqCoords( it.getPoint() );
+              const auto norm2 = pt.dot( pt );
+
+              //const double c = std::exp( -4*M_PI*M_PI*aT*norm2 );
+              const double c = 1. / ( 4*M_PI*M_PI*norm2 + alpha/(myEpsilon*myEpsilon) );
+              *it *= c;
+            }
+
+        }
+
+      // Back in spatial space
+      itrace.beginStep("ifftw");
+      fft.backwardFFT(FFTW_MEASURE, false);
+
+      // Store the result
+      itrace.beginStep("Write");
+      const size_t n = fft.getSpatialDomain().size();
+
+#if 0
+      std::transform( spatial_image.cbegin(), spatial_image.cend(), bb_field.begin(), [n] (real v) { return v/n; } );
+
+#else
+      auto const spatial_domain = fft.getSpatialDomain();
+
+      #pragma omp parallel
+      #pragma omp single nowait
+      for ( size_t pos = 0; pos < N_thread; ++pos )
+        {
+          auto const dim = TFieldImage::dimension;
+          auto pt_begin = spatial_domain.lowerBound();
+          auto pt_end = spatial_domain.upperBound();
+          pt_end[dim-1]   = pt_begin[dim-1] + ((pos+1)*extent[dim-1])/N_thread - 1;
+          pt_begin[dim-1] = pt_begin[dim-1] + (pos*extent[dim-1])/N_thread;
+
+          Domain curr_domain { pt_begin, pt_end };
+          auto curr_spatial_image = decltype(spatial_image)(spatial_image, curr_domain ); // Not very clean ...
+
+          #pragma omp task firstprivate(curr_spatial_image)
+          for ( auto it = curr_spatial_image.begin(), it_end = curr_spatial_image.end() ; it != it_end ; ++it )
+            {
+              bb_field.setValue( it.getPoint(), *it/n );
+            }
+        }
+#endif
+
+      // Reaction while saving result
+      /*
+      const real dummy = aT / (myEpsilon * myEpsilon);
+      std::transform( spatial_image.cbegin(), spatial_image.cend(),
+                      bb_field.begin(),
+                      [n, dummy] (real v)
+                        {
+                          const real u = v/n;
+                          return u - dummy * u * (u-1.) * (2*u-1.);
+                        }
+      );
+      */
+
+      itrace.endBlock();
+    }
+  trace.endBlock();
+  // End diffusion
+
+
+  /*
+  /////////////////////////////////////////////////////////////////////////////
+  // Reaction
+  itrace.beginBlock("Reaction");
+  const real dummy = aT / (myEpsilon * myEpsilon);
+  for ( auto const& point : domain )
+    {
+      const size_t id = myFields.linearized(point);
+      // Need for a mutable iterator over values ...
+      for ( size_t i = 0; i < myLabels.size(); ++i )
+        {
+          const real u = myFields.getValueByIndex(id, i);
+          if ( u != 0 )
+            {
+              myFields.setValue(point, i, u - dummy * u * (u-1) * (2*u-1), id);
+            }
+        }
+    }
+  itrace.endBlock();
+  */
+
+  /////////////////////////////////////////////////////////////////////////////
+  // Projection
+  itrace.beginBlock("Lagrangian");
+
+  itrace.beginStep("linear_system");
+  const size_t phase_cnt = getNumPhase();
+
+  // Rmq: MatrixXd is column-major but since his size is relatively small, we will do like it was row-major.
+  using namespace Eigen;
+  MatrixXd M( phase_cnt, phase_cnt );
+  VectorXd b( phase_cnt );
+  VectorXd int_u( phase_cnt );
+  VectorXd int_sqrt2Wu( phase_cnt );
+
+  // Pre-calculating $\int u_i$ and $\int \sqrt{2W(u_i)}$.
+  int_u.fill(0);
+  int_sqrt2Wu.fill(0);
+  for ( auto const & point : domain )
+    {
+      for ( auto const& vi : myFields(point) )
+        {
+          const auto  i = vi.first;
+          const auto ui = vi.second;
+
+          int_u(i) += ui;
+          int_sqrt2Wu(i) += std::abs( ui * (1-ui) );
+       }
+    }
+
+
+  M.fill(0);
+  b.fill(0);
+
+  for ( auto const& point : domain )
+    {
+      const size_t id = myFields.linearized(point);
+
+      real sum_sqrt2Wu = 0;
+      real sum_u = 0;
+      real temp  = 0;
+
+      for ( auto const& vi : myFields(point) )
+        {
+          const auto  i = vi.first;
+          const real ui = vi.second;
+
+          sum_u += ui;
+          const real sqrt2Wui = std::abs( ui * (1-ui) );
+
+          sum_sqrt2Wu += sqrt2Wui;
+          if ( sqrt2Wui != 0 )
+            temp += ( myTargetVolume[i] - int_u(i) ) * sqrt2Wui / int_sqrt2Wu(i);
+        }
+      temp = 1 - sum_u - temp;
+
+      for ( auto const& vi : myFields(point) )
+        {
+          const auto  i = vi.first;
+          const real ui = vi.second;
+
+          const real sqrt2Wui = std::abs( ui * (1-ui) );
+
+          if ( sqrt2Wui != 0 )
+            {
+              for ( auto const& vj : myFields(point) )
+                {
+                  const auto  j = vj.first;
+                  const real uj = vj.second;
+
+                  const real sqrt2Wuj = std::abs( uj * (1-uj) );
+
+                  M(i, j) -= sqrt2Wui * sqrt2Wuj / ( int_sqrt2Wu(i) * sum_sqrt2Wu );
+                }
+
+              b(i) += temp * sqrt2Wui / sum_sqrt2Wu;
+            }
+        }
+    }
+
+  for ( std::size_t i = 0; i < phase_cnt; ++i )
+    {
+      M( i, i ) += 1.;
+      M( phase_cnt-1, i ) = 1.;
+    }
+  b( phase_cnt-1 ) = 0.;
+
+  itrace.endStep();
+
+  itrace.beginStep("solve");
+  VectorXd int_lambda = M.colPivHouseholderQr().solve(b);
+  itrace.endStep();
+
+  itrace.beginStep("mu, lambda & update");
+
+  // Calculation of mu_i
+  VectorXd mu( phase_cnt );
+  for ( std::size_t i = 0; i < phase_cnt; ++i )
+    mu( i ) = int_sqrt2Wu(i) != 0 ? ( myTargetVolume[i] - int_u(i) - int_lambda(i) ) / int_sqrt2Wu(i) : 0;
+
+  for ( auto const& point : domain )
+    {
+      real sum_sqrtWu = 0;
+      real lambda = 0;
+
+      for ( auto value : myFields(point) )
+        {
+          const auto  i = value.first;
+          const real ui = value.second;
+
+          const real sqrtWui = std::abs( ui * (1 - ui) );
+
+          sum_sqrtWu += sqrtWui;
+          lambda += ui + mu(i) * sqrtWui;
+        }
+      lambda = sum_sqrtWu != 0 ? ( 1 - lambda ) / sum_sqrtWu : 0;
+
+      const size_t id = myFields.linearized(point);
+      for ( size_t i = 0; i < phase_cnt; ++i )
+        {
+          const real u = myFields.getValueByIndex(id, i);
+          const real v = u + ( lambda + mu[i] ) * std::abs(u * (1-u));
+          myFields.setValue(point, i, v, id);
+        }
+    }
+  itrace.endStep();
+  itrace.endBlock();
+
+  return aT;
+}
+
+template <
+  typename TFieldImage,
+  typename TDomain, typename TContainer, typename TApproximation, typename TBoundingBox
+>
+inline
+void
+DGtal::MultiPhaseFieldDrip< TFieldImage, DGtal::ApproximatedMultiImage<TDomain, TContainer, TApproximation, TBoundingBox> >
+::updateDomainSize()
+{
+  using std::size_t;
+  using Point = typename TFieldImage::Point;
+  using real = typename TFieldImage::Value;
+
+  std::vector<real> gradient( Point::dimension, 0 );
+
+  Domain domain = myFields.domain();
+
+  trace.beginBlock("Domain optimization");
+  using FFT  =  DGtal::RealFFT<Domain, real>;
+  for ( size_t i = 0; i < myTargetVolume.size(); ++i )
+    {
+      itrace.beginBlock("Diffusion");
+
+      itrace.beginStep("Read");
+      auto bb_field = myFields[i];
+      FFT fft( bb_field.domain(), RealPoint::zero, RealPoint::diagonal(1.) );
+
+      auto spatial_image = fft.getSpatialImage();
+      std::copy( bb_field.cbegin(), bb_field.cend(), spatial_image.begin() );
+
+      itrace.beginStep("fftw");
+      fft.forwardFFT( FFTW_MEASURE );
+
+      itrace.beginStep("gradient");
+      const auto curr_freq_image = fft.getFreqImage();
+      for ( auto const& pt : fft.getSpatialDomain() )
+        {
+          const auto scaled_pt = fft.calcScaledFreqCoords( pt );
+          bool dummy;
+          const auto freq_pt   = fft.calcNativeFreqCoords( scaled_pt, dummy );
+          const auto value = curr_freq_image(freq_pt);
+          for ( typename Point::Dimension j = 0; j < Point::dimension; ++j )
+            gradient[j] += std::norm( value * static_cast<real>(scaled_pt[j]) );
+       }
+
+      itrace.endBlock();
+    }
+
+  real prod_L = 1.;
+  for ( auto & g : gradient )
+    prod_L *= g;
+  prod_L = std::pow( prod_L, 1. / Point::dimension );
+
+  real prod_Extent = 1.;
+  for ( typename Point::Dimension i = 0; i < Point::dimension - 1; ++i )
+    {
+      myRealExtent[ i ] = std::min( std::max( std::sqrt( gradient[i]/prod_L ), 0.1 ), 10. );
+      prod_Extent *= myRealExtent[ i ];
+    }
+  myRealExtent[ Point::dimension-1 ] = 1. / prod_Extent;
+
+  trace.endBlock();
+}
+
+template <
+  typename TFieldImage,
+  typename TDomain, typename TContainer, typename TApproximation, typename TBoundingBox
+>
+template < typename TLabelImage >
+inline
+std::size_t
+DGtal::MultiPhaseFieldDrip< TFieldImage, DGtal::ApproximatedMultiImage<TDomain, TContainer, TApproximation, TBoundingBox> >
+::updateLabels( TLabelImage & aLabelImage )
+{
+  using Label = typename TLabelImage::Value;
+
+  /// update image of labels
+  trace.beginBlock("Updating labels");
+  size_t diff_cnt = 0;
+  for ( auto const& point : myFields.domain() )
+    {
+      const size_t id = myFields.linearized(point);
+      Label max_label;
+      Value max_value = 0;
+      for ( std::size_t i = 0; i < getNumPhase(); ++i )
+        {
+          Value value = myFields.getValueByIndex(id, i);
+          if (value >= max_value)
+            {
+              max_value = value;
+              max_label = ( i * 255 ) / getMaxNumPhase();
+            }
+        }
+
+      if ( aLabelImage(point) != max_label ) ++diff_cnt;
+      aLabelImage.setValue( point, max_label );
+    }
+  trace.info() << "Movement on " << diff_cnt << " cells (" << std::fixed << std::setprecision(5) << (100.0*diff_cnt)/myFields.domain().size() << "%)" << std::endl;
+  trace.endBlock();
+
+  return diff_cnt;
+}
+
+template <
+  typename TFieldImage,
+  typename TDomain, typename TContainer, typename TApproximation, typename TBoundingBox
+>
+inline
+void
+DGtal::MultiPhaseFieldDrip< TFieldImage, DGtal::ApproximatedMultiImage<TDomain, TContainer, TApproximation, TBoundingBox> >
+::dispInfos() const
+{
+  itrace.beginBlock("Statistics");
+
+  itrace.beginStep("LabelledMap");
+  const auto fields_info = myFields.getInfos();
+
+  itrace.beginStep("Perimeters");
+  const auto perimeters = getPerimeters();
+  itrace.endBlock();
+
+  std::cout << fields_info << std::endl;
+
+  std::cout << std::setprecision(5);
+
+  for ( std::size_t i = 0; i < perimeters.size(); ++i )
+    std::cout << "P" << i << "=" << perimeters[i] << " ";
+  std::cout << std::endl;
+
+  // Morgan'cost
+  Value perimeter_sum = 0;
+  for ( auto value : perimeters ) perimeter_sum += value;
+  perimeter_sum /= 2 * std::pow( myFields.domain().size(), static_cast<double>(Domain::dimension-1)/Domain::dimension ) ;
+  const Value morgan_cost = perimeter_sum / std::pow( perimeters.size(), 1./3. );
+  std::cout << "Morgan's cost = " << morgan_cost << std::endl;
+}
+
+template <
+  typename TFieldImage,
+  typename TDomain, typename TContainer, typename TApproximation, typename TBoundingBox
+>
+inline
+void
+DGtal::MultiPhaseFieldDrip< TFieldImage, DGtal::ApproximatedMultiImage<TDomain, TContainer, TApproximation, TBoundingBox> >
+::selfDisplay ( std::ostream & out ) const
+{
+  out << "[MultiPhaseFieldDrip] ";
+  out << myFields.size() << " regions ";
+}
+
+template <
+
+  typename TFieldImage,
+  typename TDomain, typename TContainer, typename TApproximation, typename TBoundingBox
+>
+inline
+bool
+DGtal::MultiPhaseFieldDrip< TFieldImage, DGtal::ApproximatedMultiImage<TDomain, TContainer, TApproximation, TBoundingBox> >
+::isValid() const
+{
+  return true;
+}
+
+
+/**
+ * Return the number of phases
+ */
+template <
+  typename TFieldImage,
+  typename TDomain, typename TContainer, typename TApproximation, typename TBoundingBox
+>
+inline
+size_t
+DGtal::MultiPhaseFieldDrip< TFieldImage, DGtal::ApproximatedMultiImage<TDomain, TContainer, TApproximation, TBoundingBox> >
+::getNumPhase() const
+{
+  return myTargetVolume.size();
+}
+
+/**
+ * Return the maximum number of phases
+ */
+template <
+  typename TFieldImage,
+  typename TDomain, typename TContainer, typename TApproximation, typename TBoundingBox
+>
+inline
+size_t
+DGtal::MultiPhaseFieldDrip< TFieldImage, DGtal::ApproximatedMultiImage<TDomain, TContainer, TApproximation, TBoundingBox> >
+::getMaxNumPhase() const
+{
+  return myMaxPhaseCnt;
+}
+
+/**
+ * Return one of the phase fields
+ */
+template <
+  typename TFieldImage,
+  typename TDomain, typename TContainer, typename TApproximation, typename TBoundingBox
+>
+inline
+typename DGtal::MultiPhaseFieldDrip< TFieldImage, DGtal::ApproximatedMultiImage<TDomain, TContainer, TApproximation, TBoundingBox> >::FieldImage
+DGtal::MultiPhaseFieldDrip< TFieldImage, DGtal::ApproximatedMultiImage<TDomain, TContainer, TApproximation, TBoundingBox> >
+::getPhase( size_t i ) const
+{
+  return FieldImage(myFields[i]);
+}
+
+/**
+ * Add one phase
+ */
+template <
+  typename TFieldImage,
+  typename TDomain, typename TContainer, typename TApproximation, typename TBoundingBox
+>
+inline
+bool
+DGtal::MultiPhaseFieldDrip< TFieldImage, DGtal::ApproximatedMultiImage<TDomain, TContainer, TApproximation, TBoundingBox> >
+::addPhase(  )
+{
+  if ( getNumPhase() < getMaxNumPhase() )
+    {
+      itrace.beginBlock("Adding new phase");
+
+      auto const& domain = myFields.domain();
+
+      // Updating target volumes.
+      myTargetVolume.push_back( static_cast<Value>(domain.size()) / getMaxNumPhase() );
+      const std::size_t M = getNumPhase() - 1;
+      myTargetVolume[0] = ( getMaxNumPhase() - M ) * static_cast<Value>(domain.size()) / getMaxNumPhase();
+
+
+      // Populating new phase
+      itrace.beginStep("Populating");
+
+      std::random_device rd;
+      std::mt19937 gen(rd());
+      std::uniform_real_distribution<Value> udis( 0, 1 );
+
+      Value new_phase_volume = 0;
+
+      for ( auto const& point : domain )
+        {
+          const size_t id = myFields.linearized( point );
+          auto const u0   = myFields.getValueByIndex( id, 0 );
+          auto const uN   = std::sqrt( std::abs(u0 * (1 - u0)) ) * udis(gen);
+          myFields.setValue( point, M, uN, id );
+          new_phase_volume += myFields.getValueByIndex( id, M );
+        }
+
+      // Fixing volume (not exact due to zero approximation)
+      itrace.beginStep("Fixing volumes");
+      const Value volume_fix_ratio = myTargetVolume[M] / new_phase_volume;
+
+      for ( auto const& point : domain )
+        {
+          const size_t id = myFields.linearized( point );
+          const auto uM = myFields.getValueByIndex( id, M ) * volume_fix_ratio;
+          const auto u0 = myFields.getValueByIndex( id, 0 ) - uM;
+          myFields.setValue( point, 0, u0, id );
+          myFields.setValue( point, M, uM, id );
+        }
+
+      itrace.endBlock();
+      return true;
+    }
+  else
+    {
+      return false;
+    }
+}
+
+/**
+ * Return the perimeter of each phase.
+ */
+template <
+  typename TFieldImage,
+  typename TDomain, typename TContainer, typename TApproximation, typename TBoundingBox
+>
+std::vector<typename TFieldImage::Value>
+DGtal::MultiPhaseFieldDrip< TFieldImage, DGtal::ApproximatedMultiImage<TDomain, TContainer, TApproximation, TBoundingBox> >
+::getPerimeters() const
+{
+  std::vector<Value> perimeters( getNumPhase(), 0 );
+  std::vector<Value> tmp( getNumPhase() );
+
+  auto const& domain = myFields.domain();
+  for ( auto const& point : domain )
+    {
+      for ( std::size_t d = 0; d < Domain::dimension; ++d )
+        {
+          std::fill( tmp.begin(), tmp.end(), 0 );
+
+          for ( typename Point::Coordinate pos = -1; pos <= 1; pos += 2 )
+            {
+              auto curr_point = point + Point::base(d, pos);
+              if ( ! domain.isInside(curr_point) )
+                curr_point[d] -= pos*( domain.upperBound()[d] - domain.lowerBound()[d] + 1 );
+
+              for ( auto value : myFields(curr_point) )
+                {
+                  tmp[value.first] += pos*value.second;
+                }
+            }
+
+          for ( std::size_t i = 0; i < getNumPhase(); ++i )
+            perimeters[i] += 0.5 * myEpsilon * std::pow( 0.5 * tmp[i], 2 );
+        }
+
+      for ( auto value : myFields(point) )
+        perimeters[value.first] += 0.5 * std::pow(value.second, 2) * std::pow(1-value.second, 2) / myEpsilon;
+
+    }
+
+  // Coefficient in the gamma-convergence of the Ginzburg-Landau energy to the perimeter.
+  for ( auto& value : perimeters )
+    value *= 6;
+
+  return perimeters;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+// Implementation of inline functions                                        //
+
+template <
+  typename TFieldImage,
+  typename TDomain, typename TContainer, typename TApproximation, typename TBoundingBox
+>
+inline
+std::ostream&
+DGtal::operator<< ( std::ostream & out,
+      DGtal::MultiPhaseFieldDrip< TFieldImage, DGtal::ApproximatedMultiImage<TDomain, TContainer, TApproximation, TBoundingBox> > const& object )
+{
+  object.selfDisplay( out );
+  return out;
+}
+
+//                                                                           //
+///////////////////////////////////////////////////////////////////////////////
+
+/* GNU coding style */
+/* vim: set ts=2 sw=2 expandtab cindent cinoptions=>4,n-2,{2,^-2,:2,=2,g0,h2,p5,t0,+2,(0,u0,w1,m1 : */
