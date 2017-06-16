@@ -235,7 +235,7 @@ int main(int argc, char** argv)
                   else if ( value.second > max2 ) { max2 = value.second; }
                 }
                 //return max1 - max2;
-                return 2 * epsilon * std::atanh( std::min(max1 - max2, real(1)-1e-8) );
+                return 2 * epsilon * std::atanh( std::min(max1 - max2, static_cast<real>(1 - 1e-8) ) );
               }
           );
 
@@ -291,7 +291,7 @@ int main(int argc, char** argv)
             }
           */
 
-          if ( label_cnt <= 0.0001 * labelImage.domain().size() )
+          if ( label_cnt <= 0.00001 * disp_step * labelImage.domain().size() )
             if ( ! evolver.addPhase() )
               break;
 
