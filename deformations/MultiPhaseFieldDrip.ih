@@ -116,7 +116,7 @@ DGtal::MultiPhaseFieldDrip< TFieldImage, DGtal::ApproximatedMultiImage<TDomain, 
   using real = typename TFieldImage::Value;
 
   const real alpha = 1;
-  Domain domain = myFields.domain();
+  const Domain domain = myFields.domain();
 
   /////////////////////////////////////////////////////////////////////////////
   // Diffusion
@@ -190,10 +190,6 @@ DGtal::MultiPhaseFieldDrip< TFieldImage, DGtal::ApproximatedMultiImage<TDomain, 
       itrace.beginStep("Write");
       const size_t n = fft.getSpatialDomain().size();
 
-#if 0
-      std::transform( spatial_image.cbegin(), spatial_image.cend(), bb_field.begin(), [n] (real v) { return v/n; } );
-
-#else
       auto const spatial_domain = fft.getSpatialDomain();
 
       #pragma omp parallel
@@ -215,47 +211,12 @@ DGtal::MultiPhaseFieldDrip< TFieldImage, DGtal::ApproximatedMultiImage<TDomain, 
               bb_field.setValue( it.getPoint(), *it/n );
             }
         }
-#endif
-
-      // Reaction while saving result
-      /*
-      const real dummy = aT / (myEpsilon * myEpsilon);
-      std::transform( spatial_image.cbegin(), spatial_image.cend(),
-                      bb_field.begin(),
-                      [n, dummy] (real v)
-                        {
-                          const real u = v/n;
-                          return u - dummy * u * (u-1.) * (2*u-1.);
-                        }
-      );
-      */
 
       itrace.endBlock();
     }
   trace.endBlock();
   // End diffusion
 
-
-  /*
-  /////////////////////////////////////////////////////////////////////////////
-  // Reaction
-  itrace.beginBlock("Reaction");
-  const real dummy = aT / (myEpsilon * myEpsilon);
-  for ( auto const& point : domain )
-    {
-      const size_t id = myFields.linearized(point);
-      // Need for a mutable iterator over values ...
-      for ( size_t i = 0; i < myLabels.size(); ++i )
-        {
-          const real u = myFields.getValueByIndex(id, i);
-          if ( u != 0 )
-            {
-              myFields.setValue(point, i, u - dummy * u * (u-1) * (2*u-1), id);
-            }
-        }
-    }
-  itrace.endBlock();
-  */
 
   /////////////////////////////////////////////////////////////////////////////
   // Projection
@@ -264,10 +225,16 @@ DGtal::MultiPhaseFieldDrip< TFieldImage, DGtal::ApproximatedMultiImage<TDomain, 
   itrace.beginStep("linear_system");
   const size_t phase_cnt = getNumPhase();
 
+#ifdef _OPENMP
+  const size_t N_thread = omp_get_max_threads();
+#else
+  const size_t N_thread = 1;
+#endif
+
   // Rmq: MatrixXd is column-major but since his size is relatively small, we will do like it was row-major.
   using namespace Eigen;
-  MatrixXd M( phase_cnt, phase_cnt );
-  VectorXd b( phase_cnt );
+  std::vector<MatrixXd> M_threads( N_thread );
+  std::vector<VectorXd> b_threads( N_thread ); // phase_cnt );
   VectorXd int_u( phase_cnt );
   VectorXd int_sqrt2Wu( phase_cnt );
 
@@ -286,54 +253,80 @@ DGtal::MultiPhaseFieldDrip< TFieldImage, DGtal::ApproximatedMultiImage<TDomain, 
        }
     }
 
-
-  M.fill(0);
-  b.fill(0);
-
-  for ( auto const& point : domain )
+#pragma omp parallel
+#pragma omp single nowait
+  for ( size_t pos = 0; pos < N_thread; ++pos )
     {
-      const size_t id = myFields.linearized(point);
+      auto const dim  = TFieldImage::dimension;
+      auto pt_begin   = domain.lowerBound();
+      auto pt_end     = domain.upperBound();
+      const auto extent = pt_end - pt_begin + Point::diagonal(1);
+      pt_end[dim-1]   = pt_begin[dim-1] + ((pos+1)*extent[dim-1])/N_thread - 1;
+      pt_begin[dim-1] = pt_begin[dim-1] + (pos*extent[dim-1])/N_thread;
 
-      real sum_sqrt2Wu = 0;
-      real sum_u = 0;
-      real temp  = 0;
+      const Domain curr_domain { pt_begin, pt_end };
 
-      for ( auto const& vi : myFields(point) )
+      M_threads[pos].resize( phase_cnt, phase_cnt );
+      b_threads[pos].resize( phase_cnt );
+
+      M_threads[pos].fill(0);
+      b_threads[pos].fill(0);
+
+      #pragma omp task firstprivate( curr_domain )
+      for ( auto const& point : curr_domain )
         {
-          const auto  i = vi.first;
-          const real ui = vi.second;
+          const size_t id = myFields.linearized(point);
 
-          sum_u += ui;
-          const real sqrt2Wui = std::abs( ui * (1-ui) );
+          real sum_sqrt2Wu = 0;
+          real sum_u = 0;
+          real temp  = 0;
 
-          sum_sqrt2Wu += sqrt2Wui;
-          if ( sqrt2Wui != 0 )
-            temp += ( myTargetVolume[i] - int_u(i) ) * sqrt2Wui / int_sqrt2Wu(i);
-        }
-      temp = 1 - sum_u - temp;
-
-      for ( auto const& vi : myFields(point) )
-        {
-          const auto  i = vi.first;
-          const real ui = vi.second;
-
-          const real sqrt2Wui = std::abs( ui * (1-ui) );
-
-          if ( sqrt2Wui != 0 )
+          for ( auto const& vi : myFields(point) )
             {
-              for ( auto const& vj : myFields(point) )
+              const auto  i = vi.first;
+              const real ui = vi.second;
+
+              sum_u += ui;
+              const real sqrt2Wui = std::abs( ui * (1-ui) );
+
+              sum_sqrt2Wu += sqrt2Wui;
+              if ( sqrt2Wui != 0 )
+                temp += ( myTargetVolume[i] - int_u(i) ) * sqrt2Wui / int_sqrt2Wu(i);
+            }
+          temp = 1 - sum_u - temp;
+
+          for ( auto const& vi : myFields(point) )
+            {
+              const auto  i = vi.first;
+              const real ui = vi.second;
+
+              const real sqrt2Wui = std::abs( ui * (1-ui) );
+
+              if ( sqrt2Wui != 0 )
                 {
-                  const auto  j = vj.first;
-                  const real uj = vj.second;
+                  for ( auto const& vj : myFields(point) )
+                    {
+                      const auto  j = vj.first;
+                      const real uj = vj.second;
 
-                  const real sqrt2Wuj = std::abs( uj * (1-uj) );
+                      const real sqrt2Wuj = std::abs( uj * (1-uj) );
 
-                  M(i, j) -= sqrt2Wui * sqrt2Wuj / ( int_sqrt2Wu(i) * sum_sqrt2Wu );
+                      M_threads[pos](i, j) -= sqrt2Wui * sqrt2Wuj / ( int_sqrt2Wu(i) * sum_sqrt2Wu );
+                    }
+
+                  b_threads[pos](i) += temp * sqrt2Wui / sum_sqrt2Wu;
                 }
-
-              b(i) += temp * sqrt2Wui / sum_sqrt2Wu;
             }
         }
+    }
+
+  MatrixXd M( phase_cnt, phase_cnt ); M.fill(0);
+  VectorXd b( phase_cnt ); b.fill(0);
+
+  for ( std::size_t pos = 0; pos < N_thread; ++pos )
+    {
+      M = M + M_threads[pos];
+      b = b + b_threads[pos];
     }
 
   for ( std::size_t i = 0; i < phase_cnt; ++i )
