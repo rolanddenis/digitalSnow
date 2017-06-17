@@ -524,7 +524,7 @@ class ApproximatedMultiImage< TDomain, DGtal::LabelledMap<TData, L, TWord, N, M>
 
       out << "Label hist: ";
       for ( std::size_t i = infos.labelMin; i <= infos.labelMax; ++i )
-        out << "#" << i << ":" << ( static_cast<double>(infos.labelHist[i]) / infos.domainSize ) << "% ";
+        out << "#" << i << ":" << ( 100 * static_cast<double>(infos.labelHist[i]) / infos.domainSize ) << "% ";
       out << std::endl;
 
       out << "Best settings: N=" << infos.bestN << "(" << N 
