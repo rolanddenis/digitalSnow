@@ -321,6 +321,7 @@ class ApproximatedMultiImage< TDomain, DGtal::LabelledMap<TData, L, TWord, N, M>
       {
         using std::size_t;
         MultiImageInfos<Self> infos;
+        infos.domainSize = myDomain.size();
         infos.labelMin = std::numeric_limits<size_t>::max();
         infos.labelMax = std::numeric_limits<size_t>::min();
         size_t label_sum = 0;
@@ -428,6 +429,7 @@ class ApproximatedMultiImage< TDomain, DGtal::LabelledMap<TData, L, TWord, N, M>
   >
   struct MultiImageInfos< DGtal::ApproximatedMultiImage< TDomain, DGtal::LabelledMap<TData, L, TWord, N, M>, TApproximation, TBoundingBox > > 
     {
+      std::size_t domainSize; // Size of the domain.
       std::size_t labelMin, labelMax; // Minimum and maximum number of labels stored in each point.
       double labelMean, labelSDeviation; // Mean and standard deviation of the number of labels.
       std::array<size_t, L+1> labelHist; // Histogram of the number of labels stored.
@@ -519,6 +521,11 @@ class ApproximatedMultiImage< TDomain, DGtal::LabelledMap<TData, L, TWord, N, M>
           << "mean=" << infos.labelMean << " ; "
           << "sdev=" << infos.labelSDeviation
           << std::endl;
+
+      out << "Label hist: ";
+      for ( std::size_t i = infos.labelMin; i <= infos.labelMax; ++i )
+        out << "#" << i << ":" << ( static_cast<double>(infos.labelHist[i]) / infos.domainSize ) << "% ";
+      out << std::endl;
 
       out << "Best settings: N=" << infos.bestN << "(" << N 
           << ") ; M=" << infos.bestM << "(" << M 
