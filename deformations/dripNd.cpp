@@ -184,10 +184,31 @@ int main(int argc, char** argv)
 #elif DIMENSION == 3
   //writePartition( labelImage, s.str(), outputFormat );
 #endif
+  
+  auto const implicitImage = makeFunctorConstImage( labelImage.domain(),
+      [&evolver, epsilon] ( Point const& aPoint ) -> real
+      {
+        real max1 = 0, max2 = 0;
+        for ( auto value : evolver.getPhasesContainer()(aPoint) )
+        {
+          if ( value.second >= max1 ) { max2 = max1; max1 = value.second; }
+          else if ( value.second > max2 ) { max2 = value.second; }
+        }
+        //return max1 - max2;
+        return 2 * epsilon * std::atanh( std::min(max1 - max2, static_cast<real>(1 - 1e-8) ) );
+      }
+  );
+
+  auto const storageImage = makeFunctorConstImage ( labelImage.domain(),
+      [&evolver] ( Point const& aPoint )
+      {
+        return evolver.getPhasesContainer()(aPoint).size();
+      }
+  );
 
   // VTK export
     {
-      VTKWriter<Domain> vtk(s.str(), labelImage.domain());
+      VTKWriter<Domain, false> vtk(s.str(), labelImage.domain());
       /*
          for (size_t j = 0; j < evolver.getNumPhase(); ++j)
          {
@@ -196,7 +217,9 @@ int main(int argc, char** argv)
          vtk << s_phase.str() << evolver.getPhase(j);
          }
          */
-      vtk << "label" << labelImage;
+      vtk << "label"    << labelImage;
+      vtk << "implicit" << implicitImage;
+      vtk << "storage"  << storageImage;
     }
 
   // Informations
@@ -225,19 +248,7 @@ int main(int argc, char** argv)
           // Export
           trace.beginBlock("Export");
 
-          auto const implicit = makeFunctorConstImage( labelImage.domain(),
-              [&evolver, epsilon] ( Point const& aPoint ) -> real
-              {
-                real max1 = 0, max2 = 0;
-                for ( auto value : evolver.getPhasesContainer()(aPoint) )
-                {
-                  if ( value.second >= max1 ) { max2 = max1; max1 = value.second; }
-                  else if ( value.second > max2 ) { max2 = value.second; }
-                }
-                //return max1 - max2;
-                return 2 * epsilon * std::atanh( std::min(max1 - max2, static_cast<real>(1 - 1e-8) ) );
-              }
-          );
+
 
           std::stringstream s;
           s << outputFiles << setfill('0') << std::setw(4) << (i/disp_step);
@@ -247,11 +258,11 @@ int main(int argc, char** argv)
           //writePartition( labelImage, s.str(), outputFormat );
 #endif
 
-          RawWriter< decltype(implicit) >::exportRaw<real>( s.str()+".imp.raw", implicit );
+          RawWriter< decltype(implicitImage) >::exportRaw<real>( s.str()+".imp.raw", implicitImage );
           RawWriter< LabelImage >::exportRaw<unsigned short int>( s.str()+".lab.raw", labelImage );
 
           // VTK export
-          VTKWriter<Domain> vtk(s.str(), labelImage.domain());
+          VTKWriter<Domain, false> vtk(s.str(), labelImage.domain());
           /*
              for (size_t j = 0; j < evolver.getNumPhase(); ++j)
              {
@@ -260,8 +271,9 @@ int main(int argc, char** argv)
              vtk << s_phase.str() << evolver.getPhase(j);
              }
              */
-          vtk << "label" << labelImage;
-          vtk << "implicit" << implicit;
+          vtk << "label"    << labelImage;
+          vtk << "implicit" << implicitImage;
+          vtk << "storage"  << storageImage;
           vtk.close();
 
           // Volume of each phase
