@@ -178,7 +178,7 @@ int main(int argc, char** argv)
 
   // Initial state export
   std::stringstream s;
-  s << outputFiles << setfill('0') << std::setw(4) << 0;
+  s << outputFiles << setfill('0') << std::setw(6) << 0;
 #if   DIMENSION == 2
   drawContours( labelImage, s.str(), outputFormat );
 #elif DIMENSION == 3
@@ -251,7 +251,7 @@ int main(int argc, char** argv)
 
 
           std::stringstream s;
-          s << outputFiles << setfill('0') << std::setw(4) << (i/disp_step);
+          s << outputFiles << setfill('0') << std::setw(6) << i;
 #if   DIMENSION == 2
           drawContours( labelImage, s.str(), outputFormat );
 #elif DIMENSION == 3
