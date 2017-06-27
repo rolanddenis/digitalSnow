@@ -396,7 +396,7 @@ DGtal::MultiPhaseField2< TLabelImage, TFieldImage, DGtal::ApproximatedMultiImage
 
                   const real sqrt2Wuj = std::abs( uj * (1-uj) );
 
-                  M(i, j) -= sqrt2Wui * sqrt2Wuj / ( int_sqrt2Wu(i) * sum_sqrt2Wu );
+                  M(i, j) -= sqrt2Wui * sqrt2Wuj / ( int_sqrt2Wu(j) * sum_sqrt2Wu );
                 }
 
               b(i) += temp * sqrt2Wui / sum_sqrt2Wu;
