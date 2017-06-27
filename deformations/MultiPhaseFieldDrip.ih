@@ -64,7 +64,7 @@ inline
 DGtal::MultiPhaseFieldDrip< TFieldImage, DGtal::ApproximatedMultiImage<TDomain, TContainer, TApproximation, TBoundingBox> >
 ::MultiPhaseFieldDrip( Domain const& aDomain, std::size_t maxPhaseCnt, Value epsilon )
   : myMaxPhaseCnt{ maxPhaseCnt },
-    myFields{ aDomain, TApproximation{1e-4} },
+    myFields{ aDomain, TApproximation{1e-2} },
     myEpsilon{ epsilon }
 {
   // Simply set 1 where a label is present.
@@ -85,7 +85,7 @@ DGtal::MultiPhaseFieldDrip< TFieldImage, DGtal::ApproximatedMultiImage<TDomain, 
   // Initialize FFTW <- has nothing to do here ... just for dev
   if ( fftw_init_threads() == 0 ) std::cout << "!!! Parallel FFTW initialization failed !!!" << std::endl;
   //fftw_plan_with_nthreads( std::thread::hardware_concurrency() );
-  fftw_plan_with_nthreads(2);
+  fftw_plan_with_nthreads(4);
 
   trace.beginBlock("Statistics");
   trace.info() << myFields.getInfos() << std::endl;
@@ -311,7 +311,7 @@ DGtal::MultiPhaseFieldDrip< TFieldImage, DGtal::ApproximatedMultiImage<TDomain, 
 
                       const real sqrt2Wuj = std::abs( uj * (1-uj) );
 
-                      M_threads[pos](i, j) -= sqrt2Wui * sqrt2Wuj / ( int_sqrt2Wu(i) * sum_sqrt2Wu );
+                      M_threads[pos](i, j) -= sqrt2Wui * sqrt2Wuj / ( int_sqrt2Wu(j) * sum_sqrt2Wu );
                     }
 
                   b_threads[pos](i) += temp * sqrt2Wui / sum_sqrt2Wu;
@@ -643,7 +643,7 @@ DGtal::MultiPhaseFieldDrip< TFieldImage, DGtal::ApproximatedMultiImage<TDomain, 
         {
           const size_t id = myFields.linearized( point );
           auto const u0   = myFields.getValueByIndex( id, 0 );
-          auto const uN   = std::sqrt( std::abs(u0 * (1 - u0)) ) * udis(gen);
+          auto const uN   = std::sqrt( std::abs(u0 * (1 - u0)) ) * (1+udis(gen));
           myFields.setValue( point, M, uN, id );
           new_phase_volume += myFields.getValueByIndex( id, M );
         }

@@ -303,7 +303,7 @@ int main(int argc, char** argv)
             }
           */
 
-          if ( label_cnt <= 0.00001 * disp_step * labelImage.domain().size() )
+          if ( label_cnt <= 0.00001 * disp_step * labelImage.domain().size() * ( evolver.getNumPhase() == max_phase_cnt ? 0.1 : 1. ) )
             if ( ! evolver.addPhase() )
               break;
 
