@@ -135,8 +135,8 @@ namespace DGtal
      */
     std::vector<Label> myLabels; 
 
-    //! Initial volumes
-    std::vector<Value> myInitVolume;
+    //! Target volumes
+    std::vector<Value> myTargetVolume;
 
     //! Epsilon 
     Value myEpsilon;
