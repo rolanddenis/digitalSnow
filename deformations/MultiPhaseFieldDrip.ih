@@ -85,7 +85,11 @@ DGtal::MultiPhaseFieldDrip< TFieldImage, DGtal::ApproximatedMultiImage<TDomain, 
   // Initialize FFTW <- has nothing to do here ... just for dev
   if ( fftw_init_threads() == 0 ) std::cout << "!!! Parallel FFTW initialization failed !!!" << std::endl;
   //fftw_plan_with_nthreads( std::thread::hardware_concurrency() );
-  fftw_plan_with_nthreads(4);
+#ifdef _OPENMP
+  fftw_plan_with_nthreads( omp_get_max_threads() );
+#else
+  fftw_plan_with_nthreads( 2 );
+#endif
 
   trace.beginBlock("Statistics");
   trace.info() << myFields.getInfos() << std::endl;
