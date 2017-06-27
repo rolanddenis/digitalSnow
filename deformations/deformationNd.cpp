@@ -772,7 +772,7 @@ int main(int argc, char** argv)
 
               trace.endBlock();
 
-              if ( label_cnt <= 0.0001 * labelImage->domain().size() ) 
+              if ( label_cnt <= 0.00001 * disp_step * labelImage->domain().size() ) 
                 break;
 
             }
