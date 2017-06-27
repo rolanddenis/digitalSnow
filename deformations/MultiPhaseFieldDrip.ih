@@ -115,6 +115,12 @@ DGtal::MultiPhaseFieldDrip< TFieldImage, DGtal::ApproximatedMultiImage<TDomain, 
   using Point = typename TFieldImage::Point;
   using real = typename TFieldImage::Value;
 
+#ifdef _OPENMP
+  const size_t N_thread = omp_get_max_threads();
+#else
+  const size_t N_thread = 1;
+#endif
+
   const real alpha = 1;
   const Domain domain = myFields.domain();
 
@@ -149,12 +155,6 @@ DGtal::MultiPhaseFieldDrip< TFieldImage, DGtal::ApproximatedMultiImage<TDomain, 
       auto freq_image = fft.getFreqImage();
 
       auto const freq_domain = fft.getFreqDomain();
-
-#ifdef _OPENMP
-      const size_t N_thread = omp_get_max_threads();
-#else
-      const size_t N_thread = 1;
-#endif
 
       #pragma omp parallel
       #pragma omp single nowait
@@ -225,16 +225,10 @@ DGtal::MultiPhaseFieldDrip< TFieldImage, DGtal::ApproximatedMultiImage<TDomain, 
   itrace.beginStep("linear_system");
   const size_t phase_cnt = getNumPhase();
 
-#ifdef _OPENMP
-  const size_t N_thread = omp_get_max_threads();
-#else
-  const size_t N_thread = 1;
-#endif
-
   // Rmq: MatrixXd is column-major but since his size is relatively small, we will do like it was row-major.
   using namespace Eigen;
   std::vector<MatrixXd> M_threads( N_thread );
-  std::vector<VectorXd> b_threads( N_thread ); // phase_cnt );
+  std::vector<VectorXd> b_threads( N_thread );
   VectorXd int_u( phase_cnt );
   VectorXd int_sqrt2Wu( phase_cnt );
 
