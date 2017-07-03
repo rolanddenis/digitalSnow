@@ -303,9 +303,11 @@ void initWithMultipleBalls( TImage& img, std::size_t count, double radius, std::
  *
  * @param[in,out] img     The image to initialize.
  * @param[in]     count   The total number of labels.
+ * @param[in]     seed    Seed of the random number generator
+ * @return the seed used to initialize the random number generator.
  */
 template < typename TImage >
-unsigned int initRandomly( TImage& img, std::size_t count )
+unsigned int initRandomly( TImage& img, std::size_t count, unsigned int seed = std::random_device{}() )
 {
   using std::size_t;
 
@@ -320,9 +322,9 @@ unsigned int initRandomly( TImage& img, std::size_t count )
       acc += total_size - basket[i]*count;
     }
 
-  std::random_device rd;
-  const auto seed = rd();
+  // Random number generator
   std::mt19937 gen(seed);
+
   for ( auto const& point : img.domain() )
     {
       size_t id = std::uniform_int_distribution<>(0, total_size-1)(gen);

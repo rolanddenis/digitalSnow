@@ -616,6 +616,22 @@ bool
 DGtal::MultiPhaseFieldDrip< TFieldImage, DGtal::ApproximatedMultiImage<TDomain, TContainer, TApproximation, TBoundingBox> >
 ::addPhase(  )
 {
+  std::random_device rd;
+  std::mt19937 gen(rd());
+
+  addPhase( gen );
+}
+
+template <
+  typename TFieldImage,
+  typename TDomain, typename TContainer, typename TApproximation, typename TBoundingBox
+>
+template < typename TGenerator >
+inline
+bool
+DGtal::MultiPhaseFieldDrip< TFieldImage, DGtal::ApproximatedMultiImage<TDomain, TContainer, TApproximation, TBoundingBox> >
+::addPhase( TGenerator & gen )
+{
   if ( getNumPhase() < getMaxNumPhase() )
     {
       itrace.beginBlock("Adding new phase");
@@ -631,8 +647,6 @@ DGtal::MultiPhaseFieldDrip< TFieldImage, DGtal::ApproximatedMultiImage<TDomain, 
       // Populating new phase
       itrace.beginStep("Populating");
 
-      std::random_device rd;
-      std::mt19937 gen(rd());
       std::uniform_real_distribution<Value> udis( 0, 1 );
 
       Value new_phase_volume = 0;

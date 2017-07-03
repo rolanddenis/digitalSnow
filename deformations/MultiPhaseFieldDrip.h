@@ -192,6 +192,9 @@ namespace DGtal
      */
     bool addPhase();
 
+    template < typename TGenerator >
+    bool addPhase( TGenerator & gen );
+
     /**
      * Return the perimeter of each phase fields
      */

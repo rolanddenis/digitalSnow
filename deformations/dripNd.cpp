@@ -5,6 +5,7 @@
 #include <numeric>
 #include <cmath>
 #include <limits>
+#include <random>
 
 /////////////////////
 #include <boost/program_options/options_description.hpp>
@@ -69,6 +70,7 @@ int main(int argc, char** argv)
   size_t max_step = 1;        // Maximum number of steps
   double epsilon = 3.;        // Interface width
   size_t max_phase_cnt = 64;  // Maximal number of phases
+  unsigned int seed = std::random_device{}(); // Seed for the random number generator.
 
   string outputFiles  = "interface";  // Output files basename
 
@@ -90,6 +92,7 @@ int main(int argc, char** argv)
     ("displayStep",     po::value<size_t>(&disp_step)->default_value(disp_step), "Number of time steps between 2 drawings" )
     ("stepsNumber,n",   po::value<size_t>(&max_step)->default_value(max_step), "Maximal number of steps" )
     ("epsilon,e",       po::value<double>(&epsilon)->default_value(epsilon), "Interface width (only for phase fields)" )
+    ("seed",            po::value<unsigned int>(&seed), "Seed used to initialize the random number generator.")
     ("outputFiles,o",   po::value<string>(&outputFiles)->default_value(outputFiles), "Output files basename" )
 #if   DIMENSION == 2
     ("outputFormat,f", po::value<string>(&outputFormat)->default_value(outputFormat),
@@ -138,6 +141,11 @@ int main(int argc, char** argv)
   }
 
   /////////////////////////////////////////////////////////////////////////////
+
+  // Random number generator
+  trace.info() << "Seed used for the random number generator: " << seed << std::endl;
+  std::mt19937 gen(seed);
+
   // Domain
   const Point p = Point::diagonal(0);
   const Point q = Point::diagonal(dsize-1); // Domain size = q-p+1
@@ -304,7 +312,7 @@ int main(int argc, char** argv)
           */
 
           if ( label_cnt <= 0.00001 * disp_step * labelImage.domain().size() * ( evolver.getNumPhase() == max_phase_cnt ? 0.1 : 1. ) )
-            if ( ! evolver.addPhase() )
+            if ( ! evolver.addPhase( gen ) )
               break;
 
         }

@@ -120,6 +120,7 @@ int main(int argc, char** argv)
     ("domainSize,d",    po::value<size_t>(&dsize)->default_value(dsize), "Domain size (if default starting interface)" )
     ("shape,s",         po::value<string>(&shape)->default_value(shape),
         "Generated shape: either <ball>, <flower>, <mballs> or <rand>" )
+    ("seed",            po::value<unsigned int>(), "Seed used to initialize the random number generator for the rand shape.")
     ("phaseCnt,p",      po::value<size_t>(&phase_cnt)->default_value(phase_cnt),
         "Number of phases, for <mballs> and <rand> shapes." )
     ("timeStep,t",      po::value<double>(&tstep)->default_value(tstep), "Time step for the evolution" )
@@ -225,8 +226,14 @@ int main(int argc, char** argv)
         initWithMultipleBalls( *labelImage, phase_cnt,  (dsize/phase_cnt) * 0.5, 1 );
       else
         {
-          const auto seed = initRandomly( *labelImage, phase_cnt );
-          std::cout << "Seed used to initialize image: " << seed << std::endl;
+          unsigned int seed;
+
+          if ( vm.count("seed") )
+            seed = initRandomly( *labelImage, phase_cnt, vm["seed"].as<unsigned int>() );
+          else
+            seed = initRandomly( *labelImage, phase_cnt );
+
+          trace.info() << "Seed used to initialize image: " << seed << std::endl;
         }
       
 
