@@ -66,7 +66,7 @@ inline
 DGtal::MultiPhaseField2< TLabelImage, TFieldImage, DGtal::ApproximatedMultiImage<TDomain, TContainer, TApproximation, TBoundingBox> >
 ::MultiPhaseField2(LabelImage& aI, typename TFieldImage::Value epsilon, bool calcDistance )
   : myLabelImage( aI ),
-    myFields{ myLabelImage.domain(), TApproximation{1e-4} },
+    myFields{ myLabelImage.domain(), TApproximation{1e-2} },
     myEpsilon{ epsilon }
 {
 
@@ -560,7 +560,7 @@ DGtal::MultiPhaseField2< TLabelImage, TFieldImage, DGtal::ApproximatedMultiImage
   real prod_Extent = 1.;
   for ( typename Point::Dimension i = 0; i < Point::dimension - 1; ++i )
     {
-      myRealExtent[ i ] = std::min( std::max( std::sqrt( gradient[i]/prod_L ), 0.1 ), 10. );
+      myRealExtent[ i ] = std::min( std::max( std::sqrt( gradient[i]/prod_L ), 0.2 ), 5. );
       prod_Extent *= myRealExtent[ i ];
     }
   myRealExtent[ Point::dimension-1 ] = 1. / prod_Extent;

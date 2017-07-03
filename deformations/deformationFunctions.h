@@ -305,7 +305,7 @@ void initWithMultipleBalls( TImage& img, std::size_t count, double radius, std::
  * @param[in]     count   The total number of labels.
  */
 template < typename TImage >
-void initRandomly( TImage& img, std::size_t count )
+unsigned int initRandomly( TImage& img, std::size_t count )
 {
   using std::size_t;
 
@@ -321,7 +321,8 @@ void initRandomly( TImage& img, std::size_t count )
     }
 
   std::random_device rd;
-  std::mt19937 gen(rd());
+  const auto seed = rd();
+  std::mt19937 gen(seed);
   for ( auto const& point : img.domain() )
     {
       size_t id = std::uniform_int_distribution<>(0, total_size-1)(gen);
@@ -334,6 +335,7 @@ void initRandomly( TImage& img, std::size_t count )
       --total_size;
     }
 
+  return seed;
 }
 
 /** Fill a label of an image with random label of equal volume.
