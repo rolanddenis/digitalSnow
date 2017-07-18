@@ -210,7 +210,7 @@ int main(int argc, char** argv)
   auto const storageImage = makeFunctorConstImage ( labelImage.domain(),
       [&evolver] ( Point const& aPoint )
       {
-        return evolver.getPhasesContainer()(aPoint).size();
+        return static_cast<unsigned int>(evolver.getPhasesContainer()(aPoint).size());
       }
   );
 
@@ -270,7 +270,7 @@ int main(int argc, char** argv)
           RawWriter< LabelImage >::exportRaw<unsigned short int>( s.str()+".lab.raw", labelImage );
 
           // VTK export
-          VTKWriter<Domain, false> vtk(s.str(), labelImage.domain());
+          VTKWriter<Domain, true> vtk(s.str(), labelImage.domain());
           /*
              for (size_t j = 0; j < evolver.getNumPhase(); ++j)
              {
