@@ -57,7 +57,7 @@ using namespace std;
 #include "FunctorConstImage.h"
 
 // IO functions
-#include "VTKWriter.h"
+#include <DGtal/io/writers/VTKLightWriter.h>
 #include <DGtal/io/writers/RawWriter.h>
 #if   DIMENSION == 2
   #include "deformationDisplay2d.h"
@@ -461,7 +461,7 @@ int main(int argc, char** argv)
 
       // VTK export
         {
-          VTKWriter<Domain> vtk(s.str(), implicitFunction.domain());
+          VTKLightWriter<Domain> vtk(s.str(), implicitFunction.domain());
           vtk << "phi" << implicitFunction;
         }
 
@@ -489,7 +489,7 @@ int main(int argc, char** argv)
 #endif
 
               // VTK export
-              VTKWriter<Domain> vtk(s.str(), implicitFunction.domain());
+              VTKLightWriter<Domain> vtk(s.str(), implicitFunction.domain());
               vtk << "phi" << implicitFunction;
             }
 
@@ -566,7 +566,7 @@ int main(int argc, char** argv)
 
       // VTK export
         {
-          VTKWriter<Domain> vtk(s.str(), labelImage->domain());
+          VTKLightWriter<Domain> vtk(s.str(), labelImage->domain());
           for (size_t j = 0; j < evolver.getNumPhase(); ++j)
             {
               stringstream s_phase;
@@ -596,7 +596,7 @@ int main(int argc, char** argv)
 #endif
 
               // VTK export
-              VTKWriter<Domain> vtk(s.str(), labelImage->domain());
+              VTKLightWriter<Domain> vtk(s.str(), labelImage->domain());
               for (size_t j = 0; j < evolver.getNumPhase(); ++j)
                 {
                   stringstream s_phase;
@@ -682,7 +682,8 @@ int main(int argc, char** argv)
 
       // VTK export
         {
-          VTKWriter<Domain> vtk(s.str(), labelImage->domain());
+          VTKLightWriter<Domain> vtk(s.str(), labelImage->domain(),
+              evolver.myRealExtent / ( labelImage->domain().upperBound() - labelImage->domain().lowerBound() + Point::diagonal() ) );
           /*
           for (size_t j = 0; j < evolver.getNumPhase(); ++j)
             {
@@ -746,7 +747,8 @@ int main(int argc, char** argv)
               RawWriter< LabelImage >::exportRaw<unsigned short int>( s.str()+".lab.raw", *labelImage );
 
               // VTK export
-              VTKWriter<Domain> vtk(s.str(), labelImage->domain());
+              VTKLightWriter<Domain> vtk(s.str(), labelImage->domain(),
+                  evolver.myRealExtent / ( labelImage->domain().upperBound() - labelImage->domain().lowerBound() + Point::diagonal() ) );
               /*
               for (size_t j = 0; j < evolver.getNumPhase(); ++j)
                 {
