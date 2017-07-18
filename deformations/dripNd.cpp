@@ -39,13 +39,12 @@ using namespace std;
 #include "MultiPhaseFieldDrip.h"
 
 // IO functions
-#include "VTKWriter.h"
+#include <DGtal/io/writers/VTKLightWriter.h>
 #include <DGtal/io/writers/RawWriter.h>
 #if   DIMENSION == 2
   #include "deformationDisplay2d.h"
   #include "DGtal/io/readers/PGMReader.h"
 #elif DIMENSION == 3
-  //#include "deformationDisplay3d.h"
   #include "DGtal/io/readers/VolReader.h"
 #endif
 
@@ -216,7 +215,8 @@ int main(int argc, char** argv)
 
   // VTK export
     {
-      VTKWriter<Domain, false> vtk(s.str(), labelImage.domain());
+      VTKLightWriter<Domain> vtk(s.str(), labelImage.domain(),
+          evolver.myRealExtent / ( labelImage.domain().upperBound() - labelImage.domain().lowerBound() + Point::diagonal() ) );
       /*
          for (size_t j = 0; j < evolver.getNumPhase(); ++j)
          {
@@ -270,7 +270,8 @@ int main(int argc, char** argv)
           RawWriter< LabelImage >::exportRaw<unsigned short int>( s.str()+".lab.raw", labelImage );
 
           // VTK export
-          VTKWriter<Domain, true> vtk(s.str(), labelImage.domain());
+          VTKLightWriter<Domain> vtk(s.str(), labelImage.domain(),
+            evolver.myRealExtent / ( labelImage.domain().upperBound() - labelImage.domain().lowerBound() + Point::diagonal() ) );
           /*
              for (size_t j = 0; j < evolver.getNumPhase(); ++j)
              {
