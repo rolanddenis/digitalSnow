@@ -28,9 +28,12 @@
 #include "DGtal/topology/LightExplicitDigitalSurface.h"
 
 // interactive
-#include <QCoreApplication>
-#include <QObject>
-#include "DGtal/io/viewers/Viewer3D.h"
+#ifdef WITH_VISU3D_QGLVIEWER
+  #include <QCoreApplication>
+  #include <QObject>
+  #include "DGtal/io/viewers/Viewer3D.h"
+#endif
+
 #include "DGtal/io/CDrawableWithDisplay3D.h"
 #include "DGtal/io/DrawWithDisplay3DModifier.h"
 
@@ -213,8 +216,10 @@ bool writePartition(const TImage& img, string filename, string format)
     return false; 
   #endif
 
-  } else if (format.compare("png")==0)
-    {
+  }
+  else if (format.compare("png")==0)
+  {
+  #ifdef WITH_VISU3D_QGLVIEWER
     trace.emphase() << "snapshot with QGLViewer" << std::endl;
 
     QCoreApplication* application = QCoreApplication::instance();
@@ -282,6 +287,11 @@ bool writePartition(const TImage& img, string filename, string format)
 
     // Guess ...
     return true;
+  
+  #else
+    trace.emphase() << "Failed to use QGLVierwer (not installed)" << std::endl;
+    return false; 
+  #endif
 
     }
   else if (format.compare("vol")==0)

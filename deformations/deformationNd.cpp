@@ -65,7 +65,9 @@ using namespace std;
 #elif DIMENSION == 3
   #include "deformationDisplay3d.h"
   #include "DGtal/io/readers/VolReader.h"
-  #include <QApplication> // Qt
+  #ifdef WITH_VISU3D_QGLVIEWER
+    #include <QApplication> // Qt
+  #endif
 #endif
 
 // Dimension as a variable
@@ -83,8 +85,10 @@ int main(int argc, char** argv)
   DGtal::trace.emphase() << "(version "<< DGTAL_VERSION << ")"<< std::endl;
 
 #if DIMENSION == 3
-  // QApplication initialization with command-line parameters
-  //QApplication application(argc, argv);
+  #ifdef WITH_VISU3D_QGLVIEWER
+    // QApplication initialization with command-line parameters
+    QApplication application(argc, argv);
+  #endif
 #endif
 
   // Default options
