@@ -180,7 +180,7 @@ DGtal::MultiPhaseFieldDrip< TFieldImage, DGtal::ApproximatedMultiImage<TDomain, 
               const auto norm2 = pt.dot( pt );
 
               //const double c = std::exp( -4*M_PI*M_PI*aT*norm2 );
-              const double c = 1. / ( 4*M_PI*M_PI*norm2 + alpha/(myEpsilon*myEpsilon) );
+              const real c = 1. / ( 4*M_PI*M_PI*norm2 + alpha/(myEpsilon*myEpsilon) );
               *it *= c;
             }
 
@@ -209,10 +209,12 @@ DGtal::MultiPhaseFieldDrip< TFieldImage, DGtal::ApproximatedMultiImage<TDomain, 
           Domain curr_domain { pt_begin, pt_end };
           auto curr_spatial_image = decltype(spatial_image)(spatial_image, curr_domain ); // Not very clean ...
 
-          #pragma omp task firstprivate(curr_spatial_image)
+          real residue = 0;
+
+          #pragma omp task firstprivate(curr_spatial_image, residue)
           for ( auto it = curr_spatial_image.begin(), it_end = curr_spatial_image.end() ; it != it_end ; ++it )
             {
-              bb_field.setValue( it.getPoint(), *it/n );
+              residue += *it/n - bb_field.setValue( it.getPoint(), *it/n + residue);
             }
         }
 
@@ -361,7 +363,9 @@ DGtal::MultiPhaseFieldDrip< TFieldImage, DGtal::ApproximatedMultiImage<TDomain, 
 
       const Domain curr_domain { pt_begin, pt_end };
 
-#pragma omp task firstprivate( curr_domain )
+      std::vector<real> residues( phase_cnt, 0 );
+
+      #pragma omp task firstprivate( curr_domain, residues )
       for ( auto const& point : curr_domain )
         {
           real sum_sqrtWu = 0;
@@ -384,7 +388,7 @@ DGtal::MultiPhaseFieldDrip< TFieldImage, DGtal::ApproximatedMultiImage<TDomain, 
             {
               const real u = myFields.getValueByIndex(id, i);
               const real v = u + ( lambda + mu[i] ) * std::abs(u * (1-u));
-              myFields.setValue(point, i, v, id);
+              residues[i] += v - myFields.setValue(point, i, v + residues[i], id);
             }
         }
     }
@@ -643,7 +647,6 @@ DGtal::MultiPhaseFieldDrip< TFieldImage, DGtal::ApproximatedMultiImage<TDomain, 
       const std::size_t M = getNumPhase() - 1;
       myTargetVolume[0] = ( getMaxNumPhase() - M ) * static_cast<Value>(domain.size()) / getMaxNumPhase();
 
-
       // Populating new phase
       itrace.beginStep("Populating");
 
@@ -674,6 +677,7 @@ DGtal::MultiPhaseFieldDrip< TFieldImage, DGtal::ApproximatedMultiImage<TDomain, 
         }
 
       itrace.endBlock();
+
       return true;
     }
   else

@@ -196,9 +196,9 @@ class ApproximatedMultiImage< TDomain, DGtal::LabelledMap<TData, L, TWord, N, M>
      * If the linearized index of the point is known, prefer using the other version of \a setValue.
      */
     inline
-    void setValue( Point const& aPoint, Label aLabel, Value aValue ) noexcept
+    Value setValue( Point const& aPoint, Label aLabel, Value aValue ) noexcept
       {
-        setValue( aPoint, aLabel, aValue, linearized(aPoint) );
+        return setValue( aPoint, aLabel, aValue, linearized(aPoint) );
       }
     
     /**
@@ -210,7 +210,7 @@ class ApproximatedMultiImage< TDomain, DGtal::LabelledMap<TData, L, TWord, N, M>
      * @param anIndex The linearized index of the point.
      */
     inline
-    void setValue( Point const& aPoint, Label aLabel, Value aValue, Size anIndex ) noexcept
+    Value setValue( Point const& aPoint, Label aLabel, Value aValue, Size anIndex ) noexcept
       {
         Container & values = myImages[ anIndex ];
 
@@ -222,6 +222,7 @@ class ApproximatedMultiImage< TDomain, DGtal::LabelledMap<TData, L, TWord, N, M>
                 values.erase(it);
                 myBoundingBoxes[aLabel].removePoint(aPoint);
               }
+            return myApproximation.default_value;
           }
         else
           {
@@ -234,6 +235,7 @@ class ApproximatedMultiImage< TDomain, DGtal::LabelledMap<TData, L, TWord, N, M>
                 values[aLabel] = aValue;
                 myBoundingBoxes[aLabel].addPoint(aPoint);
               }
+            return aValue;
           }
       }
 

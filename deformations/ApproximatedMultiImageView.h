@@ -118,9 +118,9 @@ class ApproximatedMultiImageView
 
     /// Set a value
     inline
-    void setValue( Point const& aPoint, Value aValue )
+    Value setValue( Point const& aPoint, Value aValue )
       {
-        myMultiImage->setValue( aPoint, myLabel, aValue );
+        return myMultiImage->setValue( aPoint, myLabel, aValue );
       }
 
     /// Get a value
