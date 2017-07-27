@@ -32,6 +32,7 @@
 #include <sstream>
 #include <iostream>
 #include <algorithm>
+#include <functional>
 #include <cmath>
 
 #include <Eigen/SVD>
@@ -635,9 +636,9 @@ DGtal::MultiPhaseField2< TLabelImage, TFieldImage, DGtal::ApproximatedMultiImage
   // Morgan'cost
   Value perimeter_sum = 0;
   for ( auto value : perimeters ) perimeter_sum += value;
-  perimeter_sum /= 2 * std::pow( myFields.domain().size(), static_cast<double>(Domain::dimension-1)/Domain::dimension ) ;
-  const Value morgan_cost = perimeter_sum / std::pow( perimeters.size(), 1./3. );
-  std::cout << "Morgan's cost = " << morgan_cost << std::endl;
+  perimeter_sum /= 2;
+  const Value morgan_cost = perimeter_sum / std::pow( perimeters.size(), 1. / Domain::dimension );
+  std::cout << "Morgan's cost = " << std::setprecision(10) << morgan_cost << std::endl;
 }
 
 template <
@@ -790,40 +791,64 @@ std::vector<typename TFieldImage::Value>
 DGtal::MultiPhaseField2< TLabelImage, TFieldImage, DGtal::ApproximatedMultiImage<TDomain, TContainer, TApproximation, TBoundingBox> >
 ::getPerimeters() const
 {
-  std::vector<Value> perimeters( getNumPhase(), 0 );
-  std::vector<Value> tmp( getNumPhase() );
+  // Estimates the phase perimeters using FFT.
 
+  using real = typename TFieldImage::Value;
   auto const& domain = myFields.domain();
-  for ( auto const& point : domain )
+
+  // Gradient estimation scale factor depending on the space step.
+  const RealPoint spaceStep     = myRealExtent / RealPoint( domain.upperBound() - domain.lowerBound() + Point::diagonal() );
+  const real      cellVolume    = std::accumulate( spaceStep.begin(), spaceStep.end(), real(1), std::multiplies<real>() );
+
+  // Perimeter of each phase.
+  std::vector<Value> perimeters( getNumPhase(), 0 );
+
+  using FFT  =  DGtal::RealFFT<Domain, real>;
+  for ( size_t i = 0; i < myTargetVolume.size(); ++i )
     {
-      for ( std::size_t d = 0; d < Domain::dimension; ++d )
+      const auto bb_field = myFields[i];
+      FFT fft( bb_field.domain(), RealPoint::zero, myRealExtent );
+
+      auto spatial_image = fft.getSpatialImage();
+      std::copy( bb_field.cbegin(), bb_field.cend(), spatial_image.begin() );
+
+      fft.forwardFFT( FFTW_MEASURE );
+
+      const auto curr_freq_image = fft.getFreqImage();
+
+      // We iterate through the spatial domain since it is not half-cut as the frequency domain
+      // due to the symmetry by complex conjugate.
+      for ( auto const& pt : fft.getSpatialDomain() )
         {
-          std::fill( tmp.begin(), tmp.end(), 0 );
+          // Getting scaled coordinates in frequency domain.
+          const auto scaled_pt = fft.calcScaledFreqCoords( pt );
 
-          for ( typename Point::Coordinate pos = -1; pos <= 1; pos += 2 )
-            {
-              auto curr_point = point + Point::base(d, pos);
-              if ( ! domain.isInside(curr_point) )
-                curr_point[d] -= pos*( domain.upperBound()[d] - domain.lowerBound()[d] + 1 );
+          // Getting corresponding native coordinates in the half-cut frequency image.
+          bool dummy;
+          const auto freq_pt   = fft.calcNativeFreqCoords( scaled_pt, dummy );
 
-              for ( auto value : myFields(curr_point) )
-                {
-                  tmp[value.first] += pos*value.second;
-                }
-            }
+          // Extracting frequency space value.
+          const auto value = curr_freq_image(freq_pt);
 
-          for ( std::size_t i = 0; i < getNumPhase(); ++i )
-            perimeters[i] += 0.5 * myEpsilon * std::pow( 0.5 * tmp[i], 2 );
-        }
-
-      for ( auto value : myFields(point) )
-        perimeters[value.first] += 0.5 * std::pow(value.second, 2) * std::pow(1-value.second, 2) / myEpsilon;
-
+          // Applying gradient kernel and calculating his norm.
+          for ( typename Point::Dimension j = 0; j < Point::dimension; ++j )
+            perimeters[i] += std::norm( value * static_cast<real>(scaled_pt[j]) );
+       }
     }
 
-  // Coefficient in the gamma-convergence of the Ginzburg-Landau energy to the perimeter.
+  // Applying coefficient to this term of the Cahn-Hillard energy.
+  for ( auto & p : perimeters )
+    p *= 2 * M_PI*M_PI * myEpsilon / domain.size();
+
+  // Adding second term of the Cahn-Hillard energy
+  for ( auto const& point : domain )
+    for ( auto value : myFields(point) )
+      perimeters[value.first] += 0.5 * std::pow(value.second, 2) * std::pow(1-value.second, 2) / myEpsilon;
+
+  // Coefficient in the gamma-convergence of the Ginzburg-Landau energy to the perimeter
+  // and domain integration fix.
   for ( auto& value : perimeters )
-    value *= 6;
+    value *= 6 * cellVolume;
 
   return perimeters;
 }
