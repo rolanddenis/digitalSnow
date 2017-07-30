@@ -508,33 +508,27 @@ template <
   typename TDomain, typename TContainer, typename TApproximation, typename TBoundingBox
 >
 inline
-void
+MultiPhaseFieldInfos< DGtal::ApproximatedMultiImage<TDomain, TContainer, TApproximation, TBoundingBox> >
 DGtal::MultiPhaseFieldDrip< TFieldImage, DGtal::ApproximatedMultiImage<TDomain, TContainer, TApproximation, TBoundingBox> >
-::dispInfos() const
+::getInfos() const
 {
   itrace.beginBlock("Statistics");
 
+  MultiPhaseFieldInfos<MultiImage> infos{};
+
   itrace.beginStep("LabelledMap");
-  const auto fields_info = myFields.getInfos();
+  infos.multiImageInfos = myFields.getInfos();
 
   itrace.beginStep("Perimeters");
-  const auto perimeters = getPerimeters();
+  infos.phasePerimeters = getPerimeters();
+  
+  // Morgan'cost
+  const Value perimeter_sum = std::accumulate( infos.phasePerimeters.begin(), infos.phasePerimeters.end(), Value(0) ) / 2;
+  infos.morganCost = perimeter_sum / std::pow( infos.phasePerimeters.size(), 1. / Domain::dimension );
+
   itrace.endBlock();
 
-  std::cout << fields_info << std::endl;
-
-  std::cout << std::setprecision(5);
-
-  for ( std::size_t i = 0; i < perimeters.size(); ++i )
-    std::cout << "P" << i << "=" << perimeters[i] << " ";
-  std::cout << std::endl;
-
-  // Morgan'cost
-  Value perimeter_sum = 0;
-  for ( auto value : perimeters ) perimeter_sum += value;
-  perimeter_sum /= 2;
-  const Value morgan_cost = perimeter_sum / std::pow( perimeters.size(), 1. / Domain::dimension );
-  std::cout << "Morgan's cost = " << morgan_cost << std::endl;
+  return infos;
 }
 
 template <
@@ -758,7 +752,6 @@ DGtal::MultiPhaseFieldDrip< TFieldImage, DGtal::ApproximatedMultiImage<TDomain, 
     value *= 6 * cellVolume;
 
   return perimeters;
-#endif
 }
 
 ///////////////////////////////////////////////////////////////////////////////

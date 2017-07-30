@@ -57,6 +57,7 @@
 
 #include "deformationFunctions.h"
 #include "ApproximatedMultiImage.h"
+#include "MultiPhaseFieldInfos.h"
 //////////////////////////////////////////////////////////////////////////////
 
 namespace DGtal
@@ -174,10 +175,9 @@ namespace DGtal
     std::size_t updateLabels();
 
     /**
-     * Calculates and diplays informations about the phase fields.
+     * Calculates informations about the phase fields.
      */
-    void dispInfos() const;
-
+    MultiPhaseFieldInfos<MultiImage> getInfos() const;
 
     /**
      * Checks the validity/consistency of the object.

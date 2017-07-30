@@ -700,7 +700,8 @@ int main(int argc, char** argv)
         }
 
       // Informations
-      evolver.dispInfos();
+      const auto infos = evolver.getInfos();
+      trace.info() << infos << std::endl;
 
       // Time integration
       double sumt = 0;
@@ -720,7 +721,8 @@ int main(int argc, char** argv)
               const std::size_t label_cnt = evolver.updateLabels();
 
               // Display phase field informations
-              evolver.dispInfos();
+              const auto infos = evolver.getInfos();
+              trace.info() << infos << std::endl;
 
               // Export
               trace.beginBlock("Export");

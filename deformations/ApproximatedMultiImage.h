@@ -57,7 +57,7 @@ using namespace approximated_multi_image;
 
 /** Informations about multiple image container
  */
-template <typename t>
+template <typename T>
 struct MultiImageInfos;
 
 /// Memory usage of multiple LabelledMap based on the size histogram.
