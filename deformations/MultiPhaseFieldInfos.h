@@ -30,7 +30,8 @@ operator<< ( std::ostream & out, MultiPhaseFieldInfos<TMultiImage> const& object
   out << std::endl;
 
   // Morgan'cost
-  out << "Morgan's cost = " << object.morganCost << std::endl;
+  out << std::setprecision(10)
+      << "Morgan's cost = " << object.morganCost << std::endl;
 
   return out;
 }

@@ -231,8 +231,8 @@ int main(int argc, char** argv)
     }
 
   // Informations
-  const auto infos = evolver.getInfos();
-  trace.info() << infos << std::endl;
+  auto last_infos = evolver.getInfos();
+  trace.info() << last_infos << std::endl;
 
   // Time integration
   double sumt = 0;
@@ -314,10 +314,16 @@ int main(int argc, char** argv)
             }
           */
 
+          /*
           if ( label_cnt <= 0.00001 * disp_step * labelImage.domain().size() * ( evolver.getNumPhase() == max_phase_cnt ? 0.1 : 1. ) )
             if ( ! evolver.addPhase( gen ) )
               break;
+          */
+          if ( std::abs( infos.morganCost - last_infos.morganCost ) <= 1e-6 )
+            if ( ! evolver.addPhase( gen ) )
+              break;
 
+          last_infos = infos;
         }
 
       sumt += tstep;
