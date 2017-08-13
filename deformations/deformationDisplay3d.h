@@ -289,7 +289,7 @@ bool writePartition(const TImage& img, string filename, string format)
     return true;
   
   #else
-    trace.emphase() << "Failed to use QGLVierwer (not installed)" << std::endl;
+    trace.emphase() << "Failed to use QGLViewer (not installed)" << std::endl;
     return false; 
   #endif
 

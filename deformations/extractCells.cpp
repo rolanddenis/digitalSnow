@@ -24,8 +24,11 @@
 #include <DGtal/topology/CubicalComplexFunctions.h>
 #include <DGtal/images/ImageContainerBySTLVector.h>
 #include <DGtal/io/readers/RawReader.h>
-#include <DGtal/io/viewers/Viewer3D.h>
 #include <DGtal/topology/ExplicitDigitalSurface.h>
+
+#ifdef WITH_VISU3D_QGLVIEWER
+#include <DGtal/io/viewers/Viewer3D.h>
+#endif
 
 
 #define DIMENSION 3
@@ -357,6 +360,7 @@ int main ( int argc, char* argv[] )
   // Viewing the result.
   if ( vm[ "view" ].as<std::string>() != "no" )
     {
+#ifdef WITH_VISU3D_QGLVIEWER
 
       //-------------- Copy to close Khalimsky space -------------------------------------------
       trace.beginBlock( "Copying to a closed Khalimsky space." );
@@ -516,11 +520,14 @@ int main ( int argc, char* argv[] )
 
       viewer << Viewer3D<Space,KSpace>::updateDisplay;
       application.exec();
+#else
+    trace.emphase() << "Failed to use QGLViewer (not installed)" << std::endl;
+#endif
     }
   // End viewing.
 
 
-  //-------------- View surface -------------------------------------------
+  //-------------- Export surface for evolver ---------------------------------
   if ( vm.count( "evolver" ) )
     {
       const std::string fileName = vm[ "evolver" ].as<std::string>();
