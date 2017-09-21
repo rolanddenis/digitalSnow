@@ -796,7 +796,7 @@ int main(int argc, char** argv)
                 break;
               */
 
-              if ( std::abs( infos.morganCost - last_infos.morganCost ) <= 1e-6 * disp_step )
+              if ( std::abs( infos.morganCost - last_infos.morganCost ) <= 1e-7 * disp_step )
                 break;
 
               last_infos = infos;
