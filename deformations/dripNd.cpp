@@ -192,8 +192,9 @@ int main(int argc, char** argv)
   //writePartition( labelImage, s.str(), outputFormat );
 #endif
   
+  // Image functor with reconstructed distance to the phase interfaces.
   auto const implicitImage = makeFunctorConstImage( labelImage.domain(),
-      [&evolver, epsilon] ( Point const& aPoint ) -> real
+      [&evolver, epsilon] ( Point const& aPoint ) -> float
       {
         real max1 = 0, max2 = 0;
         for ( auto value : evolver.getPhasesContainer()(aPoint) )
@@ -206,6 +207,7 @@ int main(int argc, char** argv)
       }
   );
 
+  // Image functor with number of phase stored per point.
   auto const storageImage = makeFunctorConstImage ( labelImage.domain(),
       [&evolver] ( Point const& aPoint )
       {
