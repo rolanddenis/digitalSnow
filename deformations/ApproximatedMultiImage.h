@@ -26,7 +26,7 @@ namespace approximated_multi_image
    * Type traits to get the value type of a container.
    *
    * For most containers, the typedef value_type is what we want but others containers
-   * like std::map of DGtal::LabelledMap exhibits instead the mapped_type typedef 
+   * like std::map of DGtal::LabelledMap exhibits instead the mapped_type typedef
    * ( value_type represents, in this cases, the pair key|value )
    *
    * @tparam TContainer Type of the container
@@ -66,7 +66,7 @@ template <
   typename TDomain,
   typename TSizeHist
 >
-size_t getMultiImageMemoryUsage(
+size_t getLabelledMapMemoryUsage(
     TDomain const& aDomain,
     TSizeHist const& aSizeHist,
     unsigned int L, unsigned int N, unsigned int M
@@ -79,6 +79,28 @@ template <
   typename TSizeHist
 >
 std::pair<unsigned int, unsigned int> getOptimalLabelledMap( TDomain const& aDomain, TSizeHist const& aSizeHist, unsigned int L );
+
+/// Memory usage of multiple BigLabelledMap based on the size histogram.
+template <
+  typename TData, // Type of the stored data
+  typename TDomain,
+  typename TSizeHist
+>
+size_t getBigLabelledMapMemoryUsage(
+    TDomain const& aDomain,
+    TSizeHist const& aSizeHist,
+    unsigned int L, unsigned int N, unsigned int M
+);
+
+/// Find best parameters for BigLabelledMap given the size histogram.
+template <
+  typename TData,
+  typename TDomain,
+  typename TSizeHist
+>
+std::pair<unsigned int, unsigned int>
+getOptimalBigLabelledMap( TDomain const& aDomain, TSizeHist const& aSizeHist, unsigned int L );
+
 
 /**
  * Multiple images container with approximation and bounding box capabilities.
@@ -147,7 +169,7 @@ class ApproximatedMultiImage< TDomain, DGtal::LabelledMap<TData, L, TWord, N, M>
      * Constructor.
      */
     ApproximatedMultiImage( Domain const& aDomain, Approximation const& anApprox = Approximation{} ) noexcept
-      : myDomain{aDomain}, myImages{aDomain.size()}, 
+      : myDomain{aDomain}, myImages{aDomain.size()},
         myApproximation{anApprox}, myBoundingBoxes{L, BoundingBox{aDomain}},
         myExtent{ aDomain.upperBound() - aDomain.lowerBound() + Point::diagonal(1) }
     {}
@@ -161,11 +183,11 @@ class ApproximatedMultiImage< TDomain, DGtal::LabelledMap<TData, L, TWord, N, M>
     Value getValueByIndex( Size anIndex, Label aLabel ) const noexcept
       {
         Container const& values = myImages[ anIndex ];
-        
+
         if ( values.count(aLabel) > 0 )
           {
             return values.fastAt(aLabel);
-          } 
+          }
         else
           {
             return myApproximation.default_value;
@@ -185,7 +207,7 @@ class ApproximatedMultiImage< TDomain, DGtal::LabelledMap<TData, L, TWord, N, M>
       }
 
 
-        
+
     /**
      * Set a value.
      *
@@ -200,7 +222,7 @@ class ApproximatedMultiImage< TDomain, DGtal::LabelledMap<TData, L, TWord, N, M>
       {
         return setValue( aPoint, aLabel, aValue, linearized(aPoint) );
       }
-    
+
     /**
      * Set a value.
      *
@@ -247,7 +269,7 @@ class ApproximatedMultiImage< TDomain, DGtal::LabelledMap<TData, L, TWord, N, M>
       {
         return myDomain;
       }
-    
+
     /**
      * Return the bounding box (with buffer) of an image.
      * @param aLabel  Label of the image.
@@ -258,7 +280,7 @@ class ApproximatedMultiImage< TDomain, DGtal::LabelledMap<TData, L, TWord, N, M>
       {
         return myBoundingBoxes[ aLabel ].getBoundingBox( buffer );
       }
-    
+
     /**
      * Return the value container associated to a point.
      * \todo mutable version.
@@ -303,7 +325,7 @@ class ApproximatedMultiImage< TDomain, DGtal::LabelledMap<TData, L, TWord, N, M>
         image.buffer() = buffer;
         return image;
       }
-    
+
     /**
      * Return an image constant-view restricted to his bounding box (with buffer).
      * @param aLabel  The image label.
@@ -360,11 +382,11 @@ class ApproximatedMultiImage< TDomain, DGtal::LabelledMap<TData, L, TWord, N, M>
             infos.imageBB[i] = double( getBoundingBox(i).size() ) / cnt;
           }
 
-        infos.memoryUsage = getMultiImageMemoryUsage<TData,TWord>( myDomain, infos.labelHist, L, N, M );
+        infos.memoryUsage = getLabelledMapMemoryUsage<TData,TWord>( myDomain, infos.labelHist, L, N, M );
         auto const bestSettings = getOptimalLabelledMap<TData,TWord>( myDomain, infos.labelHist, L );
         infos.bestN = bestSettings.first;
         infos.bestM = bestSettings.second;
-        infos.bestMemoryUsage = getMultiImageMemoryUsage<TData,TWord>( myDomain, infos.labelHist, L, infos.bestN, infos.bestM );
+        infos.bestMemoryUsage = getLabelledMapMemoryUsage<TData,TWord>( myDomain, infos.labelHist, L, infos.bestN, infos.bestM );
 
         return infos;
       }
@@ -419,8 +441,8 @@ class ApproximatedMultiImage< TDomain, DGtal::LabelledMap<TData, L, TWord, N, M>
     Approximation myApproximation;
     std::vector<BoundingBox> myBoundingBoxes;
     Point myExtent;
-    
-  }; // class ApproximatedMultiImage
+
+  }; // class ApproximatedMultiImage for LabelledMap
 
   /// Informations about this class
   template <
@@ -429,7 +451,7 @@ class ApproximatedMultiImage< TDomain, DGtal::LabelledMap<TData, L, TWord, N, M>
     typename TApproximation,
     typename TBoundingBox
   >
-  struct MultiImageInfos< DGtal::ApproximatedMultiImage< TDomain, DGtal::LabelledMap<TData, L, TWord, N, M>, TApproximation, TBoundingBox > > 
+  struct MultiImageInfos< DGtal::ApproximatedMultiImage< TDomain, DGtal::LabelledMap<TData, L, TWord, N, M>, TApproximation, TBoundingBox > >
     {
       std::size_t domainSize; // Size of the domain.
       std::size_t labelMin, labelMax; // Minimum and maximum number of labels stored in each point.
@@ -445,43 +467,44 @@ class ApproximatedMultiImage< TDomain, DGtal::LabelledMap<TData, L, TWord, N, M>
 
   /// Memory usage of multiple LabelledMap based on the size histogram.
   template <
-    typename TData, typename TWord,
+    typename TData, // Type of the stored data
+    typename TWord, // Type used to store the bit field
     typename TDomain,
     typename TSizeHist
   >
-  size_t getMultiImageMemoryUsage(
+  size_t getLabelledMapMemoryUsage(
       TDomain const& aDomain,
       TSizeHist const& aSizeHist,
       unsigned int L, unsigned int N, unsigned int M
   )
     {
-      const size_t sizeof_LabelledMap = 
-            sizeof(TWord) * ( L/(8*sizeof(TWord)) + ( L % 8*sizeof(TWord) == 0 ? 0 : 1 ) )
-          + N * sizeof(TData) + std::max(sizeof(TData), sizeof(TData*));
+      const size_t sizeof_LabelledMap =
+            sizeof(TWord) * ( L/(8*sizeof(TWord)) + ( L % 8*sizeof(TWord) == 0 ? 0 : 1 ) ) // Size of the bit field.
+          + N * sizeof(TData)                         // Storage of the N first values
+          + std::max(sizeof(TData), sizeof(TData*));  // Storage of a N+1 value or a pointer
 
-      const size_t sizeof_LastBlock = M * sizeof(TData) + sizeof(TData*);
-      
+      const size_t sizeof_LastBlock = M * sizeof(TData) + sizeof(TData*); // Extra block's size.
+
       size_t usage = 0;
       for ( unsigned int i = N+2; i <= L; ++i )
-        usage += aSizeHist[i] * ( (i-N)/M + ( (i-N) % M == 0 ? 0 : 1 ) );
+        usage += aSizeHist[i] * ( (i-N)/M + ( (i-N) % M == 0 ? 0 : 1 ) ); // Number of extra blocks needed.
 
 
-      usage = sizeof_LastBlock * usage + aDomain.size() * sizeof_LabelledMap;
-
-      return usage;
+      return sizeof_LastBlock * usage + aDomain.size() * sizeof_LabelledMap;
     }
 
   /// Find best parameters for LabelledMap given the size histogram.
   template <
-    typename TData, typename TWord,
+    typename TData, // Type of the stored data
+    typename TWord, // Type used to store the bit field
     typename TDomain,
     typename TSizeHist
   >
-  std::pair<unsigned int, unsigned int> 
+  std::pair<unsigned int, unsigned int>
       getOptimalLabelledMap( TDomain const& aDomain, TSizeHist const& aSizeHist, unsigned int L )
     {
       std::pair<unsigned int, unsigned int> param = { 1, 1 };
-      size_t min_mem = getMultiImageMemoryUsage<TData,TWord>(aDomain, aSizeHist, L, param.first, param.second);
+      size_t min_mem = getLabelledMapMemoryUsage<TData, TWord>(aDomain, aSizeHist, L, param.first, param.second);
       size_t max_N = min_mem/sizeof(TData) + ( min_mem % sizeof(TData) == 0 ? 0 : 1 );
 
       for ( unsigned int N = 1; N < L && N < max_N; ++N )
@@ -489,7 +512,7 @@ class ApproximatedMultiImage< TDomain, DGtal::LabelledMap<TData, L, TWord, N, M>
           size_t last_mem = std::numeric_limits<size_t>::max();
           for ( unsigned int M = 1; M < L; ++M )
             {
-              const size_t mem = getMultiImageMemoryUsage<TData,TWord>(aDomain, aSizeHist, L, N, M);
+              const size_t mem = getLabelledMapMemoryUsage<TData, TWord>(aDomain, aSizeHist, L, N, M);
               if ( mem >= last_mem ) break;
               last_mem = mem;
               if ( mem < min_mem || ( mem == min_mem && (N > param.first || M > param.second) ) )
@@ -516,7 +539,7 @@ class ApproximatedMultiImage< TDomain, DGtal::LabelledMap<TData, L, TWord, N, M>
   std::ostream& operator<< ( std::ostream& out, typename DGtal::MultiImageInfos< DGtal::ApproximatedMultiImage< TDomain, DGtal::LabelledMap<TData, L, TWord, N, M>, TApproximation, TBoundingBox > > const& infos )
     {
       out << std::setprecision(2);
-      
+
       out << "Label count: "
           << "min=" << infos.labelMin << " ; "
           << "max=" << infos.labelMax << " ; "
@@ -529,13 +552,13 @@ class ApproximatedMultiImage< TDomain, DGtal::LabelledMap<TData, L, TWord, N, M>
         out << "#" << i << ":" << ( 100 * static_cast<double>(infos.labelHist[i]) / infos.domainSize ) << "% ";
       out << std::endl;
 
-      out << "Best settings: N=" << infos.bestN << "(" << N 
-          << ") ; M=" << infos.bestM << "(" << M 
+      out << "Best settings: N=" << infos.bestN << "(" << N
+          << ") ; M=" << infos.bestM << "(" << M
           << ") ; memory=" << infos.bestMemoryUsage << "(" << infos.memoryUsage << ")"
           << std::endl;
 
       bool first_label = true;
-      for ( std::size_t i = 0; i < L; ++i ) 
+      for ( std::size_t i = 0; i < L; ++i )
         {
           if ( infos.imageVolume[i] > 0 )
             {
@@ -606,7 +629,7 @@ class ApproximatedMultiImage< TDomain, DGtal::BigLabelledMap<TData, L, N, M>, TA
      * Constructor.
      */
     ApproximatedMultiImage( Domain const& aDomain, Approximation const& anApprox = Approximation{} ) noexcept
-      : myDomain{aDomain}, myImages{aDomain.size()}, 
+      : myDomain{aDomain}, myImages{aDomain.size()},
         myApproximation{anApprox}, myBoundingBoxes{L, BoundingBox{aDomain}},
         myExtent{ aDomain.upperBound() - aDomain.lowerBound() + Point::diagonal(1) }
     {}
@@ -620,11 +643,11 @@ class ApproximatedMultiImage< TDomain, DGtal::BigLabelledMap<TData, L, N, M>, TA
     Value getValueByIndex( Size anIndex, Label aLabel ) const noexcept
       {
         Container const& values = myImages[ anIndex ];
-        
+
         if ( values.count(aLabel) > 0 )
           {
             return values.at(aLabel);
-          } 
+          }
         else
           {
             return myApproximation.default_value;
@@ -644,7 +667,7 @@ class ApproximatedMultiImage< TDomain, DGtal::BigLabelledMap<TData, L, N, M>, TA
       }
 
 
-        
+
     /**
      * Set a value.
      *
@@ -659,7 +682,7 @@ class ApproximatedMultiImage< TDomain, DGtal::BigLabelledMap<TData, L, N, M>, TA
       {
         return setValue( aPoint, aLabel, aValue, linearized(aPoint) );
       }
-    
+
     /**
      * Set a value.
      *
@@ -706,7 +729,7 @@ class ApproximatedMultiImage< TDomain, DGtal::BigLabelledMap<TData, L, N, M>, TA
       {
         return myDomain;
       }
-    
+
     /**
      * Return the bounding box (with buffer) of an image.
      * @param aLabel  Label of the image.
@@ -717,7 +740,7 @@ class ApproximatedMultiImage< TDomain, DGtal::BigLabelledMap<TData, L, N, M>, TA
       {
         return myBoundingBoxes[ aLabel ].getBoundingBox( buffer );
       }
-    
+
     /**
      * Return the value container associated to a point.
      * \todo mutable version.
@@ -762,7 +785,7 @@ class ApproximatedMultiImage< TDomain, DGtal::BigLabelledMap<TData, L, N, M>, TA
         image.buffer() = buffer;
         return image;
       }
-    
+
     /**
      * Return an image constant-view restricted to his bounding box (with buffer).
      * @param aLabel  The image label.
@@ -782,6 +805,7 @@ class ApproximatedMultiImage< TDomain, DGtal::BigLabelledMap<TData, L, N, M>, TA
       {
         using std::size_t;
         MultiImageInfos<Self> infos;
+        infos.domainSize = myDomain.size();
         infos.labelMin = std::numeric_limits<size_t>::max();
         infos.labelMax = std::numeric_limits<size_t>::min();
         size_t label_sum = 0;
@@ -818,11 +842,11 @@ class ApproximatedMultiImage< TDomain, DGtal::BigLabelledMap<TData, L, N, M>, TA
             infos.imageBB[i] = double( getBoundingBox(i).size() ) / cnt;
           }
 
-        infos.memoryUsage = getMultiImageMemoryUsage<TData>( myDomain, infos.labelHist, L, N, M );
-        auto const bestSettings = getOptimalLabelledMap<TData>( myDomain, infos.labelHist, L );
+        infos.memoryUsage = getBigLabelledMapMemoryUsage<TData>( myDomain, infos.labelHist, L, N, M );
+        auto const bestSettings = getOptimalBigLabelledMap<TData>( myDomain, infos.labelHist, L );
         infos.bestN = bestSettings.first;
         infos.bestM = bestSettings.second;
-        infos.bestMemoryUsage = getMultiImageMemoryUsage<TData>( myDomain, infos.labelHist, L, infos.bestN, infos.bestM );
+        infos.bestMemoryUsage = getBigLabelledMapMemoryUsage<TData>( myDomain, infos.labelHist, L, infos.bestN, infos.bestM );
 
         return infos;
       }
@@ -877,8 +901,8 @@ class ApproximatedMultiImage< TDomain, DGtal::BigLabelledMap<TData, L, N, M>, TA
     Approximation myApproximation;
     std::vector<BoundingBox> myBoundingBoxes;
     Point myExtent;
-    
-  }; // class ApproximatedMultiImage
+
+  }; // class ApproximatedMultiImage for BigLabelledMap
 
   /// Informations about this class
   template <
@@ -887,8 +911,9 @@ class ApproximatedMultiImage< TDomain, DGtal::BigLabelledMap<TData, L, N, M>, TA
     typename TApproximation,
     typename TBoundingBox
   >
-  struct MultiImageInfos< DGtal::ApproximatedMultiImage< TDomain, DGtal::BigLabelledMap<TData, L, N, M>, TApproximation, TBoundingBox > > 
+  struct MultiImageInfos< DGtal::ApproximatedMultiImage< TDomain, DGtal::BigLabelledMap<TData, L, N, M>, TApproximation, TBoundingBox > >
     {
+      std::size_t domainSize; // Size of the domain.
       std::size_t labelMin, labelMax; // Minimum and maximum number of labels stored in each point.
       double labelMean, labelSDeviation; // Mean and standard deviation of the number of labels.
       std::array<size_t, L+1> labelHist; // Histogram of the number of labels stored.
@@ -900,48 +925,42 @@ class ApproximatedMultiImage< TDomain, DGtal::BigLabelledMap<TData, L, N, M>, TA
       size_t bestMemoryUsage; // Memory usage for the optimal LabelledMap settings.
     };
 
-  /// Memory usage of multiple LabelledMap based on the size histogram.
+  /// Memory usage of multiple BigLabelledMap based on the size histogram.
   template <
-    typename TData,
+    typename TData, // Type of the stored data
     typename TDomain,
     typename TSizeHist
   >
-  size_t getMultiImageMemoryUsage(
+  size_t getBigLabelledMapMemoryUsage(
       TDomain const& aDomain,
       TSizeHist const& aSizeHist,
       unsigned int L, unsigned int N, unsigned int M
   )
     {
-      // TODO TODO TODO
-      typedef long int TWord;
+      const size_t label_bit_size   = static_cast<size_t>( std::trunc( std::log2( L ) ) + 1 );
+      const size_t first_block_size = ( label_bit_size * (N+1) + 7 ) / 8 + N * sizeof(TData) + sizeof(TData*); // Extra label storage for the label count.
+      const size_t extra_block_size = ( label_bit_size *  M    + 7 ) / 8 + M * sizeof(TData) + sizeof(TData*);
+      const size_t pointer_capacity = sizeof(TData*) / sizeof(TData);
 
-      const size_t sizeof_LabelledMap = 
-            sizeof(TWord) * ( L/(8*sizeof(TWord)) + ( L % 8*sizeof(TWord) == 0 ? 0 : 1 ) )
-          + N * sizeof(TData) + std::max(sizeof(TData), sizeof(TData*));
-
-      const size_t sizeof_LastBlock = M * sizeof(TData) + sizeof(TData*);
-      
+      // Number of extra blocks needed
       size_t usage = 0;
-      for ( unsigned int i = N+2; i <= L; ++i )
-        usage += aSizeHist[i] * ( (i-N)/M + ( (i-N) % M == 0 ? 0 : 1 ) );
+      for ( unsigned int i = N + pointer_capacity + 1; i <= L; ++i )
+        usage += aSizeHist[i] * ( (i-N)/M + ( (i-N) % M <= pointer_capacity ? 0 : 1 ) ); // Number of extra blocks needed.
 
-
-      usage = sizeof_LastBlock * usage + aDomain.size() * sizeof_LabelledMap;
-
-      return usage;
+      return extra_block_size * usage + first_block_size * aDomain.size();
     }
 
-  /// Find best parameters for LabelledMap given the size histogram.
+  /// Find best parameters for BigLabelledMap given the size histogram.
   template <
     typename TData,
     typename TDomain,
     typename TSizeHist
   >
-  std::pair<unsigned int, unsigned int> 
-      getOptimalLabelledMap( TDomain const& aDomain, TSizeHist const& aSizeHist, unsigned int L )
+  std::pair<unsigned int, unsigned int>
+      getOptimalBigLabelledMap( TDomain const& aDomain, TSizeHist const& aSizeHist, unsigned int L )
     {
       std::pair<unsigned int, unsigned int> param = { 1, 1 };
-      size_t min_mem = getMultiImageMemoryUsage<TData>(aDomain, aSizeHist, L, param.first, param.second);
+      size_t min_mem = getBigLabelledMapMemoryUsage<TData>(aDomain, aSizeHist, L, param.first, param.second);
       size_t max_N = min_mem/sizeof(TData) + ( min_mem % sizeof(TData) == 0 ? 0 : 1 );
 
       for ( unsigned int N = 1; N < L && N < max_N; ++N )
@@ -949,7 +968,7 @@ class ApproximatedMultiImage< TDomain, DGtal::BigLabelledMap<TData, L, N, M>, TA
           size_t last_mem = std::numeric_limits<size_t>::max();
           for ( unsigned int M = 1; M < L; ++M )
             {
-              const size_t mem = getMultiImageMemoryUsage<TData>(aDomain, aSizeHist, L, N, M);
+              const size_t mem = getBigLabelledMapMemoryUsage<TData>(aDomain, aSizeHist, L, N, M);
               if ( mem >= last_mem ) break;
               last_mem = mem;
               if ( mem < min_mem || ( mem == min_mem && (N > param.first || M > param.second) ) )
@@ -976,7 +995,7 @@ class ApproximatedMultiImage< TDomain, DGtal::BigLabelledMap<TData, L, N, M>, TA
   std::ostream& operator<< ( std::ostream& out, typename DGtal::MultiImageInfos< DGtal::ApproximatedMultiImage< TDomain, DGtal::BigLabelledMap<TData, L, N, M>, TApproximation, TBoundingBox > > const& infos )
     {
       out << std::setprecision(2);
-      
+
       out << "Label count: "
           << "min=" << infos.labelMin << " ; "
           << "max=" << infos.labelMax << " ; "
@@ -984,13 +1003,18 @@ class ApproximatedMultiImage< TDomain, DGtal::BigLabelledMap<TData, L, N, M>, TA
           << "sdev=" << infos.labelSDeviation
           << std::endl;
 
-      out << "Best settings: N=" << infos.bestN << "(" << N 
-          << ") ; M=" << infos.bestM << "(" << M 
+      out << "Label hist: ";
+      for ( std::size_t i = infos.labelMin; i <= infos.labelMax; ++i )
+        out << "#" << i << ":" << ( 100 * static_cast<double>(infos.labelHist[i]) / infos.domainSize ) << "% ";
+      out << std::endl;
+
+      out << "Best settings: N=" << infos.bestN << "(" << N
+          << ") ; M=" << infos.bestM << "(" << M
           << ") ; memory=" << infos.bestMemoryUsage << "(" << infos.memoryUsage << ")"
           << std::endl;
 
       bool first_label = true;
-      for ( std::size_t i = 0; i < L; ++i ) 
+      for ( std::size_t i = 0; i < L; ++i )
         {
           if ( infos.imageVolume[i] > 0 )
             {
