@@ -131,7 +131,7 @@ template <
   typename TDomain,
   typename TFunctor
 >
-FunctorConstImage< TDomain, typename std::result_of<TFunctor(typename TDomain::Point)>::type >
+FunctorConstImage< TDomain, typename std::decay< typename std::result_of<TFunctor(typename TDomain::Point)>::type >::type >
 makeFunctorConstImage( TDomain const& aDomain, TFunctor && aFunctor )
   {
     return { aDomain, std::forward<TFunctor>(aFunctor) };
