@@ -681,6 +681,44 @@ DGtal::MultiPhaseFieldDrip< TFieldImage, DGtal::ApproximatedMultiImage<TDomain, 
     }
 }
 
+template <
+  typename TFieldImage,
+  typename TDomain, typename TContainer, typename TApproximation, typename TBoundingBox
+>
+inline
+void
+DGtal::MultiPhaseFieldDrip< TFieldImage, DGtal::ApproximatedMultiImage<TDomain, TContainer, TApproximation, TBoundingBox> >
+::delPhase( std::size_t phaseId )
+{
+  const std::size_t lastId = getNumPhase() - 1;
+
+  // Cannot remove the ambient phase. Also nothing to do if phase is not stored.
+  if ( phaseId == 0 || phaseId > lastId )
+    return;
+
+
+  // Merging the deleted phase with the ambient phase
+  for ( auto const& point : myFields.domain() )
+    {
+      const std::size_t pointId = myFields.linearized( point );
+      
+      // Ambient phase value
+      const auto u0 = myFields.getValueByIndex( pointId, 0 ) + myFields.getValueByIndex( pointId, phaseId );
+      myFields.setValue( point, 0, u0, pointId );
+
+      // Replacing delete phase value by the last phase.
+      myFields.setValue( point, phaseId, myFields.getValueByIndex( pointId, lastId ), pointId );
+
+      // Deleting last phase value.
+      myFields.setValue( point, lastId, 0, pointId );
+    }
+
+  // Updating target volumes
+  myTargetVolume[0] += myTargetVolume[phaseId];
+  myTargetVolume[phaseId] = myTargetVolume[lastId];
+  myTargetVolume.pop_back();
+}
+
 /**
  * Return the perimeter of each phase.
  */

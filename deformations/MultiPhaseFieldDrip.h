@@ -195,6 +195,13 @@ namespace DGtal
     template < typename TGenerator >
     bool addPhase( TGenerator & gen );
 
+    /** Deletes the phase with the given id.
+     *
+     * The deleted phase is merged with the ambient phase
+     * and the last phase is then moved and assigned to the deleted id.
+     */
+    void delPhase( std::size_t phaseId );
+
     /**
      * Return the perimeter of each phase fields
      */

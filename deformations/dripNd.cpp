@@ -69,6 +69,10 @@ int main(int argc, char** argv)
   size_t max_step = 1;        // Maximum number of steps
   double epsilon = 3.;        // Interface width
   size_t max_phase_cnt = 64;  // Maximal number of phases
+  size_t init_phase_cnt = 1;  // Initial number of phases
+  size_t add_step = 1;        // Number of steps between each convergence checks that preceed a phase adding
+  size_t domain_step = 1;     // Number of steps between two domain shape optimizations.
+  size_t conv_tol = 1e-6;     // Morgan's cost tolerance for the convergence criteria
   unsigned int seed = std::random_device{}(); // Seed for the random number generator.
 
   string outputFiles  = "interface";  // Output files basename
@@ -85,11 +89,14 @@ int main(int argc, char** argv)
   general_opt.add_options()
     ("help,h",          "display this message")
     ("domainSize,d",    po::value<size_t>(&dsize)->default_value(dsize), "Domain size (if default starting interface)" )
-    ("maxPhaseCnt,p",   po::value<size_t>(&max_phase_cnt)->default_value(max_phase_cnt),
-        "Maximal number of phases." )
+    ("maxPhaseCnt,p",   po::value<size_t>(&max_phase_cnt)->default_value(max_phase_cnt), "Maximal number of phases." )
+    ("initPhaseCnt",  po::value<size_t>(&init_phase_cnt)->default_value(init_phase_cnt), "Initial number of phases." )
     ("timeStep,t",      po::value<double>(&tstep)->default_value(tstep), "Time step for the evolution" )
-    ("displayStep",     po::value<size_t>(&disp_step)->default_value(disp_step), "Number of time steps between 2 drawings" )
+    ("displayStep",     po::value<size_t>(&disp_step)->default_value(disp_step), "Number of time steps between 2 displays/exports" )
     ("stepsNumber,n",   po::value<size_t>(&max_step)->default_value(max_step), "Maximal number of steps" )
+    ("addStep",         po::value<size_t>(&add_step)->default_value(add_step), "Number of steps between each convergence checks that preceed a phase adding." )
+    ("domainStep",      po::value<size_t>(&domain_step)->default_value(domain_step), "Number of steps between two domain shape optimizations." )
+    ("convTol",         po::value<size_t>(&conv_tol)->default_value(conv_tol), "Morgan's cost tolerance for the convergence criteria." )
     ("epsilon,e",       po::value<double>(&epsilon)->default_value(epsilon), "Interface width (only for phase fields)" )
     ("seed",            po::value<unsigned int>(&seed), "Seed used to initialize the random number generator.")
     ("outputFiles,o",   po::value<string>(&outputFiles)->default_value(outputFiles), "Output files basename" )
@@ -270,7 +277,7 @@ int main(int argc, char** argv)
           //writePartition( labelImage, s.str(), outputFormat );
 #endif
 
-          RawWriter< decltype(implicitImage) >::exportRaw<real>( s.str()+".imp.raw", implicitImage );
+          RawWriter< decltype(implicitImage) >::exportRaw<float>( s.str()+".imp.raw", implicitImage );
           RawWriter< LabelImage >::exportRaw<unsigned short int>( s.str()+".lab.raw", labelImage );
 
           // VTK export
