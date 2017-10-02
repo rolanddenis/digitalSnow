@@ -34,6 +34,7 @@
 #include <algorithm>
 #include <functional>
 #include <cmath>
+#include <random>
 
 #include <Eigen/SVD>
 
@@ -63,7 +64,7 @@ template <
 >
 inline
 DGtal::MultiPhaseFieldDrip< TFieldImage, DGtal::ApproximatedMultiImage<TDomain, TContainer, TApproximation, TBoundingBox> >
-::MultiPhaseFieldDrip( Domain const& aDomain, std::size_t maxPhaseCnt, Value epsilon )
+::MultiPhaseFieldDrip( Domain const& aDomain, std::size_t maxPhaseCnt, Value epsilon, std::size_t initPhaseCnt )
   : myMaxPhaseCnt{ maxPhaseCnt },
     myFields{ aDomain, TApproximation{1e-2} },
     myEpsilon{ epsilon }
@@ -71,15 +72,19 @@ DGtal::MultiPhaseFieldDrip< TFieldImage, DGtal::ApproximatedMultiImage<TDomain, 
   // Simply set 1 where a label is present.
   itrace.beginBlock("Init phases");
   const Point center = ( aDomain.lowerBound() + aDomain.upperBound() ) / 2;
-  const Value radius = std::pow( static_cast<Value>(aDomain.size()) / getMaxNumPhase(), 1. / TFieldImage::dimension ) / 2;
+  const Value radius = std::pow( (initPhaseCnt-1) * static_cast<Value>(aDomain.size()) / getMaxNumPhase(), 1. / TFieldImage::dimension ) / 2;
+
+  std::mt19937 gen( std::random_device{}() );
+  std::uniform_int_distribution<std::size_t> dis( 1, initPhaseCnt-1 );
 
   for ( auto const& point : aDomain )
     myFields.setValue( point, 
-        (point - center).norm( Point::L_infty ) <= radius ? 1 : 0,
+        (point - center).norm( Point::L_infty ) <= radius ? dis(gen) : 0,
         1. );
 
-  myTargetVolume.push_back( ( maxPhaseCnt - 1 ) * static_cast<Value>(aDomain.size()) / maxPhaseCnt );
-  myTargetVolume.push_back( static_cast<Value>(aDomain.size()) / maxPhaseCnt );
+  myTargetVolume.push_back( ( maxPhaseCnt - initPhaseCnt + 1) * static_cast<Value>(aDomain.size()) / maxPhaseCnt );
+  for ( std::size_t cnt = 1; cnt < initPhaseCnt; ++cnt )
+    myTargetVolume.push_back( static_cast<Value>(aDomain.size()) / maxPhaseCnt );
 
   itrace.endBlock();
 

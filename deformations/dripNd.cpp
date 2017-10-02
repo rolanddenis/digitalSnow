@@ -69,10 +69,9 @@ int main(int argc, char** argv)
   size_t max_step = 1;        // Maximum number of steps
   double epsilon = 3.;        // Interface width
   size_t max_phase_cnt = 64;  // Maximal number of phases
-  size_t init_phase_cnt = 1;  // Initial number of phases
-  size_t add_step = 1;        // Number of steps between each convergence checks that preceed a phase adding
-  size_t domain_step = 1;     // Number of steps between two domain shape optimizations.
-  size_t conv_tol = 1e-6;     // Morgan's cost tolerance for the convergence criteria
+  size_t init_phase_cnt = 2;  // Initial number of phases
+  size_t domain_step = 0;     // Number of steps between two domain shape optimizations.
+  double conv_tol = 1e-6;     // Morgan's cost tolerance for the convergence criteria
   unsigned int seed = std::random_device{}(); // Seed for the random number generator.
 
   string outputFiles  = "interface";  // Output files basename
@@ -90,13 +89,14 @@ int main(int argc, char** argv)
     ("help,h",          "display this message")
     ("domainSize,d",    po::value<size_t>(&dsize)->default_value(dsize), "Domain size (if default starting interface)" )
     ("maxPhaseCnt,p",   po::value<size_t>(&max_phase_cnt)->default_value(max_phase_cnt), "Maximal number of phases." )
-    ("initPhaseCnt",  po::value<size_t>(&init_phase_cnt)->default_value(init_phase_cnt), "Initial number of phases." )
+    ("initPhaseCnt",    po::value<size_t>(&init_phase_cnt)->default_value(init_phase_cnt), "Initial number of phases." )
+    ("endPhaseCnt",     po::value<size_t>(), "Final number of phases before the simulation ends. (=maxPhaseCnt)")
     ("timeStep,t",      po::value<double>(&tstep)->default_value(tstep), "Time step for the evolution" )
-    ("displayStep",     po::value<size_t>(&disp_step)->default_value(disp_step), "Number of time steps between 2 displays/exports" )
+    ("displayStep",     po::value<size_t>(&disp_step)->default_value(disp_step), "Number of time steps between 2 displays/exports (0 to disable)." )
     ("stepsNumber,n",   po::value<size_t>(&max_step)->default_value(max_step), "Maximal number of steps" )
-    ("addStep",         po::value<size_t>(&add_step)->default_value(add_step), "Number of steps between each convergence checks that preceed a phase adding." )
-    ("domainStep",      po::value<size_t>(&domain_step)->default_value(domain_step), "Number of steps between two domain shape optimizations." )
-    ("convTol",         po::value<size_t>(&conv_tol)->default_value(conv_tol), "Morgan's cost tolerance for the convergence criteria." )
+    ("addStep",         po::value<size_t>(), "Number of steps between each convergence checks that preceed a phase adding. 0 to disable. (=displayStep)" )
+    ("domainStep",      po::value<size_t>(&domain_step)->default_value(domain_step), "Number of steps between two domain shape optimizations. 0 to disable." )
+    ("convTol",         po::value<double>(&conv_tol)->default_value(conv_tol), "Morgan's cost tolerance for the convergence criteria." )
     ("epsilon,e",       po::value<double>(&epsilon)->default_value(epsilon), "Interface width (only for phase fields)" )
     ("seed",            po::value<unsigned int>(&seed), "Seed used to initialize the random number generator.")
     ("outputFiles,o",   po::value<string>(&outputFiles)->default_value(outputFiles), "Output files basename" )
@@ -138,6 +138,16 @@ int main(int argc, char** argv)
       return 1;
     }
 #endif
+
+  // Final phase cnt
+  size_t end_phase_cnt = max_phase_cnt; // Final number of phases (the simulation ends when it is reached).
+  if ( vm.count("endPhaseCnt") )
+    end_phase_cnt = vm["endPhaseCnt"].as<std::size_t>();
+
+  // Phase adding step
+  size_t add_step = disp_step;        // Number of steps between each convergence checks that preceed a phase adding
+  if ( vm.count("addStep") )
+    add_step = vm["addStep"].as<std::size_t>();
 
   // Checking epsilon
   if (epsilon <= 0)
@@ -184,7 +194,7 @@ int main(int argc, char** argv)
   tstep = epsilon*epsilon;
 
   MultiPhaseFieldDrip< FieldImage, ApproximatedMultiImage >
-      evolver( domain, max_phase_cnt, epsilon );
+      evolver( domain, max_phase_cnt, epsilon, init_phase_cnt );
 
   evolver.updateLabels( labelImage );
 
@@ -198,7 +208,7 @@ int main(int argc, char** argv)
 #elif DIMENSION == 3
   //writePartition( labelImage, s.str(), outputFormat );
 #endif
-  
+
   // Image functor with reconstructed distance to the phase interfaces.
   auto const implicitImage = makeFunctorConstImage( labelImage.domain(),
       [&evolver, epsilon] ( Point const& aPoint ) -> float
@@ -241,6 +251,7 @@ int main(int argc, char** argv)
 
   // Informations
   auto last_infos = evolver.getInfos();
+  auto infos = last_infos;
   trace.info() << last_infos << std::endl;
 
   // Time integration
@@ -255,13 +266,13 @@ int main(int argc, char** argv)
       trace.endBlock();
 
       // Display
-      if ( (i % disp_step) == 0 )
+      if ( disp_step > 0 && (i % disp_step) == 0 )
         {
           // Update labels
           const std::size_t label_cnt = evolver.updateLabels( labelImage );
 
           // Display phase field informations
-          const auto infos = evolver.getInfos();
+          infos = evolver.getInfos();
           trace.info() << infos << std::endl;
 
           // Export
@@ -308,7 +319,10 @@ int main(int argc, char** argv)
 
           trace.endBlock();
 
-          /*
+        }
+
+      if ( domain_step > 0 && ( i % domain_step ) == 0 )
+        {
           evolver.updateDomainSize();
 
           std::cout << "myRealExtent = " << evolver.myRealExtent << std::endl;
@@ -321,15 +335,21 @@ int main(int argc, char** argv)
                   return 1;
                 }
             }
-          */
+        }
+
+      // TODO: conv_step to replace add_step when add_step == 0
+      if ( add_step > 0 && ( i % add_step ) == 0 )
+        {
+          if ( (disp_step > 0 && ( i % disp_step ) != 0 ) || ( domain_step > 0 && ( i % domain_step ) == 0 ) )
+            infos = evolver.getInfos();
 
           /*
           if ( label_cnt <= 0.00001 * disp_step * labelImage.domain().size() * ( evolver.getNumPhase() == max_phase_cnt ? 0.1 : 1. ) )
             if ( ! evolver.addPhase( gen ) )
               break;
           */
-          if ( std::abs( infos.morganCost - last_infos.morganCost ) <= 1e-6 )
-            if ( ! evolver.addPhase( gen ) )
+          if ( std::abs( infos.morganCost - last_infos.morganCost ) <= conv_tol * add_step )
+            if ( evolver.getNumPhase() >= end_phase_cnt || ! evolver.addPhase( gen ) )
               break;
 
           last_infos = infos;

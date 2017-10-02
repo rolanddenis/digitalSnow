@@ -131,7 +131,7 @@ namespace DGtal
      * Constructor.
      * @param aI an image of labels
      */
-    MultiPhaseFieldDrip( Domain const& aDomain, std::size_t maxPhaseCnt, Value epsilon);
+    MultiPhaseFieldDrip( Domain const& aDomain, std::size_t maxPhaseCnt, Value epsilon, std::size_t initPhaseCnt = 1 );
 
     /**
      * Destructor. Does nothing.
