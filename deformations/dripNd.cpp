@@ -72,6 +72,7 @@ int main(int argc, char** argv)
   size_t init_phase_cnt = 2;  // Initial number of phases
   size_t domain_step = 0;     // Number of steps between two domain shape optimizations.
   double conv_tol = 1e-6;     // Morgan's cost tolerance for the convergence criteria
+  size_t del_ratio = 0;       // Delete the worst phase after the specified added phase count.
   unsigned int seed = std::random_device{}(); // Seed for the random number generator.
 
   string outputFiles  = "interface";  // Output files basename
@@ -94,8 +95,9 @@ int main(int argc, char** argv)
     ("timeStep,t",      po::value<double>(&tstep)->default_value(tstep), "Time step for the evolution" )
     ("displayStep",     po::value<size_t>(&disp_step)->default_value(disp_step), "Number of time steps between 2 displays/exports (0 to disable)." )
     ("stepsNumber,n",   po::value<size_t>(&max_step)->default_value(max_step), "Maximal number of steps" )
-    ("addStep",         po::value<size_t>(), "Number of steps between each convergence checks that preceed a phase adding. 0 to disable. (=displayStep)" )
+    ("addStep",         po::value<size_t>(), "Number of steps between each convergence checks that preceed a phase adding or a simulation termination. 0 to disable. (=displayStep)" )
     ("domainStep",      po::value<size_t>(&domain_step)->default_value(domain_step), "Number of steps between two domain shape optimizations. 0 to disable." )
+    ("delRatio",        po::value<size_t>(&del_ratio)->default_value(del_ratio), "Delete the worst phase after the specified added phase count. 0 to disable." )
     ("convTol",         po::value<double>(&conv_tol)->default_value(conv_tol), "Morgan's cost tolerance for the convergence criteria." )
     ("epsilon,e",       po::value<double>(&epsilon)->default_value(epsilon), "Interface width (only for phase fields)" )
     ("seed",            po::value<unsigned int>(&seed), "Seed used to initialize the random number generator.")
@@ -253,6 +255,7 @@ int main(int argc, char** argv)
   auto last_infos = evolver.getInfos();
   auto infos = last_infos;
   trace.info() << last_infos << std::endl;
+  std::size_t phase_add_cnt = 0;
 
   // Time integration
   double sumt = 0;
@@ -349,8 +352,19 @@ int main(int argc, char** argv)
               break;
           */
           if ( std::abs( infos.morganCost - last_infos.morganCost ) <= conv_tol * add_step )
-            if ( evolver.getNumPhase() >= end_phase_cnt || ! evolver.addPhase( gen ) )
-              break;
+            {
+              ++phase_add_cnt;
+
+              if ( del_ratio > 0 && (phase_add_cnt % del_ratio ) == 0 )
+                {
+                  // Delete the phase with the worst perimeter
+                  const std::size_t max_id = std::distance( infos.phasePerimeters.cbegin(), std::max_element( infos.phasePerimeters.cbegin() + 1, infos.phasePerimeters.cend() ) );
+                  evolver.delPhase( max_id );
+                }
+              else if ( evolver.getNumPhase() >= end_phase_cnt || ! evolver.addPhase( gen ) ) // Bof ...
+                break;
+            }
+            
 
           last_infos = infos;
         }

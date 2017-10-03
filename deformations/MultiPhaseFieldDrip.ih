@@ -701,6 +701,7 @@ DGtal::MultiPhaseFieldDrip< TFieldImage, DGtal::ApproximatedMultiImage<TDomain, 
   if ( phaseId == 0 || phaseId > lastId )
     return;
 
+  itrace.beginBlock("Deleting phase " + std::to_string( phaseId ) );
 
   // Merging the deleted phase with the ambient phase
   for ( auto const& point : myFields.domain() )
@@ -722,6 +723,8 @@ DGtal::MultiPhaseFieldDrip< TFieldImage, DGtal::ApproximatedMultiImage<TDomain, 
   myTargetVolume[0] += myTargetVolume[phaseId];
   myTargetVolume[phaseId] = myTargetVolume[lastId];
   myTargetVolume.pop_back();
+
+  itrace.endBlock();
 }
 
 /**
