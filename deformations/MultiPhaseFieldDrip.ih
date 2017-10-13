@@ -66,7 +66,7 @@ inline
 DGtal::MultiPhaseFieldDrip< TFieldImage, DGtal::ApproximatedMultiImage<TDomain, TContainer, TApproximation, TBoundingBox> >
 ::MultiPhaseFieldDrip( Domain const& aDomain, std::size_t maxPhaseCnt, Value epsilon, std::size_t initPhaseCnt )
   : myMaxPhaseCnt{ maxPhaseCnt },
-    myFields{ aDomain, TApproximation{1e-2} },
+    myFields{ aDomain, TApproximation{1e-4} },
     myEpsilon{ epsilon }
 {
   // Simply set 1 where a label is present.
@@ -461,7 +461,12 @@ DGtal::MultiPhaseFieldDrip< TFieldImage, DGtal::ApproximatedMultiImage<TDomain, 
   real prod_Extent = 1.;
   for ( typename Point::Dimension i = 0; i < Point::dimension - 1; ++i )
     {
-      myRealExtent[ i ] = std::min( std::max( std::sqrt( gradient[i]/prod_L ), 0.1 ), 10. );
+      myRealExtent[ i ] = std::min(
+        std::max(
+          std::sqrt( gradient[i]/prod_L ), 1. / (std::pow(5., Point::dimension-i-1) * prod_Extent) ), 
+          1. / (std::pow(0.2, Point::dimension-i-1) * prod_Extent)
+      );
+      myRealExtent[ i ] = std::min( std::max( myRealExtent[i], 0.2 + 1e-16 ), 5. - 1e-15 );
       prod_Extent *= myRealExtent[ i ];
     }
   myRealExtent[ Point::dimension-1 ] = 1. / prod_Extent;

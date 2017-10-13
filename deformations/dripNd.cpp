@@ -202,6 +202,12 @@ int main(int argc, char** argv)
 
   DGtal::trace.beginBlock( "Dripping" );
 
+  // Informations
+  auto last_infos = evolver.getInfos();
+  auto infos = last_infos;
+  trace.info() << last_infos << std::endl;
+  std::size_t phase_add_cnt = 0;
+
   // Initial state export
   std::stringstream s;
   s << outputFiles << setfill('0') << std::setw(6) << 0;
@@ -234,6 +240,15 @@ int main(int argc, char** argv)
       }
   );
 
+  // Image functor with perimeter for each phase
+  auto const perimeterImage = makeFunctorConstImage ( labelImage.domain(),
+      [&labelImage, &infos] ( Point const& aPoint ) -> float
+      {
+        return infos.phasePerimeters[ labelImage(aPoint) ];
+      }
+  );
+
+
   // VTK export
     {
       VTKLightWriter<Domain> vtk(s.str(), labelImage.domain(),
@@ -249,13 +264,9 @@ int main(int argc, char** argv)
       vtk << "label"    << labelImage;
       vtk << "implicit" << implicitImage;
       vtk << "storage"  << storageImage;
+      vtk << "perimeter" << perimeterImage;
     }
 
-  // Informations
-  auto last_infos = evolver.getInfos();
-  auto infos = last_infos;
-  trace.info() << last_infos << std::endl;
-  std::size_t phase_add_cnt = 0;
 
   // Time integration
   double sumt = 0;
@@ -308,6 +319,7 @@ int main(int argc, char** argv)
           vtk << "label"    << labelImage;
           vtk << "implicit" << implicitImage;
           vtk << "storage"  << storageImage;
+          vtk << "perimeter" << perimeterImage;
           vtk.close();
 
           // Volume of each phase
@@ -332,7 +344,7 @@ int main(int argc, char** argv)
           for ( Dimension j = 0; j < dimension; ++j )
             {
               const auto re = evolver.myRealExtent[j];
-              if ( std::isnan( re ) || re <= 0.2 || re >= 5.0 )
+              if ( std::isnan( re ) || re < 0.2 || re > 5.0 )
                 {
                   std::cerr << "Error: invalid domain size !!!" << std::endl;
                   return 1;
@@ -364,7 +376,6 @@ int main(int argc, char** argv)
               else if ( evolver.getNumPhase() >= end_phase_cnt || ! evolver.addPhase( gen ) ) // Bof ...
                 break;
             }
-            
 
           last_infos = infos;
         }
